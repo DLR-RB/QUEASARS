@@ -1,0 +1,5 @@
+Quantum Evolving Ansatz Variational Solver (QUEASARS)
+Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
+
+This product was developed at DLR - GSOC (German Space
+Operations Center at the German Aerospace Center DLR, https://www.dlr.de/).
