@@ -11,9 +11,11 @@ readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
-    "OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: Apache Software License",
 ]
-packages = ["queasars"]
+packages = [
+    {include = "queasars"}
+]
 include = [
     "LICENSE.txt",
     "NOTICE.txt",
