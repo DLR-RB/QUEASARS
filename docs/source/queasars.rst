@@ -1,8 +1,5 @@
-queasars package
-================
-
-Module contents
----------------
+queasars
+========
 
 .. automodule:: queasars
    :members:

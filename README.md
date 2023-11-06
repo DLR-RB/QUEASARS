@@ -1,6 +1,6 @@
 # QUEASARS - Quantum Evolving Ansatz Variational Solver
 
-QUEASARS is a qiskit based python framework implementing quantum variational eigensolvers which use evolutionary algorithms to find a good ansatz during the optimization process, like [E-VQE](https://arxiv.org/abs/1910.09694), [MoG-VQE](https://arxiv.org/abs/2007.04424) or [QNEAT](https://arxiv.org/abs/2304.06981).
+QUEASARS is an open-source, qiskit-based, python package implementing quantum variational eigensolvers which use evolutionary algorithms to find a good ansatz during the optimization process, like [E-VQE](https://arxiv.org/abs/1910.09694), [MoG-VQE](https://arxiv.org/abs/2007.04424) or [QNEAT](https://arxiv.org/abs/2304.06981).
 
 Table of contents
 -----------------
