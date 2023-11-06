@@ -9,7 +9,7 @@ import sys
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "queasars"
-copyright = "2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V."
+copyright = "2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V"
 author = "Sven Prüfer, Daniel Leidreiter"
 release = "0.1.0"
 
