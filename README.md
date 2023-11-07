@@ -28,8 +28,9 @@ QUEASARS' development dependencies are managed using [poetry](https://github.com
 To install QUEASARS from source follow these instructions:
 
 1. Clone the QUEASARS repository.
-2. Install poetry ([installation guide](https://python-poetry.org/docs/#installing-with-pipx)).
-3. Run `poetry install` from within QUEASARS' project directory to install its dependencies.
+2. Install Python 3.11
+3. Install poetry ([installation guide](https://python-poetry.org/docs/#installing-with-pipx)).
+4. Run `poetry install` from within QUEASARS' project directory to install its dependencies.
 
 
 Usage
