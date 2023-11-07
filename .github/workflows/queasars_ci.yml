@@ -35,6 +35,13 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install
+    - name: Run black
+      run: |
+        poetry run black queasars/ --check
+        poetry run black test/ --check
+    - name: Run mypy
+      run: |
+        poetry run mypy queasars/
     - name: Run pytest
       run: |
         poetry run pytest test/
