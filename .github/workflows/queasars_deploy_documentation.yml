@@ -47,8 +47,8 @@ jobs:
         uses: actions/configure-pages@v3
       - name: Build Sphinx documentation
         run: |
-          poetry run make clean
-          poetry run make html
+          poetry run docs\make clean
+          poetry run docs\make html
       - name: Upload artifact
         # Automatically uploads an artifact from the './_site' directory by default
         uses: actions/upload-pages-artifact@v2
