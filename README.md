@@ -36,6 +36,11 @@ To install QUEASARS from source follow these instructions:
 Usage
 -----
 
+Documentation
+-------------
+
+A more detailed documentation is available at [https://dlr-rb.github.io/QUEASARS/](https://dlr-rb.github.io/QUEASARS/).
+
 Contributing
 ------------
 
