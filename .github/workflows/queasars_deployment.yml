@@ -20,4 +20,4 @@ jobs:
     uses: ./.github/workflows/queasars_ci.yml
 
   Deploy Documentation:
-    uses: ./.github/workflows/queasars_deployment.yml
+    uses: ./.github/workflows/queasars_deploy_documentation.yml
