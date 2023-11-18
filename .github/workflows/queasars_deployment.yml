@@ -1,0 +1,23 @@
+# This workflow runs on protected version tags. It runs the CI, checks the tag version
+# for consistency with the pyproject.toml and then deploys to PYPI and GitHub pages.
+
+name: QUEASARS Deployment
+
+on:
+  # Runs only on protected tags of the form vX.Y.Z
+  push:
+    tags: ['v[0-9].[0-9]'] #FIXME: Make protected again after debugging.
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of the release in the form: vX.Y.Z'
+        type: string
+
+jobs:
+
+  Run CI:
+    uses: ./.github/workflows/queasars_ci.yml
+
+  Deploy Documentation:
+    uses: ./.github/workflows/queasars_deployment.yml
