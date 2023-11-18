@@ -14,9 +14,13 @@ on:
         description: 'Version of the release in the form: vX.Y.Z'
         type: string
 
-jobs:
+concurrency:
+  group: "queasars deployment"
+  cancel-in-progress: false
 
+jobs:
   Check_Version_Consistency:
+    name: Check Version Consistency
     runs-on: ubuntu-latest
     steps:
       - if: ${{ inputs.version != '' }}
@@ -33,10 +37,10 @@ jobs:
         run: |
           echo "version=${TAG_NAME:1}" >> $GITHUB_ENV
       - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
       - name: Install pipx
         run: |
           python3 -m pip install --upgrade pip
@@ -51,13 +55,21 @@ jobs:
       - name: Check tag / input version consistency with pyproject.toml
         shell: bash
         run: |
-          echo $version
+          echo "project version derived from tag / manual input: ${version}"
           toml_version=$(poetry version --short)
-          echo $toml_version
+          echo "project version from pyproject.toml ${toml_version}"
           if [[ $version != $toml_version ]]; then exit 1; fi
 
-  #Run_CI:
-  #  uses: ./.github/workflows/queasars_ci.yml
+  Run_CI:
+    name: Run CI
+    uses: ./.github/workflows/queasars_ci.yml
 
-  #Deploy_Documentation:
-  #  uses: ./.github/workflows/queasars_deploy_documentation.yml
+  Deploy_To_PyPI:
+    name: Deploy to PyPI
+    needs: [Check_Version_Consistency, Run_CI]
+    uses: ./.github/workflows/queasars_deploy_to_pypi.yml
+
+  Deploy_Documentation:
+    name: Deploy to Github Pages
+    needs: [Check_Version_Consistency, Run_CI, Deploy_To_PyPI]
+    uses: ./.github/workflows/queasars_deploy_documentation.yml
