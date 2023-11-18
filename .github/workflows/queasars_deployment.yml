@@ -52,8 +52,7 @@ jobs:
         shell: bash
         run: |
           echo $version
-          toml_version=poetry version --short
-          poetry version --short >> $toml_version
+          toml_version=$(poetry version --short)
           echo $toml_version
           if [[ $version != $toml_version ]]; then exit 1; fi
 
