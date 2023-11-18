@@ -1,25 +1,28 @@
-# This workflow runs on protected version tags. It runs the CI, checks the tag version
-# for consistency with the pyproject.toml and then deploys to PYPI and GitHub pages.
+# This workflow runs on protected version tags. It runs the CI, checks the tag / workflow input version
+# for consistency with the pyproject.toml version and then deploys to PYPI and GitHub pages.
 
 name: QUEASARS Deployment
 
 on:
   # Runs only on protected tags of the form vX.Y.Z
   push:
-    tags: ['v[0-9].[0-9]'] #FIXME: Make protected again after debugging.
+    tags: ['v[0-9].[0-9].[0-9]']
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
       version:
         description: 'Version of the release in the form: vX.Y.Z'
         type: string
+        required: true
 
 concurrency:
+  # Only let one deployment run at a time.
   group: "queasars deployment"
   cancel-in-progress: false
 
 jobs:
   Check_Version_Consistency:
+    # Check that the project version given by the tag / manual workflow input matches the pyproject.toml version
     name: Check Version Consistency
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +30,7 @@ jobs:
         name: Check workflow version input
         shell: bash
         run: |
-          if [[ $inputs.version != @(v[0-9].[0-9]) ]]; then exit 1; fi
+          if [[ $inputs.version != @(v[0-9].[0-9].[0-9]) ]]; then exit 1; fi
           echo "version=${inputs.version:1}" >> $GITHUB_ENV
       - if: ${{ inputs.version == '' }}
         name: Get tag version
@@ -61,15 +64,18 @@ jobs:
           if [[ $version != $toml_version ]]; then exit 1; fi
 
   Run_CI:
+    # Run the CI again before deploying.
     name: Run CI
     uses: ./.github/workflows/queasars_ci.yml
 
   Deploy_To_PyPI:
+    # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
 
   Deploy_Documentation:
+    # Only deploy to GitHub Pages if the deployment to PyPI succeeded.
     name: Deploy to Github Pages
-    needs: [Check_Version_Consistency, Run_CI, Deploy_To_PyPI]
+    needs: Deploy_To_PyPI
     uses: ./.github/workflows/queasars_deploy_documentation.yml

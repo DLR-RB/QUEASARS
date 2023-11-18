@@ -1,10 +1,7 @@
 name: Deploy QUEASARS to Pypi
 
 on:
-  # Runs only on tags of the form vX.Y.Z
-  #push:
-  #  tags: ['v[0-9].[0-9]']#.[0-9]']
-  # Allows you to run this workflow manually from the Actions tab
+  # Allow the PyPI deployment to be triggered manually or by other workflows.
   workflow_dispatch:
   workflow_call:
 
@@ -15,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build job
+  # Build the project and publish to PyPI
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
