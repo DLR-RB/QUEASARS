@@ -16,8 +16,8 @@ on:
 
 jobs:
 
-  Run CI:
+  Run_CI:
     uses: ./.github/workflows/queasars_ci.yml
 
-  Deploy Documentation:
+  Deploy_Documentation:
     uses: ./.github/workflows/queasars_deploy_documentation.yml
