@@ -73,6 +73,7 @@ jobs:
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
+    secrets: inherit
 
   Deploy_Documentation:
     # Only deploy to GitHub Pages if the deployment to PyPI succeeded.
