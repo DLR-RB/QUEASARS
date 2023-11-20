@@ -94,8 +94,5 @@ jobs:
     name: Deploy to Github Pages
     needs: Deploy_To_PyPI
     if: |
-      always() &&
-      !cancelled() &&
-      !failure() &&
-      ${{ github.event_name == 'push' || inputs.deploy_to_pages }}
+      always()
     uses: ./.github/workflows/queasars_deploy_documentation.yml
