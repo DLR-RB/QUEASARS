@@ -94,5 +94,7 @@ jobs:
     name: Deploy to Github Pages
     needs: Deploy_To_PyPI
     if: |
-      always()
+      always() &&
+      !cancelled() &&
+      !failure()
     uses: ./.github/workflows/queasars_deploy_documentation.yml
