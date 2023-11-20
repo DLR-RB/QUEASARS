@@ -34,12 +34,12 @@ jobs:
   debug_event_name:
     runs-on: ubuntu-latest
     steps:
-      shell: bash
-      env:
-        SOURCE: ${ github.event_name }}
-      run: |
-        echo $SOURCE
-        exit 1
+      - shell: bash
+        env:
+          SOURCE: ${ github.event_name }}
+        run: |
+          echo $SOURCE
+          exit 1
 
   Check_Version_Consistency:
     # Check that the project version given by the tag / manual workflow input matches the pyproject.toml version
