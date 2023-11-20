@@ -85,7 +85,7 @@ jobs:
     # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
-    if: ${{ inputs.deploy_to_pypi == '' || inputs.deploy_to_pypi == true }}
+    if: ${{ inputs.deploy_to_pypi }}
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
     secrets: inherit
 
