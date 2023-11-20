@@ -14,6 +14,16 @@ on:
         description: 'Version of the release in the form: vX.Y.Z'
         type: string
         required: true
+      deploy_to_pypi:
+        description: 'Boolean value indicating whether QUEASARS should be deployed to PyPI.'
+        type: boolean
+        required: false
+        default: true
+      deploy_to_pages:
+        description: 'Boolean value indicating whether QUEASARS documentation should be deployed to GitHub Pages.'
+        type: boolean
+        required: false
+        default: true
 
 concurrency:
   # Only let one deployment run at a time.
@@ -72,6 +82,7 @@ jobs:
     # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
+    if: ${{ inputs.deploy_to_pypi == '' || inputs.deploy_to_pypi == true }}
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
     secrets: inherit
 
@@ -79,4 +90,5 @@ jobs:
     # Only deploy to GitHub Pages if the deployment to PyPI succeeded.
     name: Deploy to Github Pages
     needs: Deploy_To_PyPI
+    if: ${{ inputs.deploy_to_pages == '' || inputs.deploy_to_pages == true }}
     uses: ./.github/workflows/queasars_deploy_documentation.yml
