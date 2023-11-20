@@ -36,7 +36,7 @@ jobs:
     steps:
       - shell: bash
         env:
-          SOURCE: ${ github.event_name }}
+          SOURCE: ${{ github.event_name }}
         run: |
           echo $SOURCE
           exit 1
