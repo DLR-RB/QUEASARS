@@ -11,16 +11,16 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version of the release in the form: vX.Y.Z'
+        description: 'Release version in the form: vX.Y.Z'
         type: string
         required: true
       deploy_to_pypi:
-        description: 'Boolean value indicating whether QUEASARS should be deployed to PyPI.'
+        description: 'Deploy to PyPI.'
         type: boolean
         required: false
         default: true
       deploy_to_pages:
-        description: 'Boolean value indicating whether QUEASARS documentation should be deployed to GitHub Pages.'
+        description: 'Deploy to GitHub Pages.'
         type: boolean
         required: false
         default: true
@@ -40,6 +40,7 @@ jobs:
         name: Check workflow version input
         shell: bash
         run: |
+          shopt -s extglob
           if [[ $inputs.version != @(v[0-9].[0-9].[0-9]) ]]; then exit 1; fi
           echo "VERSION=${inputs.version:1}" >> $GITHUB_ENV
       - if: ${{ inputs.version == '' }}
