@@ -96,5 +96,6 @@ jobs:
     if: |
       always() &&
       !cancelled() &&
-      !failure()
+      !failure() &&
+      ( github.event_name == 'push' || inputs.deploy_to_pages )
     uses: ./.github/workflows/queasars_deploy_documentation.yml
