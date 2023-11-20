@@ -1,8 +1,7 @@
 name: Deploy QUEASARS to Pypi
 
 on:
-  # Allow the PyPI deployment to be triggered manually or by other workflows.
-  workflow_dispatch:
+  # Allow the PyPI deployment to be triggered by other workflows.
   workflow_call:
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.

@@ -1,8 +1,7 @@
 name: Deploy QUEASARS documentation to GitHub Pages
 
 on:
-  # Allow the GitHub Pages deployment to be triggered manually or by other workflows.
-  workflow_dispatch:
+  # Allow the GitHub Pages deployment to be triggered by other workflows.
   workflow_call:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
