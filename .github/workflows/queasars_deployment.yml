@@ -87,7 +87,7 @@ jobs:
     # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
-    if: ${{ CALLED_FROM == 'TAG_PUSH' || inputs.deploy_to_pypi }}
+    if: ${{ $CALLED_FROM == 'TAG_PUSH' || inputs.deploy_to_pypi }}
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
     secrets: inherit
 
@@ -99,5 +99,5 @@ jobs:
       always() &&
       !cancelled() &&
       !failure() &&
-      ${{ CALLED_FROM == 'TAG_PUSH' || inputs.deploy_to_pages }}
+      ${{ $CALLED_FROM == 'TAG_PUSH' || inputs.deploy_to_pages }}
     uses: ./.github/workflows/queasars_deploy_documentation.yml
