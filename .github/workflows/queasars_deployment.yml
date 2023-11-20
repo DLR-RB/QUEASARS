@@ -85,7 +85,7 @@ jobs:
     # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
-    if: ${{ inputs.deploy_to_pypi }}
+    if: ${{ inputs.deploy_to_pypi == '' || inputs.deploy_to_pypi }}
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
     secrets: inherit
 
@@ -93,5 +93,9 @@ jobs:
     # Only deploy to GitHub Pages if the deployment to PyPI succeeded.
     name: Deploy to Github Pages
     needs: Deploy_To_PyPI
-    if: ${{ inputs.deploy_to_pages == '' || inputs.deploy_to_pages == true }}
+    if: |
+      always() &&
+      !cancelled() &&
+      !failure() &&
+      ${{ inputs.deploy_to_pages == '' || inputs.deploy_to_pages }}
     uses: ./.github/workflows/queasars_deploy_documentation.yml
