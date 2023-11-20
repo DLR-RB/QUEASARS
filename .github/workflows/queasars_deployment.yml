@@ -6,7 +6,7 @@ name: QUEASARS Deployment
 on:
   # Runs only on protected tags of the form vX.Y.Z
   push:
-    tags: ['v[0-9].[0-9].[0-9]']
+    tags: ['v[0-9].[0-9]']
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
@@ -31,12 +31,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  debug_event_name:
+    runs-on: ubuntu-latest
+    steps:
+      shell: bash
+      env:
+        SOURCE: ${ github.event_name }}
+      run: |
+        echo $SOURCE
+        exit 1
+
   Check_Version_Consistency:
     # Check that the project version given by the tag / manual workflow input matches the pyproject.toml version
     name: Check Version Consistency
     runs-on: ubuntu-latest
     steps:
-      - if: ${{ inputs.version != '' }}
+      - if: ${{ github.event_name == '' }}
         name: Check workflow version input
         shell: bash
         env:
@@ -45,7 +55,6 @@ jobs:
           echo $VERSION_INPUT
           if [[ $VERSION_INPUT != @(v[0-9].[0-9].[0-9]) ]]; then exit 1; fi
           echo "VERSION=${VERSION_INPUT:1}" >> $GITHUB_ENV
-          echo "CALLED_FROM=WORKFLOW_DISPATCH" >> $GITHUB_ENV
       - if: ${{ inputs.version == '' }}
         name: Get tag version
         shell: bash
@@ -53,7 +62,6 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           echo "VERSION=${TAG_NAME:1}" >> $GITHUB_ENV
-          echo "VERSION=TAG_PUSH" >> $GITHUB_ENV
       - uses: actions/checkout@v3
       - name: Set up Python 3.11
         uses: actions/setup-python@v3
@@ -87,7 +95,7 @@ jobs:
     # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
-    if: ${{ $CALLED_FROM == 'TAG_PUSH' || inputs.deploy_to_pypi }}
+    if: ${{ inputs.deploy_to_pypi }}
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
     secrets: inherit
 
@@ -99,5 +107,5 @@ jobs:
       always() &&
       !cancelled() &&
       !failure() &&
-      ${{ $CALLED_FROM == 'TAG_PUSH' || inputs.deploy_to_pages }}
+      ${{ inputs.deploy_to_pages }}
     uses: ./.github/workflows/queasars_deploy_documentation.yml
