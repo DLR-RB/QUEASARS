@@ -31,22 +31,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  debug_event_name:
-    runs-on: ubuntu-latest
-    steps:
-      - shell: bash
-        env:
-          SOURCE: ${{ github.event_name }}
-        run: |
-          echo $SOURCE
-          exit 1
-
   Check_Version_Consistency:
     # Check that the project version given by the tag / manual workflow input matches the pyproject.toml version
     name: Check Version Consistency
     runs-on: ubuntu-latest
     steps:
-      - if: ${{ github.event_name == '' }}
+      - if: ${{ github.event_name == 'workflow_dispatch' }}
         name: Check workflow version input
         shell: bash
         env:
@@ -55,7 +45,7 @@ jobs:
           echo $VERSION_INPUT
           if [[ $VERSION_INPUT != @(v[0-9].[0-9].[0-9]) ]]; then exit 1; fi
           echo "VERSION=${VERSION_INPUT:1}" >> $GITHUB_ENV
-      - if: ${{ inputs.version == '' }}
+      - if: ${{ github.event_name == 'push' }}
         name: Get tag version
         shell: bash
         env:
@@ -95,7 +85,7 @@ jobs:
     # Only deploy to PyPI if both the project version is consistent and the CI is run successfully.
     name: Deploy to PyPI
     needs: [Check_Version_Consistency, Run_CI]
-    if: ${{ inputs.deploy_to_pypi }}
+    if: ${{ github.event_name == 'push' || inputs.deploy_to_pypi }}
     uses: ./.github/workflows/queasars_deploy_to_pypi.yml
     secrets: inherit
 
@@ -107,5 +97,5 @@ jobs:
       always() &&
       !cancelled() &&
       !failure() &&
-      ${{ inputs.deploy_to_pages }}
+      ${{ github.event_name == 'push' || inputs.deploy_to_pages }}
     uses: ./.github/workflows/queasars_deploy_documentation.yml
