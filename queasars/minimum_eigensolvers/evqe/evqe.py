@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
 
-from queasars.minimum_eigensolvers.base.bitstring_evaluator import BitstringEvaluator
+from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
     EvolvingAnsatzMinimumEigensolver,
     EvolvingAnsatzMinimumEigensolverResult,
@@ -22,7 +22,6 @@ class EVQEConfiguration:
 
 
 class EVQE(EvolvingAnsatzMinimumEigensolver):
-
     configuration: EVQEConfiguration
 
     def __init__(self, configuration: EVQEConfiguration):
