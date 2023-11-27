@@ -18,8 +18,6 @@ from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver impo
 class EVQEConfiguration:
     """"""
 
-    pass
-
 
 class EVQE(EvolvingAnsatzMinimumEigensolver):
     configuration: EVQEConfiguration
@@ -33,14 +31,14 @@ class EVQE(EvolvingAnsatzMinimumEigensolver):
         operator: BaseOperator,
         aux_operators: ListOrDict[BaseOperator] | None = None,
     ) -> EvolvingAnsatzMinimumEigensolverResult:
-        pass
+        raise NotImplementedError
 
     def compute_minimum_function_value(
         self,
         operator: BitstringEvaluator,
         aux_operators: ListOrDict[BitstringEvaluator, BaseOperator] | None = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
-        pass
+        raise NotImplementedError
 
     @classmethod
     def supports_aux_operators(cls) -> bool:

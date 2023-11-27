@@ -48,6 +48,30 @@ target-version = ['py311']
 [tool.mypy]
 python_version = "3.11"
 
+[[tool.mypy.overrides]]
+module = [
+    'qiskit.circuit',
+    'qiskit.circuit.*',
+    'qiskit.primitives',
+    'qiskit.primitives.*',
+    'qiskit.quantum_info',
+    'qiskit.quantum_info.*',
+    'qiskit.result',
+    'qiskit.result.*',
+    'qiskit_algorithms.list_or_dict',
+    'qiskit_algorithms.list_or_dict.*',
+    'qiskit_algorithms.minimum_eigensolvers',
+    'qiskit_algorithms.minimum_eigensolvers.*',
+    'qiskit_algorithms.algorithm_result',
+    'qiskit_algorithms.algorithm_result.*',
+
+
+]
+ignore_missing_imports = true
+
+[tool.pylint.'MESSAGES CONTROL']
+max-line-length = 120
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
