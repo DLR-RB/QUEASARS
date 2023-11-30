@@ -6,11 +6,12 @@ from typing import TypeVar, Generic, Optional, Callable
 from dataclasses import dataclass
 
 from qiskit.circuit import QuantumCircuit
+from dask.distributed import Client
 
-from queasars.circuit_evaluation.circuit_evaluation import CircuitEvaluator
+from queasars.circuit_evaluation.circuit_evaluation import BaseCircuitEvaluator
 
 
-class Individual(ABC):
+class BaseIndividual(ABC):
     """Base class representing an individual genome in an evolutionary algorithm. For the purposes of evolving
     ansatz eigensolvers such an individual genome represents a parameterized quantum circuit with a defined list
     of rotation angles"""
@@ -51,99 +52,77 @@ class Individual(ABC):
         pass
 
 
-IND = TypeVar("IND", bound=Individual)
+IND = TypeVar("IND", bound=BaseIndividual)
 
 
 @dataclass
-class Population(ABC, Generic[IND]):
+class BasePopulation(ABC, Generic[IND]):
     """Base class representing the state of a population of individuals in an evolutionary algorithm
 
     :param individuals: Set of all individuals in this population
-    :type individuals: set[Individual]
-    :param circuit_evaluations: All currently gathered circuit evaluation values.
-    :type circuit_evaluations: dict[Individual, Optional[float]]
+    :type individuals: set[BaseIndividual]
     """
 
     individuals: set[IND]
-    circuit_evaluations: dict[IND, Optional[float]]
 
 
-POP = TypeVar("POP", bound=Population)
+POP = TypeVar("POP", bound=BasePopulation)
 
 
-class Operator(ABC, Generic[POP]):
+@dataclass
+class BasePopulationEvaluationResult(ABC, Generic[IND]):
+    """Base class representing the result of evaluating a population in an evolutionary algorithm
+
+    :param population: Population which was evaluated
+    :type population: BasePopulation
+    :param expectation_values: Dictionary containing expectation values for the individuals of the evaluated population
+    :type expectation_values: dict[BaseIndividual, Optional[float]]
+    :param best_individual: Best individual from within the evaluated population
+    :type best_individual: BaseIndividual
+    """
+
+    population: BasePopulation[IND]
+    expectation_values: dict[IND, Optional[float]]
+    best_individual: IND
+
+
+@dataclass
+class OperatorContext:
+    """Dataclass containing additional references needed by Operators
+
+    :param circuit_evaluator: CircuitEvaluator used to get the expectation value of the circuits (Individuals)
+    :type circuit_evaluator: BaseCircuitEvaluator
+    :param result_callback: Callback function to report results from evaluating a population
+    :type result_callback: Callable[[BasePopulationEvaluationResult], None]
+    :param circuit_evaluation_count_callback: Callback functions to report the number of circuit evaluations
+        used by an operator.
+    :type circuit_evaluation_count_callback: Callable[[Int], None]
+    :param dask_client: Dask client to use for task parallelization
+    :type: Client
+
+    """
+
+    circuit_evaluator: BaseCircuitEvaluator
+    result_callback: Callable[[BasePopulationEvaluationResult], None]
+    circuit_evaluation_count_callback: Callable[[int], None]
+    dask_client: Client
+
+
+class BaseOperator(ABC, Generic[POP]):
     """Base class representing any evolutionary operator, which maps from a population to a new population"""
 
     @abstractmethod
     def apply_operator(
         self,
         population: POP,
-        circuit_evaluator: CircuitEvaluator,
-        best_individual_callback: Optional[Callable[[Individual, float], None]] = None,
+        operator_context: OperatorContext,
     ) -> POP:
         """
         Applies the operator to the population and returns a new, changed population. The original population
         remains unchanged
 
         :param population: Population to apply the operator to
-        :type population: Population
-        :param circuit_evaluator: Circuit evaluator to evaluate individuals with
-        :type circuit_evaluator: CircuitEvaluator
-        :param best_individual_callback: Callback to report good individuals and their circuit evaluation results
-        :type best_individual_callback: Optional[Callable[[Individual, Float], None]]
-        :return: The new population changed by the operator
-        :rtype: Population
+        :type population: BasePopulation
+        :param operator_context:
+        :type operator_context:
         """
-
-
-class EvolutionaryAlgorithm(Generic[POP]):
-    """Implementation of an evolutionary algorithm using the primitives defined in this module.
-
-    :param initial_population: Population to start the evolution from.
-    :type initial_population: Population
-    :param evolutionary_operators: Operators to apply in sequence to the population for each generation.
-    :type evolutionary_operators: list[Operator]
-    :param n_generations: Number of generations during which the operators are applied.
-    :type n_generations: int
-    :param circuit_evaluator: Circuit evaluator to evaluate individuals with
-    :type circuit_evaluator: CircuitEvaluator
-    :param termination_callback: Optional callback used to check after each generation whether the evolution can be
-        stopped prematurely. Return true to terminate the evolution. Arguments are: number of current generation,
-        amount of called circuit evaluations, best circuit evaluation value so far
-    :type termination_callback: Optional[Callable[[int, int, float], bool]]
-    """
-
-    def __init__(
-        self,
-        initial_population: POP,
-        evolutionary_operators: list[Operator],
-        n_generations: int,
-        circuit_evaluator: CircuitEvaluator,
-        termination_callback: Optional[Callable[[int, int, float], bool]] = None,
-    ):
-        """Constructor method"""
-
-    def optimize(self) -> "EvolutionaryAlgorithmResult":
-        """Runs the evolutionary optimization until `n_generations` is exhausted or the `termination_callback`
-        returns true.
-
-        :return: An `EvolutionaryAlgorithmResult`
-        :rtype: EvolutionaryAlgorithm
-        """
-        raise NotImplementedError
-
-
-@dataclass
-class EvolutionaryAlgorithmResult:
-    """Dataclass containing the results from running an evolutionary algorithm
-
-    :param final_population: State of the population after the last generation
-    :type final_population: Population
-    :param best_individual: Individual with the best circuit evaluation found during all generations
-    :type best_individual: Individual
-    :param best_circuit_evaluation: Circuit evaluation value of the `best_individual`
-    """
-
-    final_population: Population
-    best_individual: Individual
-    best_circuit_evaluation: float

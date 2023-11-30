@@ -10,9 +10,9 @@ from qiskit.quantum_info.operators.base_operator import BaseOperator
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 
 
-class CircuitEvaluator(ABC):
+class BaseCircuitEvaluator(ABC):
     """Abstract class to allow a seamless exchange of circuit
-    evaluation methods in QUEASARS eigensolvers."""
+    evaluation methods in QUEASARS eigensolvers"""
 
     @abstractmethod
     def evaluate_circuit(self, circuit: QuantumCircuit, angles: list[float]) -> float:
@@ -27,10 +27,10 @@ class CircuitEvaluator(ABC):
 
 
 class CircuitEvaluatorException(Exception):
-    """Class for exceptions caused during the evaluation of quantum circuits."""
+    """Class for exceptions caused during the evaluation of quantum circuits"""
 
 
-class OperatorCircuitEvaluator(CircuitEvaluator):
+class OperatorCircuitEvaluator(BaseCircuitEvaluator):
     """Class which evaluates quantum circuits by estimating the eigenvalue of the circuit for a given operator
 
     :param estimator: Estimator primitive used for estimating the circuit's eigenvalue
@@ -46,7 +46,7 @@ class OperatorCircuitEvaluator(CircuitEvaluator):
         raise NotImplementedError
 
 
-class BitstringCircuitEvaluator(CircuitEvaluator):
+class BitstringCircuitEvaluator(BaseCircuitEvaluator):
     """Class which evaluates quantum circuits by calculating an expectation value over the circuit's sampled
     measurement distribution using the :class:`queasars.circuit_evaluation.bitstring_evaluation.BitstringEvaluator`
     to assign floating point values to individual measurements

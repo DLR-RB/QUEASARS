@@ -31,14 +31,14 @@ class EVQE(EvolvingAnsatzMinimumEigensolver):
         operator: BaseOperator,
         aux_operators: ListOrDict[BaseOperator] | None = None,
     ) -> EvolvingAnsatzMinimumEigensolverResult:
-        raise NotImplementedError
+        return super().compute_minimum_eigenvalue(operator, aux_operators)
 
     def compute_minimum_function_value(
         self,
         operator: BitstringEvaluator,
         aux_operators: ListOrDict[BitstringEvaluator, BaseOperator] | None = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
-        raise NotImplementedError
+        return super().compute_minimum_function_value(operator, aux_operators)
 
     @classmethod
     def supports_aux_operators(cls) -> bool:

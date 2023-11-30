@@ -12,27 +12,27 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.result import QuasiDistribution
 
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
-from queasars.minimum_eigensolvers.base.evolutionary_algorithm import Population
+from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BasePopulation
 
 
-class EvolvingAnsatzMinimumEigensolver(ABC, MinimumEigensolver):
+class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     """"""
 
-    @abstractmethod
     def compute_minimum_eigenvalue(
         self,
         operator: BaseOperator,
         aux_operators: ListOrDict[BaseOperator] | None = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """"""
+        raise NotImplementedError
 
-    @abstractmethod
     def compute_minimum_function_value(
         self,
         operator: BitstringEvaluator,
         aux_operators: ListOrDict[BitstringEvaluator] | None = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """"""
+        raise NotImplementedError
 
 
 class EvolvingAnsatzMinimumEigensolverResult(AlgorithmResult):
@@ -47,7 +47,7 @@ class EvolvingAnsatzMinimumEigensolverResult(AlgorithmResult):
         self._optimal_circuit: QuantumCircuit | None = None
         self._cost_function_evals: int | None = None
         self._generations: int | None = None
-        self._final_population: Population | None = None
+        self._final_population: BasePopulation | None = None
         self._best_measurement: dict[str, Any] | None = None
 
     @property
@@ -128,12 +128,12 @@ class EvolvingAnsatzMinimumEigensolverResult(AlgorithmResult):
         self._generations = value
 
     @property
-    def final_population(self) -> Population | None:
+    def final_population(self) -> BasePopulation | None:
         """"""
         return self._final_population
 
     @final_population.setter
-    def final_population(self, value: Population):
+    def final_population(self, value: BasePopulation):
         """"""
         self._final_population = value
 
