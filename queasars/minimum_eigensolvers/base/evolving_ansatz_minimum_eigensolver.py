@@ -28,7 +28,7 @@ POP = TypeVar("POP", bound=BasePopulation)
 
 @dataclass
 class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
-    """ Configuration for the EvolvingAnsatzMinimumEigensolver
+    """Configuration for the EvolvingAnsatzMinimumEigensolver
 
     :param population_initializer: Initialization function, which creates the initial population
         to start the evolution from
