@@ -17,9 +17,9 @@ class BitstringEvaluator:
 
     def evaluate_bitstring(self, bitstring: str) -> float:
         """Applies the evaluation_function to the given bitstring and returns the resulting float.
-        :param bitstring: Bitstring to apply the the evaluation_function to
+        :arg bitstring: Bitstring to apply the the evaluation_function to
         :type bitstring: str
-        :raises BitstringEvaluatorException: If the given bitstring does not match input_length,
+        :raises: BitstringEvaluatorException: If the given bitstring does not match input_length,
             if it contains characters other than 0 or 1, or if the evaluation_function itself fails.
         :return: Floating point number returned by the evaluation_function.
         :rtype: float

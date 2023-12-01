@@ -121,8 +121,8 @@ class BaseEvolutionaryOperator(ABC, Generic[POP]):
         Applies the operator to the population and returns a new, changed population. The original population
         remains unchanged
 
-        :param population: Population to apply the operator to
+        :arg population: Population to apply the operator to
         :type population: BasePopulation
-        :param operator_context:
+        :arg operator_context:
         :type operator_context:
         """

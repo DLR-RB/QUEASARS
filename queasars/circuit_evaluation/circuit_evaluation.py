@@ -18,12 +18,12 @@ class BaseCircuitEvaluator(ABC):
     def evaluate_circuit(self, circuit: QuantumCircuit, angles: list[float]) -> float:
         """Evaluates a parameterized quantum circuit, for a given list of rotation angles.
 
-        :param circuit: Quantum circuit to evaluate, must be parameterized.
+        :arg circuit: Quantum circuit to evaluate, must be parameterized
         :type circuit: QuantumCircuit
-        :param angles: Angles for which the parameterized circuit shall be evaluated.
+        :arg angles: Angles for which the parameterized circuit shall be evaluated
         :type angles: list[float]
-        :raises CircuitEvaluatorException: If the circuit evaluation fails for any reason.
-        :return: The resulting floating point number."""
+        :raises CircuitEvaluatorException: If the circuit evaluation fails for any reason
+        :return: The resulting floating point number"""
 
 
 class CircuitEvaluatorException(Exception):

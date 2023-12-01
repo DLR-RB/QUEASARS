@@ -83,9 +83,9 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
         While an ``operator`` is required by algorithms, ``aux_operators`` are optional
 
-        :param operator: Qubit operator of the observable
+        :arg operator: Qubit operator of the observable
         :type operator: BaseOperator
-        :param aux_operators: Optional list of auxiliary operators to be evaluated with the
+        :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
             returned.
         :type aux_operators: ListOrDict[BaseOperator] | None
@@ -105,9 +105,9 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         The ``operator`` and ``aux_operators`` are supplied here.
         While an ``operator`` is required by algorithms, ``aux_operators`` are optional
 
-        :param operator: BitstringEvaluator which maps bitstrings to real valued numbers
+        :arg operator: BitstringEvaluator which maps bitstrings to real valued numbers
         :type operator: BitstringEvaluator
-        :param aux_operators: Optional list of auxiliary operators to be evaluated with the
+        :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
             returned.
         :type aux_operators: ListOrDict[BaseOperator] | None
@@ -144,7 +144,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def eigenstate(self, value: QuasiDistribution):
         """Set the the quasi-distribution sampled from the final state
 
-        :param value: Value to set the sampled quasi-distribution to
+        :arg value: Value to set the sampled quasi-distribution to
         :type value: QuasiDistribution
         """
         self._eigenstate = value
@@ -162,7 +162,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def optimal_parameters(self, value: dict) -> None:
         """Sets optimal parameters
 
-        :param value: Value to set the optimal parameters to
+        :arg value: Value to set the optimal parameters to
         :type value: dict
         """
         self._optimal_parameters = value
@@ -181,7 +181,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def optimal_circuit(self, value: QuantumCircuit) -> None:
         """Sets the optimal circuit
 
-        :param value: Value to set the optimal circuit to
+        :arg value: Value to set the optimal circuit to
         :type value: QuantumCircuit
         """
         self._optimal_circuit = value
@@ -199,7 +199,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def circuit_evaluations(self, value: int) -> None:
         """Sets the number of circuit evaluations used by the eigensolver
 
-        :param value: Value to set the number of circuit evaluations to
+        :arg value: Value to set the number of circuit evaluations to
         :type: int
         """
         self._circuit_evaluations = value
@@ -217,7 +217,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def generations(self, value: int):
         """Sets the number of generations the evolutionary algorithm was run for
 
-        :param value: Value to set the number of generations to
+        :arg value: Value to set the number of generations to
         :type value: int
         """
         self._generations = value
@@ -235,7 +235,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def final_population(self, value: BasePopulation):
         """Sets the population which was evaluated during the last generation
 
-        :param value: Value to set the last population to
+        :arg value: Value to set the last population to
         :type value: BasePopulation
         """
         self._final_population = value
@@ -253,7 +253,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def final_population_evaluation(self, value: BasePopulationEvaluationResult):
         """Sets the evaluation results for the last population
 
-        :param value: Value to set the evaluation results for the last population to
+        :arg value: Value to set the evaluation results for the last population to
         :type value: BasePopulationEvaluationResult
         """
         self._final_population_evaluation = value
