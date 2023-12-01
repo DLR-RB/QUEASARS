@@ -15,16 +15,12 @@ from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver impo
 
 
 @dataclass
-class EVQEConfiguration:
-    """"""
+class EVQEMinimumEigensolverConfiguration:
+    """Configuration for the EVQEMinimumEigensolver"""
 
 
-class EVQE(EvolvingAnsatzMinimumEigensolver):
-    configuration: EVQEConfiguration
-
-    def __init__(self, configuration: EVQEConfiguration):
-        super().__init__()
-        self.configuration = configuration
+class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
+    """Minimum eigensolver which uses the `EVQE` algorithm. For details see: https://arxiv.org/abs/1910.09694"""
 
     def compute_minimum_eigenvalue(
         self,

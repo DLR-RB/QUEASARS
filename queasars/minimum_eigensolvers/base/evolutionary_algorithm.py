@@ -108,7 +108,7 @@ class OperatorContext:
     dask_client: Client
 
 
-class BaseOperator(ABC, Generic[POP]):
+class BaseEvolutionaryOperator(ABC, Generic[POP]):
     """Base class representing any evolutionary operator, which maps from a population to a new population"""
 
     @abstractmethod
