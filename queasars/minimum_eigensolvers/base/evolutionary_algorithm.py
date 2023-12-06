@@ -39,12 +39,12 @@ class BaseIndividual(ABC):
         """
 
     @abstractmethod
-    def get_rotation_angles(self) -> list[float]:
+    def get_parameter_values(self) -> tuple[float, ...]:
         """
-        Get the rotation angles for the parameterized quantum circuit, as specified in this individual's genome
+        Get the parameter values for the parameterized quantum circuit, as specified in this individual's genome
 
         :return: A list of rotation angles
-        :rtype: list[float]
+        :rtype: tuple[float, ...]
         """
 
     @abstractmethod

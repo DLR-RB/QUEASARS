@@ -33,7 +33,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
         self,
         operator: BitstringEvaluator,
         aux_operators: ListOrDict[BitstringEvaluator, BaseOperator] | None = None,
-    ) -> "EvolvingAnsatzMinimumEigensolverResult":
+    ) -> EvolvingAnsatzMinimumEigensolverResult:
         return super().compute_minimum_function_value(operator, aux_operators)
 
     @classmethod
