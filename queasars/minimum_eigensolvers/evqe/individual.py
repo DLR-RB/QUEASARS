@@ -733,6 +733,23 @@ class EVQEIndividual(BaseIndividual):
             parameter_values=tuple(adapted_parameter_values),
         )
 
+    @staticmethod
+    def get_genetic_distance(individual_1: "EVQEIndividual", individual_2: "EVQEIndividual") -> int:
+        """
+        Returns the genetic distance between two individuals, which is defined as the sum of the amount of
+        all layers of both individuals subtracted by the amount of shared layers
+
+        :param individual_1: individual to determine genetic distance from
+        :type individual_1: EVQEIndividual
+        :param individual_2: individual to determine genetic distance from
+        :type individual_2: EVQEIndividual
+        :return:
+        """
+        n_all_layers: int = len(individual_1.layers) + len(individual_2.layers)
+        n_shared_layers: int = len({layer for layer in individual_1.layers if layer in individual_2.layers})
+
+        return n_all_layers - n_shared_layers
+
     def __post_init__(self) -> None:
         # Disallow the initialization of invalid individuals
         if not self.is_valid():
