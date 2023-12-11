@@ -44,6 +44,7 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
                 if (
                     EVQEIndividual.get_genetic_distance(individual_1=individual, individual_2=representative)
                     < self.genetic_distance_threshold
+                    or individual == representative
                 ):
                     # if such a representative was found add the individual to the representative's species
                     species_members[representative].append(i)

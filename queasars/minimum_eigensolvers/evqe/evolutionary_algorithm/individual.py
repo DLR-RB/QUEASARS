@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Optional
 from types import MappingProxyType
 from random import choice, sample, random
-from math import pi
+from math import pi, ceil
 
 from qiskit.circuit import QuantumCircuit, Parameter, Gate
 from qiskit.converters import circuit_to_gate
@@ -677,7 +677,7 @@ class EVQEIndividual(BaseIndividual):
         :type individual_2: EVQEIndividual
         :return:
         """
-        n_all_layers: int = len(individual_1.layers) + len(individual_2.layers)
+        n_all_layers: int = ceil(0.5 * (len(individual_1.layers) + len(individual_2.layers)))
         n_shared_layers: int = len({layer for layer in individual_1.layers if layer in individual_2.layers})
 
         return n_all_layers - n_shared_layers
