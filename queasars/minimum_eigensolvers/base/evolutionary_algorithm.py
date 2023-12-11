@@ -59,11 +59,11 @@ IND = TypeVar("IND", bound=BaseIndividual)
 class BasePopulation(ABC, Generic[IND]):
     """Base class representing the state of a population of individuals in an evolutionary algorithm
 
-    :param individuals: Set of all individuals in this population
-    :type individuals: set[BaseIndividual]
+    :param individuals: Tuple of all individuals in this population
+    :type individuals: tuple[BaseIndividual, ...]
     """
 
-    individuals: set[IND]
+    individuals: tuple[IND, ...]
 
 
 POP = TypeVar("POP", bound=BasePopulation)

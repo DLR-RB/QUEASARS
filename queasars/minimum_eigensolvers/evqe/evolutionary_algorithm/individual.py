@@ -187,9 +187,7 @@ class EVQECircuitLayer:
     gates: tuple[EVQEGate, ...]
 
     @staticmethod
-    def random_layer(
-        n_qubits: int, previous_layer: Optional["EVQECircuitLayer"] = None
-    ) -> "EVQECircuitLayer":
+    def random_layer(n_qubits: int, previous_layer: Optional["EVQECircuitLayer"] = None) -> "EVQECircuitLayer":
         """
         Creates a random circuit layer. If a previous layer is given, the layer generation is adapted to
         prevent adding unnecessary parameters.
@@ -204,14 +202,10 @@ class EVQECircuitLayer:
 
         # Ensure, that the previous layer matches the layer to be generated
         if previous_layer is not None and previous_layer.n_qubits != n_qubits:
-            raise ValueError(
-                "previous_layer must have exactly as many qubits as the layer to be generated!"
-            )
+            raise ValueError("previous_layer must have exactly as many qubits as the layer to be generated!")
 
         # Initialize a buffer to hold the gates and parameters for the new layer
-        chosen_gates: list[EVQEGate] = list(
-            IdentityGate(qubit_index=qubit_index) for qubit_index in range(0, n_qubits)
-        )
+        chosen_gates: list[EVQEGate] = list(IdentityGate(qubit_index=qubit_index) for qubit_index in range(0, n_qubits))
         controlled_rotation_qubits: list[int] = []
 
         # Iterate over each qubit and randomly either assign a rotation
@@ -219,9 +213,7 @@ class EVQECircuitLayer:
         for qubit_index in range(0, n_qubits):
             # If the previous layer held a rotation or identity gate here,
             # this layer may only hold a controlled rotation here
-            if previous_layer is not None and previous_layer.gates[
-                qubit_index
-            ].gate_type() in [
+            if previous_layer is not None and previous_layer.gates[qubit_index].gate_type() in [
                 EVQEGateType.ROTATION,
                 EVQEGateType.IDENTITY,
             ]:
@@ -231,9 +223,7 @@ class EVQECircuitLayer:
             # If there is no previous layer or the previous layer held a controlled rotation,
             # both a rotation or a controlled rotation can be placed
             else:
-                gate_type = choice(
-                    [EVQEGateType.ROTATION, EVQEGateType.CONTROLLED_ROTATION]
-                )
+                gate_type = choice([EVQEGateType.ROTATION, EVQEGateType.CONTROLLED_ROTATION])
                 if gate_type == EVQEGateType.CONTROLLED_ROTATION:
                     # Controlled rotations are placed at the end, so this is only noted
                     controlled_rotation_qubits.append(qubit_index)
@@ -246,12 +236,8 @@ class EVQECircuitLayer:
         while len(controlled_rotation_qubits) >= 2:
             # Choose a random qubit as control and controlled qubit respectively
             rotation_qubit, control_qubit = sample(controlled_rotation_qubits, 2)
-            rotation_gate = ControlledRotationGate(
-                qubit_index=rotation_qubit, control_qubit_index=control_qubit
-            )
-            control_gate = ControlGate(
-                qubit_index=control_qubit, controlled_qubit_index=rotation_qubit
-            )
+            rotation_gate = ControlledRotationGate(qubit_index=rotation_qubit, control_qubit_index=control_qubit)
+            control_gate = ControlGate(qubit_index=control_qubit, controlled_qubit_index=rotation_qubit)
 
             # Check that there is no matching controlled rotation in the previous layer
             # to prevent adding unnecessary parameters.
@@ -271,8 +257,7 @@ class EVQECircuitLayer:
             qubit_index = controlled_rotation_qubits[0]
             if (
                 previous_layer is not None
-                and previous_layer.gates[controlled_rotation_qubits[0]]
-                == EVQEGateType.ROTATION
+                and previous_layer.gates[controlled_rotation_qubits[0]] == EVQEGateType.ROTATION
             ):
                 chosen_gates[qubit_index] = IdentityGate(qubit_index=qubit_index)
 
@@ -298,9 +283,7 @@ class EVQECircuitLayer:
 
         # Ensure that the left and right layers fit together
         if left_layer.n_qubits != right_layer.n_qubits:
-            raise EVQECircuitLayerException(
-                "Only layers with a matching amount of qubits can be squeezed!"
-            )
+            raise EVQECircuitLayerException("Only layers with a matching amount of qubits can be squeezed!")
 
         # Initialize a buffer to hold the gates for the new layer
         left_gates: list[EVQEGate] = list(left_layer.gates)
@@ -314,26 +297,17 @@ class EVQECircuitLayer:
             right_gate: EVQEGate = right_layer.gates[qubit_index]
 
             # If the gates match and are not identity gates, they can be squeezed
-            if (
-                left_gate == right_gate
-                and left_gate.gate_type() != EVQEGateType.IDENTITY
-            ):
+            if left_gate == right_gate and left_gate.gate_type() != EVQEGateType.IDENTITY:
                 # Since the left gate is squeezed into the right layer,
                 # remove it from the left layer
                 left_gates[qubit_index] = IdentityGate(qubit_index=qubit_index)
 
                 # Note the respective parameter mapping for the squeezed gates
                 if left_gate.n_parameters() > 0:
-                    left_parameter_indices = left_layer.get_qubit_parameter_mapping[
-                        qubit_index
-                    ]
-                    right_parameter_indices = right_layer.get_qubit_parameter_mapping[
-                        qubit_index
-                    ]
+                    left_parameter_indices = left_layer.get_qubit_parameter_mapping[qubit_index]
+                    right_parameter_indices = right_layer.get_qubit_parameter_mapping[qubit_index]
                     for i in range(0, left_gate.n_parameters()):
-                        parameter_mapping[
-                            left_parameter_indices[i]
-                        ] = right_parameter_indices[i]
+                        parameter_mapping[left_parameter_indices[i]] = right_parameter_indices[i]
 
                 continue
 
@@ -349,9 +323,7 @@ class EVQECircuitLayer:
 
     def __post_init__(self) -> None:
         # Buffer the amount of parameters offered by this circuit layer to prevent recalculating it
-        object.__setattr__(
-            self, "_n_parameters", int(sum(gate.n_parameters() for gate in self.gates))
-        )
+        object.__setattr__(self, "_n_parameters", int(sum(gate.n_parameters() for gate in self.gates)))
 
         # Disallow the creation of invalid circuit layers
         if not self.is_valid():
@@ -362,13 +334,9 @@ class EVQECircuitLayer:
         result_mapping: dict[int, tuple[int, ...]] = {}
         for qubit_index, gate in enumerate(self.gates):
             if gate.n_parameters() > 0:
-                result_mapping[qubit_index] = tuple(
-                    parameter_index + i for i in range(0, gate.n_parameters())
-                )
+                result_mapping[qubit_index] = tuple(parameter_index + i for i in range(0, gate.n_parameters()))
                 parameter_index += gate.n_parameters()
-        object.__setattr__(
-            self, "_qubit_parameter_index_mapping", MappingProxyType(result_mapping)
-        )
+        object.__setattr__(self, "_qubit_parameter_index_mapping", MappingProxyType(result_mapping))
 
     @property
     def n_parameters(self) -> int:
@@ -417,10 +385,7 @@ class EVQECircuitLayer:
             # Ensure each ControlledGate has a correctly assigned ControlGate
             if isinstance(gate, ControlledGate):
                 control_gate = self.gates[gate.control_qubit_index]
-                if not (
-                    isinstance(control_gate, ControlGate)
-                    and control_gate.controlled_qubit_index == gate_index
-                ):
+                if not (isinstance(control_gate, ControlGate) and control_gate.controlled_qubit_index == gate_index):
                     is_valid = False
                     break
 
@@ -452,9 +417,7 @@ class EVQECircuitLayer:
 
         return circuit_to_gate(circuit)
 
-    def get_layer_gate(
-        self, layer_id: int, parameter_values: tuple[float, ...]
-    ) -> Gate:
+    def get_layer_gate(self, layer_id: int, parameter_values: tuple[float, ...]) -> Gate:
         """Creates a qiskit Gate which can apply this circuit layer to any quantum circuit using the given parameters.
 
         :arg layer_id: id used in parameter and gate naming, should be unique for all layers of a quantum circuit
@@ -501,9 +464,7 @@ class EVQEIndividual(BaseIndividual):
     parameter_values: tuple[float, ...]
 
     @staticmethod
-    def random_individual(
-        n_qubits: int, n_layers: int, randomize_parameter_values: bool
-    ) -> "EVQEIndividual":
+    def random_individual(n_qubits: int, n_layers: int, randomize_parameter_values: bool) -> "EVQEIndividual":
         """
         Creates a random individual for n_qubits with n_layers. Parameters can be initialized randomly
         or at 0.
@@ -518,9 +479,7 @@ class EVQEIndividual(BaseIndividual):
         layers: list[EVQECircuitLayer] = []
         layer: Optional[EVQECircuitLayer] = None
         for _ in range(0, n_layers):
-            layer = EVQECircuitLayer.random_layer(
-                n_qubits=n_qubits, previous_layer=layer
-            )
+            layer = EVQECircuitLayer.random_layer(n_qubits=n_qubits, previous_layer=layer)
             layers.append(layer)
         n_parameters: int = sum(layer.n_parameters for layer in layers)
         parameter_values: tuple[float, ...]
@@ -528,14 +487,10 @@ class EVQEIndividual(BaseIndividual):
             parameter_values = tuple(2 * pi * random() for _ in range(0, n_parameters))
         else:
             parameter_values = (0,) * n_parameters
-        return EVQEIndividual(
-            n_qubits=n_qubits, layers=tuple(layers), parameter_values=parameter_values
-        )
+        return EVQEIndividual(n_qubits=n_qubits, layers=tuple(layers), parameter_values=parameter_values)
 
     @staticmethod
-    def change_parameter_values(
-        individual: "EVQEIndividual", parameter_values: tuple[float, ...]
-    ) -> "EVQEIndividual":
+    def change_parameter_values(individual: "EVQEIndividual", parameter_values: tuple[float, ...]) -> "EVQEIndividual":
         """
         Returns a new individual with same circuit structure, but with changed parameter_values
 
@@ -546,12 +501,8 @@ class EVQEIndividual(BaseIndividual):
         :return: the new individual
         :rtype: EVQEIndividual
         """
-        if len(parameter_values) != sum(
-            layer.n_parameters for layer in individual.layers
-        ):
-            raise EVQEIndividualException(
-                "The number of parameter values given does not match the individual!"
-            )
+        if len(parameter_values) != sum(layer.n_parameters for layer in individual.layers):
+            raise EVQEIndividualException("The number of parameter values given does not match the individual!")
 
         return EVQEIndividual(
             n_qubits=individual.n_qubits,
@@ -579,9 +530,7 @@ class EVQEIndividual(BaseIndividual):
         if not 0 <= layer_id < len(individual.layers):
             raise EVQEIndividualException("The given layer id is not valid!")
 
-        if len(parameter_values) != len(
-            individual.layer_parameter_indices[individual.layers[layer_id]]
-        ):
+        if len(parameter_values) != len(individual.layer_parameter_indices[individual.layers[layer_id]]):
             raise EVQEIndividualException(
                 "The amount of given parameter_values does not match the amount needed by the circuit layer!"
             )
@@ -590,17 +539,12 @@ class EVQEIndividual(BaseIndividual):
         for index, layer in enumerate(individual.layers):
             if index != layer_id:
                 layer_parameter_values.append(
-                    tuple(
-                        individual.parameter_values[i]
-                        for i in individual.layer_parameter_indices[layer]
-                    )
+                    tuple(individual.parameter_values[i] for i in individual.layer_parameter_indices[layer])
                 )
             else:
                 layer_parameter_values.append(parameter_values)
         flattened_parameter_values: tuple[float, ...] = tuple(
-            parameter_value
-            for layer in layer_parameter_values
-            for parameter_value in layer
+            parameter_value for layer in layer_parameter_values for parameter_value in layer
         )
 
         return EVQEIndividual(
@@ -640,9 +584,7 @@ class EVQEIndividual(BaseIndividual):
         n_new_parameters = sum(layer.n_parameters for layer in new_layers)
         new_parameter_values: tuple[float, ...]
         if randomize_parameter_values:
-            new_parameter_values = tuple(
-                2 * pi * random() for _ in range(0, n_new_parameters)
-            )
+            new_parameter_values = tuple(2 * pi * random() for _ in range(0, n_new_parameters))
         else:
             new_parameter_values = (0,) * n_new_parameters
         all_parameter_values: tuple[float, ...] = (
@@ -676,10 +618,7 @@ class EVQEIndividual(BaseIndividual):
         layers.pop(layer_id)
         # Note the parameters of the removed layer to be removed
         parameters_to_remove: set[int] = set(
-            parameter
-            for parameter in individual.layer_parameter_indices[
-                individual.layers[layer_id]
-            ]
+            parameter for parameter in individual.layer_parameter_indices[individual.layers[layer_id]]
         )
 
         adapted_parameter_values: list[float] = list(individual.parameter_values)
@@ -696,28 +635,21 @@ class EVQEIndividual(BaseIndividual):
             layers[layer_id - 1] = new_left_layer
 
             if len(parameter_mapping) > 0:
-                left_starting_index: int = individual.layer_parameter_indices[
-                    left_layer
-                ][0]
-                right_starting_index: int = individual.layer_parameter_indices[
-                    right_layer
-                ][0]
+                left_starting_index: int = individual.layer_parameter_indices[left_layer][0]
+                right_starting_index: int = individual.layer_parameter_indices[right_layer][0]
 
                 # Add the parameter values of the removed gates on the left to the gates on the right
                 for (
                     left_parameter_index,
                     right_parameter_index,
                 ) in parameter_mapping.items():
-                    adapted_parameter_values[
-                        left_starting_index + left_parameter_index
-                    ] += individual.parameter_values[
+                    adapted_parameter_values[left_starting_index + left_parameter_index] += individual.parameter_values[
                         right_starting_index + right_parameter_index
                     ]
 
                 # Note the parameters of the squeezed gates to be removed
                 parameters_to_remove.update(
-                    left_starting_index + parameter_index
-                    for parameter_index in parameter_mapping
+                    left_starting_index + parameter_index for parameter_index in parameter_mapping
                 )
 
         # Actually remove the parameters which were noted to be removed
@@ -759,13 +691,9 @@ class EVQEIndividual(BaseIndividual):
         layer_parameter_indices: dict[EVQECircuitLayer, tuple[int, ...]] = {}
         parameter_index: int = 0
         for layer in self.layers:
-            layer_parameter_indices[layer] = tuple(
-                range(parameter_index, parameter_index + layer.n_parameters)
-            )
+            layer_parameter_indices[layer] = tuple(range(parameter_index, parameter_index + layer.n_parameters))
             parameter_index += layer.n_parameters
-        object.__setattr__(
-            self, "_layer_parameter_indices", MappingProxyType(layer_parameter_indices)
-        )
+        object.__setattr__(self, "_layer_parameter_indices", MappingProxyType(layer_parameter_indices))
 
     def is_valid(self) -> bool:
         """Checks whether this individual is valid
@@ -787,9 +715,7 @@ class EVQEIndividual(BaseIndividual):
                 is_valid = False
 
         # Check that the correct amount of parameters is provided
-        if len(self.parameter_values) != sum(
-            layer.n_parameters for layer in self.layers
-        ):
+        if len(self.parameter_values) != sum(layer.n_parameters for layer in self.layers):
             return False
 
         return is_valid
@@ -814,9 +740,7 @@ class EVQEIndividual(BaseIndividual):
         circuit.assign_parameters(parameters=self.parameter_values, inplace=True)
         return circuit
 
-    def get_partially_parameterized_quantum_circuit(
-        self, parameterized_layers: set[int]
-    ):
+    def get_partially_parameterized_quantum_circuit(self, parameterized_layers: set[int]):
         """Returns the quantum circuit as represented by this individual with only some
         circuit layers being parameterized
 
@@ -840,9 +764,7 @@ class EVQEIndividual(BaseIndividual):
                     for i, parameter_value in enumerate(self.parameter_values)
                     if i in self.layer_parameter_indices[layer]
                 )
-                gate = layer.get_layer_gate(
-                    layer_id=i, parameter_values=layer_parameter_values
-                )
+                gate = layer.get_layer_gate(layer_id=i, parameter_values=layer_parameter_values)
             circuit.append(instruction=gate, qargs=range(0, n_qubits))
             circuit.barrier()
         return circuit
