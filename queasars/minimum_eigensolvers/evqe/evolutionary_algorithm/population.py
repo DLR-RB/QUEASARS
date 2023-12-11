@@ -18,11 +18,11 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
     :param species_representatives: set of species representatives. Its cardinality gives the amount of species
     :type species_representatives: Optional[set[EVQEIndividual]]
     :param species_members: dictionary mapping the species_representatives to all indices of the members of its species
-    :type species_members: Optional[dict[EVQEIndividual, set[int]]
+    :type species_members: Optional[dict[EVQEIndividual, list[int]]
     """
 
     species_representatives: Optional[set[EVQEIndividual]]
-    species_members: Optional[dict[EVQEIndividual, set[int]]]
+    species_members: Optional[dict[EVQEIndividual, list[int]]]
 
     @staticmethod
     def random_population(
