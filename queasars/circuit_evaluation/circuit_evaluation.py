@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import BaseEstimator, BaseSampler
+from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
@@ -15,15 +15,18 @@ class BaseCircuitEvaluator(ABC):
     evaluation methods in QUEASARS eigensolvers"""
 
     @abstractmethod
-    def evaluate_circuit(self, circuit: QuantumCircuit, angles: list[float]) -> float:
-        """Evaluates a parameterized quantum circuit, for a given list of rotation angles.
+    def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
+        """Evaluates a list of parameterized QuantumCircuits for a list of parameter_vales. The circuit
+        at index i is evaluated for parameter_values list at index i. The matching result is at index i of
+        the returned list
 
-        :arg circuit: Quantum circuit to evaluate, must be parameterized
-        :type circuit: QuantumCircuit
-        :arg angles: Angles for which the parameterized circuit shall be evaluated
-        :type angles: list[float]
+        :arg circuits: Quantum circuit to evaluate, must be parameterized
+        :type circuits: list[QuantumCircuit]
+        :arg parameter_values: Parameters for which the parameterized circuits shall be evaluated
+        :type parameter_values: list[list[float]]
         :raises CircuitEvaluatorException: If the circuit evaluation fails for any reason
-        :return: The resulting floating point number"""
+        :return: The list of the resulting floating point number
+        :rtype: list[list[float]]"""
 
 
 class CircuitEvaluatorException(Exception):
@@ -41,9 +44,15 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
 
     def __init__(self, estimator: BaseEstimator, operator: BaseOperator):
         """Constructor Method"""
+        self.estimator: BaseEstimator = estimator
+        self.operator: BaseOperator = operator
 
-    def evaluate_circuit(self, circuit: QuantumCircuit, angles: list[float]) -> float:
-        raise NotImplementedError
+    def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
+        evaluation_result: EstimatorResult = self.estimator.run(
+            circuits=circuits, observables=[self.operator] * len(circuits), parameter_values=parameter_values
+        ).result()
+        result_list: list[float] = list(evaluation_result.values)
+        return result_list
 
 
 class BitstringCircuitEvaluator(BaseCircuitEvaluator):
@@ -60,5 +69,5 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
     def __init__(self, sampler: BaseSampler, bitstring_evaluator: BitstringEvaluator):
         """Constructor Method"""
 
-    def evaluate_circuit(self, circuit: QuantumCircuit, angles: list[float]) -> float:
+    def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
         raise NotImplementedError

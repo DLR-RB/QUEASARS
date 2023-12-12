@@ -27,6 +27,7 @@ include = [
 python = ">=3.9.0,<3.12"
 qiskit = ">=0.44.0"
 qiskit-algorithms = ">=0.2.0"
+qiskit-aer=">=0.13.1"
 dask = ">=2023.12.0"
 distributed = ">=2023.12.0"
 
@@ -62,12 +63,14 @@ module = [
     'qiskit.quantum_info.*',
     'qiskit.result',
     'qiskit.result.*',
+    'qiskit_algorithms.algorithm_result',
+    'qiskit_algorithms.algorithm_result.*',
     'qiskit_algorithms.list_or_dict',
     'qiskit_algorithms.list_or_dict.*',
     'qiskit_algorithms.minimum_eigensolvers',
     'qiskit_algorithms.minimum_eigensolvers.*',
-    'qiskit_algorithms.algorithm_result',
-    'qiskit_algorithms.algorithm_result.*',
+    'qiskit_algorithms.optimizers',
+    'qiskit_algorithms.optimizers.*',
 
 
 ]
