@@ -126,3 +126,15 @@ class BaseEvolutionaryOperator(ABC, Generic[POP]):
         :arg operator_context:
         :type operator_context:
         """
+
+    @abstractmethod
+    def get_n_expected_circuit_evaluations(self, population: POP) -> Optional[int]:
+        """Returns the expected amount of circuit evaluations needed for applying
+        this operator to the given population. Since this is often probabilistic,
+        this is only an estimate.
+
+        :arg population: for which the amount of expected circuit evaluations shall be estimated
+        :type population: BasePopulation
+        :return: the amount of expected circuit evaluations needed or None if no estimate can be given
+        :rtype: Optional[int]
+        """
