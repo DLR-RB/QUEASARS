@@ -3,9 +3,11 @@
 
 from dataclasses import dataclass
 from typing import Optional
+from random import Random
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BasePopulation
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import EVQEIndividual
+from queasars.utility.random import new_random_seed
 
 
 @dataclass
@@ -30,6 +32,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
         n_layers: int,
         n_individuals: int,
         randomize_parameter_values: bool,
+        random_seed: Optional[int] = None,
     ):
         """
         Generates a random population of n_individuals EVQEIndividuals with
@@ -45,9 +48,12 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
         :type n_individuals: int
         :arg randomize_parameter_values: dictated whether parameter values shall be initialized randomly or at 0
         :type randomize_parameter_values: bool
+        :arg random_seed: integer seed value to control randomness
+        :type random_seed: Optional[int]
         :return: the generated EVQEPopulation
         :rtype: EVQEPopulation
         """
+        random_generator = Random(random_seed)
 
         # Initialize random individuals
         individuals: tuple[EVQEIndividual, ...] = tuple(
@@ -55,6 +61,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
                 n_qubits=n_qubits,
                 n_layers=n_layers,
                 randomize_parameter_values=randomize_parameter_values,
+                random_seed=new_random_seed(random_generator),
             )
             for _ in range(0, n_individuals)
         )
