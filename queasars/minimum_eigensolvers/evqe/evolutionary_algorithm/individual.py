@@ -10,6 +10,7 @@ from random import Random
 from math import pi, ceil
 
 from qiskit.circuit import QuantumCircuit, Parameter, Gate
+from qiskit.circuit.library import CU3Gate
 from qiskit.converters import circuit_to_gate
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseIndividual
@@ -162,13 +163,13 @@ class ControlledRotationGate(ControlledGate):
         return 3
 
     def apply_gate(self, circuit: QuantumCircuit, parameter_name_prefix: str) -> None:
-        circuit.cu(
-            theta=Parameter(parameter_name_prefix + f"q{self.qubit_index}_theta"),
-            phi=Parameter(parameter_name_prefix + f"q{self.qubit_index}_phi"),
-            lam=Parameter(parameter_name_prefix + f"q{self.qubit_index}_lambda"),
-            gamma=0,
-            control_qubit=self.control_qubit_index,
-            target_qubit=self.qubit_index,
+        circuit.append(
+            instruction=CU3Gate(
+                theta=Parameter(parameter_name_prefix + f"q{self.qubit_index}_theta"),
+                phi=Parameter(parameter_name_prefix + f"q{self.qubit_index}_phi"),
+                lam=Parameter(parameter_name_prefix + f"q{self.qubit_index}_lambda"),
+            ),
+            qargs=(self.control_qubit_index, self.qubit_index),
         )
 
 
