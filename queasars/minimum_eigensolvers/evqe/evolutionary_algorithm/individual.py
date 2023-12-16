@@ -265,11 +265,10 @@ class EVQECircuitLayer:
         # Instead, place a rotation if possible otherwise leave it as an identity gate
         if len(controlled_rotation_qubits) == 1:
             qubit_index = controlled_rotation_qubits[0]
-            if (
-                previous_layer is not None
-                and previous_layer.gates[controlled_rotation_qubits[0]] == EVQEGateType.ROTATION
-            ):
+            if previous_layer is not None and previous_layer.gates[qubit_index].gate_type() == EVQEGateType.ROTATION:
                 chosen_gates[qubit_index] = IdentityGate(qubit_index=qubit_index)
+            else:
+                chosen_gates[qubit_index] = RotationGate(qubit_index=qubit_index)
 
         return EVQECircuitLayer(n_qubits=n_qubits, gates=tuple(chosen_gates))
 
