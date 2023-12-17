@@ -472,8 +472,8 @@ class EVQEIndividual(BaseIndividual):
         :rtype: EVQEIndividual
         """
 
-        if not 0 <= layer_id < len(individual.layers):
-            raise EVQEIndividualException("The given layer id is not valid!")
+        # loop indices to allow negative numbers to refer to the last layers of the individual
+        layer_id = layer_id % len(individual.layers)
 
         if len(parameter_values) != len(individual.layer_parameter_indices[layer_id]):
             raise EVQEIndividualException(
@@ -661,6 +661,9 @@ class EVQEIndividual(BaseIndividual):
         n_qubits: int = self.layers[0].n_qubits
         circuit: QuantumCircuit = QuantumCircuit(n_qubits)
 
+        # loop indices to allow negative numbers to refer to the last layers of the individual
+        parameterized_layers = {layer_id % len(self.layers) for layer_id in parameterized_layers}
+
         # Apply each circuit layer one by one
         for i, layer in enumerate(self.layers):
             gate: Gate
@@ -690,6 +693,9 @@ class EVQEIndividual(BaseIndividual):
         :return: the parameter values
         :rtype: tuple[float, ...]
         """
+        # loop indices to allow negative numbers to refer to the last layers of the individual
+        layer_id = layer_id % len(self.layers)
+
         layer_parameter_values: tuple[float, ...] = tuple(
             parameter_value
             for i, parameter_value in enumerate(self.parameter_values)
