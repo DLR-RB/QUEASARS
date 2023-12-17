@@ -60,13 +60,11 @@ def optimize_layer_of_individual(
 
         return asarray(evaluation_result, dtype=dtype("float64"))
 
-    print("optimize layer!")
     result: OptimizerResult = optimizer.minimize(
         fun=evaluation_callback,
         x0=asarray(parameter_values),
         bounds=[(None, None)] * len(parameter_values),
     )
-    print("finished optimizing layer!")
 
     result_parameter_values: list[float] = list(result.x)
     n_circuit_evaluations: int = result.nfev
@@ -106,7 +104,6 @@ def optimize_all_parameters_of_individual(
 
     while len(layer_indices) > 0:
         layer_to_optimize: int = randomizer.choice(layer_indices)
-        print(f"optimizing layer: {layer_to_optimize}, individual: {hash(individual)}")
         layer_indices.remove(layer_to_optimize)
 
         current_individual, needed_circuit_evaluations = optimize_layer_of_individual(

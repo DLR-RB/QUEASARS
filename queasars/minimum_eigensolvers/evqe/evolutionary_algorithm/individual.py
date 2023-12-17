@@ -272,64 +272,6 @@ class EVQECircuitLayer:
 
         return EVQECircuitLayer(n_qubits=n_qubits, gates=tuple(chosen_gates))
 
-    @staticmethod
-    def squeeze_layers(
-        left_layer: "EVQECircuitLayer", right_layer: "EVQECircuitLayer"
-    ) -> tuple["EVQECircuitLayer", dict[int, int]]:
-        """
-        Tries to merge matching gates from the left_layer into the right_layer. This is done to
-        remove unnecessary parameters. It returns a new left layer with the redundant gates removed,
-        as well as a mapping of the parameter indices of removed gates in the left layer to the
-        parameter indices of the respective gates in the right layer.
-
-        :arg left_layer: left circuit layer to be squeezed
-        :type left_layer: EVQECircuitLayer
-        :arg right_layer: right circuit layer to be squeezed
-        :type right_layer: EVQECircuitLayer
-        :return: a tuple of the left layer with redundant gates removed and the parameter mapping
-        :rtype: tuple[EVQECircuitLayer, dict[int, int]
-        """
-
-        # Ensure that the left and right layers fit together
-        if left_layer.n_qubits != right_layer.n_qubits:
-            raise EVQECircuitLayerException("Only layers with a matching amount of qubits can be squeezed!")
-
-        # Initialize a buffer to hold the gates for the new layer
-        left_gates: list[EVQEGate] = list(left_layer.gates)
-
-        # Note which parameters on the old left layer map to which parameters on the right layer
-        parameter_mapping: dict[int, int] = {}
-
-        # Loop over all qubits and check for matching gates
-        for qubit_index in range(0, left_layer.n_qubits):
-            left_gate: EVQEGate = left_layer.gates[qubit_index]
-            right_gate: EVQEGate = right_layer.gates[qubit_index]
-
-            # If the gates match and are not identity gates, they can be squeezed
-            if left_gate == right_gate and left_gate.gate_type() != EVQEGateType.IDENTITY:
-                # Since the left gate is squeezed into the right layer,
-                # remove it from the left layer
-                left_gates[qubit_index] = IdentityGate(qubit_index=qubit_index)
-
-                # Note the respective parameter mapping for the squeezed gates
-                if left_gate.n_parameters() > 0:
-                    left_parameter_indices = left_layer.get_qubit_parameter_mapping[qubit_index]
-                    right_parameter_indices = right_layer.get_qubit_parameter_mapping[qubit_index]
-                    for i in range(0, left_gate.n_parameters()):
-                        parameter_mapping[left_parameter_indices[i]] = right_parameter_indices[i]
-
-                continue
-
-            # If the gates do not match, keep them as is
-            left_gates[qubit_index] = left_gate
-
-        new_left_layer = EVQECircuitLayer(
-            n_qubits=left_layer.n_qubits,
-            gates=tuple(left_gates),
-        )
-
-        return new_left_layer, parameter_mapping
-
     def __post_init__(self) -> None:
         # Buffer the amount of parameters offered by this circuit layer to prevent recalculating it
         object.__setattr__(self, "_n_parameters", int(sum(gate.n_parameters() for gate in self.gates)))
@@ -355,19 +297,6 @@ class EVQECircuitLayer:
         """
         # This attribute is set in __post_init__ which mypy and pylint do not recognize.
         return self._n_parameters  # type: ignore # pylint: disable=no-member
-
-    @property
-    def get_qubit_parameter_mapping(self) -> MappingProxyType[int, tuple[int, ...]]:
-        """
-        Return a mapping from the qubit index to the indices of the parameter values associated with this qubit.
-            If there are no parameters for this qubit, then there is no key - value pair for the qubits index.
-            The returned mapping is immutable.
-
-        :return: A mapping from the qubit index to the indices of the parameter values
-        :rtype: MappingProxyType[int, tuple[int, ...]]
-        """
-        # This attribute is set in __post_init__ which mypy and pylint do not recognize.
-        return self._qubit_parameter_index_mapping  # type: ignore # pylint: disable=no-member
 
     def is_valid(self) -> bool:
         """Checks whether this circuit layer is valid
@@ -546,7 +475,7 @@ class EVQEIndividual(BaseIndividual):
         if not 0 <= layer_id < len(individual.layers):
             raise EVQEIndividualException("The given layer id is not valid!")
 
-        if len(parameter_values) != len(individual.layer_parameter_indices[individual.layers[layer_id]]):
+        if len(parameter_values) != len(individual.layer_parameter_indices[layer_id]):
             raise EVQEIndividualException(
                 "The amount of given parameter_values does not match the amount needed by the circuit layer!"
             )
@@ -555,7 +484,7 @@ class EVQEIndividual(BaseIndividual):
         for index, layer in enumerate(individual.layers):
             if index != layer_id:
                 layer_parameter_values.append(
-                    tuple(individual.parameter_values[i] for i in individual.layer_parameter_indices[layer])
+                    tuple(individual.parameter_values[i] for i in individual.layer_parameter_indices[index])
                 )
             else:
                 layer_parameter_values.append(parameter_values)
@@ -619,70 +548,30 @@ class EVQEIndividual(BaseIndividual):
         )
 
     @staticmethod
-    def remove_layer(individual: "EVQEIndividual", layer_id: int) -> "EVQEIndividual":
-        """Returns a new individual, based on the given individual, but with a specific
-        circuit layer removed
+    def remove_layers(individual: "EVQEIndividual", n_layers: int) -> "EVQEIndividual":
+        """Returns a new individual, based on the given individual, but with the last n_layers removed
 
-        :param individual: on which the new individual is based on
+        :arg individual: on which the new individual is based on
         :type individual: EVQEIndividual
-        :param layer_id: index of the layer to be removed
-        :type layer_id: int
+        :arg n_layers: amount of last layers to remove
+        :type n_layers: int
         :return: the new individual
         :rtype: EVQEIndividual
         """
-        if not 0 <= layer_id < len(individual.layers):
-            raise EVQEIndividualException("The given layer id is not valid!")
+        if not 0 < n_layers < len(individual.layers):
+            raise EVQEIndividualException("Cannot remove an invalid amount of layers!")
 
-        # Remove the layer
-        layers: list[EVQECircuitLayer] = list(individual.layers)
-        layers.pop(layer_id)
-        # Note the parameters of the removed layer to be removed
-        parameters_to_remove: set[int] = set(
-            parameter for parameter in individual.layer_parameter_indices[individual.layers[layer_id]]
-        )
-
-        adapted_parameter_values: list[float] = list(individual.parameter_values)
-
-        # If the removed layer was neither the first nor the last, its surrounding layers can be squeezed
-        if layer_id not in {0, len(individual.layers) - 1}:
-            # Squeeze the surrounding layers
-            left_layer = layers[layer_id - 1]
-            right_layer = layers[layer_id]
-
-            new_left_layer, parameter_mapping = EVQECircuitLayer.squeeze_layers(
-                left_layer=left_layer, right_layer=right_layer
-            )
-            layers[layer_id - 1] = new_left_layer
-
-            if len(parameter_mapping) > 0:
-                left_starting_index: int = individual.layer_parameter_indices[left_layer][0]
-                right_starting_index: int = individual.layer_parameter_indices[right_layer][0]
-
-                # Add the parameter values of the removed gates on the left to the gates on the right
-                for (
-                    left_parameter_index,
-                    right_parameter_index,
-                ) in parameter_mapping.items():
-                    adapted_parameter_values[left_starting_index + left_parameter_index] += individual.parameter_values[
-                        right_starting_index + right_parameter_index
-                    ]
-
-                # Note the parameters of the squeezed gates to be removed
-                parameters_to_remove.update(
-                    left_starting_index + parameter_index for parameter_index in parameter_mapping
-                )
-
-        # Actually remove the parameters which were noted to be removed
-        adapted_parameter_values = [
-            parameter_value
-            for i, parameter_value in enumerate(adapted_parameter_values)
-            if i not in parameters_to_remove
+        # Remove the last layers
+        layers: list[EVQECircuitLayer] = list(individual.layers)[0 : len(individual.layers) - n_layers]
+        # Get the parameter values for the remaining layers
+        parameter_values: list[float] = list(individual.parameter_values)[
+            0 : individual.layer_parameter_indices[len(individual.layers) - n_layers][0]
         ]
 
         return EVQEIndividual(
             n_qubits=individual.n_qubits,
             layers=tuple(layers),
-            parameter_values=tuple(adapted_parameter_values),
+            parameter_values=tuple(parameter_values),
         )
 
     @staticmethod
@@ -708,10 +597,10 @@ class EVQEIndividual(BaseIndividual):
             raise EVQEIndividualException("The created individual is not valid!")
 
         # Initialize an immutable mapping to hold the parameter indices for each layer
-        layer_parameter_indices: dict[EVQECircuitLayer, tuple[int, ...]] = {}
+        layer_parameter_indices: dict[int, tuple[int, ...]] = {}
         parameter_index: int = 0
-        for layer in self.layers:
-            layer_parameter_indices[layer] = tuple(range(parameter_index, parameter_index + layer.n_parameters))
+        for i, layer in enumerate(self.layers):
+            layer_parameter_indices[i] = tuple(range(parameter_index, parameter_index + layer.n_parameters))
             parameter_index += layer.n_parameters
         object.__setattr__(self, "_layer_parameter_indices", MappingProxyType(layer_parameter_indices))
 
@@ -743,9 +632,9 @@ class EVQEIndividual(BaseIndividual):
     @property
     def layer_parameter_indices(
         self,
-    ) -> MappingProxyType[EVQECircuitLayer, tuple[int, ...]]:
+    ) -> MappingProxyType[int, tuple[int, ...]]:
         """
-        :return: An immutable mapping, which maps the individuals circuit layers to
+        :return: An immutable mapping, which maps the layer index to
             the parameter indices which belong ot it
         :rtype: MappingProxyType[EVQECircuitLayer, tuple[int, ...]]
         """
@@ -781,8 +670,8 @@ class EVQEIndividual(BaseIndividual):
             else:
                 layer_parameter_values: tuple[float, ...] = tuple(
                     parameter_value
-                    for i, parameter_value in enumerate(self.parameter_values)
-                    if i in self.layer_parameter_indices[layer]
+                    for j, parameter_value in enumerate(self.parameter_values)
+                    if j in self.layer_parameter_indices[i]
                 )
                 gate = layer.get_layer_gate(layer_id=i, parameter_values=layer_parameter_values)
             circuit.append(instruction=gate, qargs=range(0, n_qubits))
@@ -804,7 +693,7 @@ class EVQEIndividual(BaseIndividual):
         layer_parameter_values: tuple[float, ...] = tuple(
             parameter_value
             for i, parameter_value in enumerate(self.parameter_values)
-            if i in self.layer_parameter_indices[self.layers[layer_id]]
+            if i in self.layer_parameter_indices[layer_id]
         )
         return layer_parameter_values
 
