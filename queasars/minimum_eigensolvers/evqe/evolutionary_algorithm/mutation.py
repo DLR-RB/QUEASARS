@@ -1,8 +1,11 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
+
+from abc import abstractmethod
+from dataclasses import dataclass
 from math import ceil
 from random import Random
-from typing import Optional
+from typing import Optional, TypeAlias, Callable
 
 from dask.distributed import Future, wait
 from numpy import asarray, reshape, dtype
@@ -11,7 +14,7 @@ from qiskit.circuit import QuantumCircuit
 from qiskit_algorithms.optimizers import Optimizer, OptimizerResult
 
 from queasars.circuit_evaluation.circuit_evaluation import BaseCircuitEvaluator
-from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator, POP, OperatorContext
+from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator, OperatorContext
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import (
     EVQEIndividual,
 )
@@ -24,6 +27,7 @@ def optimize_layer_of_individual(
     layer_id: int,
     evaluator: BaseCircuitEvaluator,
     optimizer: Optimizer,
+    random_seed: Optional[int],
 ) -> tuple[EVQEIndividual, int]:
     """
     Optimizes the parameter values of one given circuit layer of the given individual. Returns a new
@@ -37,6 +41,8 @@ def optimize_layer_of_individual(
     :type evaluator: BaseCircuitEvaluator
     :arg optimizer: qiskit optimizer used to optimize the parameter values
     :type optimizer: Optimizer
+    :arg random_seed: integer value to control randomness
+    :type random_seed: int
     :return: a new individual with optimized parameter values for the given layer
     :rtype: tuple[EVQEIndividual, int]
     """
@@ -111,24 +117,127 @@ def optimize_all_parameters_of_individual(
             layer_id=layer_to_optimize,
             evaluator=evaluator,
             optimizer=optimizer,
+            random_seed=new_random_seed(randomizer),
         )
         n_circuit_evaluations += needed_circuit_evaluations
 
     return current_individual, n_circuit_evaluations
 
 
-class EVQELastLayerParameterSearch(BaseEvolutionaryOperator[EVQEPopulation]):
+def remove_random_layers_from_individual(individual: EVQEIndividual, random_seed: Optional[int]) -> EVQEIndividual:
+    """
+    Returns a new individual which is based on the given individual with its last few layers randomly removed
+
+    :arg individual: from which to remove layers
+    :type individual: EVQEIndividual
+    :arg random_seed: integer value to control randomness
+    :type random_seed: Optional[int]
+    :return: the new individual
+    :rtype: EVQEIndividual
+    """
+    random_generator: Random = Random(random_seed)
+    n_layers_to_remove: int = random_generator.randrange(1, len(individual.layers))
+    return EVQEIndividual.remove_layers(individual=individual, n_layers=n_layers_to_remove)
+
+
+MutationFunction: TypeAlias = Callable[
+    [EVQEIndividual, BaseCircuitEvaluator, Optimizer, Optional[int]], tuple[EVQEIndividual, int]
+]
+
+
+@dataclass
+class EVQEOperatorContext(OperatorContext):
+    """Dataclass containing additional references needed by operators of the EVQE algorithm
+
+    :param circuit_evaluator: CircuitEvaluator used to get the expectation value of the circuits (Individuals)
+    :type circuit_evaluator: BaseCircuitEvaluator
+    :param result_callback: Callback function to report results from evaluating a population
+    :type result_callback: Callable[[BasePopulationEvaluationResult], None]
+    :param circuit_evaluation_count_callback: Callback functions to report the number of circuit evaluations
+        used by an operator.
+    :type circuit_evaluation_count_callback: Callable[[Int], None]
+    :param dask_client: Dask client to use for task parallelization
+    :type: Client
+    :param optimizer: qiskit optimizer used to optimize the parameter values
+    :type optimizer: Optimizer
+    :param optimizer_n_circuit_evaluations: amount of circuit evaluations needed by the optimizer, None if unknown
+    :type optimizer_n_circuit_evaluations: Optional[int]
+    """
+
+    optimizer: Optimizer
+    optimizer_n_circuit_evaluations: Optional[int]
+
+
+class BaseEVQEMutationOperator(BaseEvolutionaryOperator[EVQEPopulation, EVQEOperatorContext]):
+    """Base class for mutation operators for the EVQE algorithm.
+    This operator empties the species_members information of the EVQEPopulation
+
+    :arg mutation_function: function to be applied to the individuals.
+        Takes an EVQEIndividual, BaseCircuitEvaluator, Optimizer, and a random seed (int) and returns a tuple
+        of the new individual and the amount of circuit evaluations (int) which were needed
+    :type mutation_function: MutationFunction
+    :arg mutation_probability: with which the mutation_function is applied to an individual
+    :type mutation_probability: float
+    :arg random_seed: integer value to control randomness
+    :type random_seed: int
+    """
+
+    def __init__(
+        self,
+        mutation_function: MutationFunction,
+        mutation_probability: float,
+        random_seed: Optional[int] = None,
+    ):
+        """Constructor method"""
+        self.mutation_function: MutationFunction = mutation_function
+        self.mutation_probability: float = mutation_probability
+        self.random_generator: Random = Random(random_seed)
+
+    def apply_operator(self, population: EVQEPopulation, operator_context: EVQEOperatorContext) -> EVQEPopulation:
+        mutated_individuals: dict[int, Future] = {}
+        total_circuit_evaluations: int = 0
+
+        for i, individual in enumerate(population.individuals):
+            if self.random_generator.random() <= self.mutation_probability:
+                mutated_individuals[i] = operator_context.dask_client.submit(
+                    self.mutation_function,
+                    individual,
+                    operator_context.circuit_evaluator,
+                    operator_context.optimizer,
+                    new_random_seed(random_generator=self.random_generator),
+                )
+
+        wait(mutated_individuals.values())
+
+        new_individuals = list(population.individuals)
+        for i, result in mutated_individuals.items():
+            new_individual, circuit_evaluations = result.result()
+            new_individuals[i] = new_individual
+            total_circuit_evaluations += circuit_evaluations
+
+        del mutated_individuals
+
+        operator_context.circuit_evaluation_count_callback(total_circuit_evaluations)
+
+        return EVQEPopulation(
+            individuals=tuple(new_individuals),
+            species_representatives=population.species_representatives,
+            species_members={},
+        )
+
+    @abstractmethod
+    def get_n_expected_circuit_evaluations(
+        self, population: EVQEPopulation, operator_context: EVQEOperatorContext
+    ) -> Optional[int]:
+        pass
+
+
+class EVQELastLayerParameterSearch(BaseEVQEMutationOperator):
     """Mutation operator which optimizes the parameters for some EVQEIndividuals of the population for
     their last layer only. This operator empties the species_members information of the EVQEPopulation
 
     :param mutation_probability: with which an individual is mutated. Must be in the range (0, 1)
     :type mutation_probability: float
-    :param optimizer: qiskit optimizer which is used to optimize the parameters
-    :type optimizer: Optimizer
-    :param expected_circuit_evaluations_per_optimizer_run: amount of circuit evaluations the optimizer needs per
-        optimization run. This can be an estimate, or a value, which was set as a setting for the optimizer.
-        If no estimate can be made this value should be set to None
-    :type expected_circuit_evaluations_per_optimizer_run: Optional[int]
     :param random_seed: seed value to control randomness
     :type random_seed: int
     """
@@ -136,73 +245,39 @@ class EVQELastLayerParameterSearch(BaseEvolutionaryOperator[EVQEPopulation]):
     def __init__(
         self,
         mutation_probability: float,
-        optimizer: Optimizer,
-        expected_circuit_evaluations_per_optimizer_run: Optional[int],
         random_seed: Optional[int] = None,
     ):
-        self.mutation_probability: float = mutation_probability
-        self.optimizer: Optimizer = optimizer
-        self.expected_circuit_evaluations_per_optimizer_run: Optional[
-            int
-        ] = expected_circuit_evaluations_per_optimizer_run
-        self.random_generator: Random = Random(random_seed)
-
-    def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        mutated_individuals: dict[int, Future] = {}
-        total_circuit_evaluations: int = 0
-
-        for i, individual in enumerate(population.individuals):
-            if self.random_generator.random() <= self.mutation_probability:
-                last_layer_id = len(individual.layers) - 1
-                mutated_individuals[i] = operator_context.dask_client.submit(
-                    optimize_layer_of_individual,
-                    individual,
-                    last_layer_id,
-                    operator_context.circuit_evaluator,
-                    self.optimizer,
-                )
-
-        wait(mutated_individuals.values())
-
-        new_individuals = list(population.individuals)
-        for i, result in mutated_individuals.items():
-            new_individual, circuit_evaluations = result.result()
-            new_individuals[i] = new_individual
-            total_circuit_evaluations += circuit_evaluations
-
-        del mutated_individuals
-
-        operator_context.circuit_evaluation_count_callback(total_circuit_evaluations)
-
-        return EVQEPopulation(
-            individuals=tuple(new_individuals),
-            species_representatives=population.species_representatives,
-            species_members={},
+        mutation_function: MutationFunction = (
+            lambda individual, evaluator, optimizer, seed: optimize_layer_of_individual(
+                individual=individual, layer_id=-1, evaluator=evaluator, optimizer=optimizer, random_seed=seed
+            )
+        )
+        super().__init__(
+            mutation_function=mutation_function, mutation_probability=mutation_probability, random_seed=random_seed
         )
 
-    def get_n_expected_circuit_evaluations(self, population: POP) -> Optional[int]:
-        if self.expected_circuit_evaluations_per_optimizer_run is not None:
+    def apply_operator(self, population: EVQEPopulation, operator_context: EVQEOperatorContext) -> EVQEPopulation:
+        return super().apply_operator(population=population, operator_context=operator_context)
+
+    def get_n_expected_circuit_evaluations(
+        self, population: EVQEPopulation, operator_context: EVQEOperatorContext
+    ) -> Optional[int]:
+        if operator_context.optimizer_n_circuit_evaluations is not None:
             expectation_value: float = (
                 self.mutation_probability
                 * len(population.individuals)
-                * self.expected_circuit_evaluations_per_optimizer_run
+                * operator_context.optimizer_n_circuit_evaluations
             )
             return ceil(expectation_value)
         return None
 
 
-class EVQEParameterSearch(BaseEvolutionaryOperator[EVQEPopulation]):
+class EVQEParameterSearch(BaseEVQEMutationOperator):
     """Mutation operator which optimizes the parameters for some EVQEIndividuals in the population layer by layer in
     a random order. This operator empties the species_members information of the EVQEPopulation
 
     :param mutation_probability: with which an individual is mutated. Must be in the range (0, 1)
     :type mutation_probability: float
-    :param optimizer: qiskit optimizer which is used to optimize the parameters
-    :type optimizer: Optimizer
-    :param expected_circuit_evaluations_per_optimizer_run: amount of circuit evaluations the optimizer needs per
-        optimization run. This can be an estimate, or a value, which was set as a setting for the optimizer.
-        If no estimate can be made this value should be set to None
-    :type expected_circuit_evaluations_per_optimizer_run: Optional[int]
     :param random_seed: seed value to control randomness
     :type random_seed: int
     """
@@ -210,67 +285,35 @@ class EVQEParameterSearch(BaseEvolutionaryOperator[EVQEPopulation]):
     def __init__(
         self,
         mutation_probability: float,
-        optimizer: Optimizer,
-        expected_circuit_evaluations_per_optimizer_run: Optional[int],
         random_seed: Optional[int] = None,
     ):
-        """Constructor method."""
-        self.mutation_probability: float = mutation_probability
-        self.optimizer: Optimizer = optimizer
-        self.expected_circuit_evaluations_per_optimizer_run: Optional[
-            int
-        ] = expected_circuit_evaluations_per_optimizer_run
-        self.random_generator: Random = Random(random_seed)
-
-    def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        mutated_individuals: dict[int, Future] = {}
-        total_circuit_evaluations: int = 0
-
-        for i, individual in enumerate(population.individuals):
-            if self.random_generator.random() <= self.mutation_probability:
-                seed = new_random_seed(self.random_generator)
-                mutated_individuals[i] = operator_context.dask_client.submit(
-                    optimize_all_parameters_of_individual,
-                    individual,
-                    operator_context.circuit_evaluator,
-                    self.optimizer,
-                    seed,
-                )
-
-        wait(mutated_individuals.values())
-
-        new_individuals = list(population.individuals)
-        for i, result in mutated_individuals.items():
-            new_individual, circuit_evaluations = result.result()
-            new_individuals[i] = new_individual
-            total_circuit_evaluations += circuit_evaluations
-
-        del mutated_individuals
-
-        operator_context.circuit_evaluation_count_callback(total_circuit_evaluations)
-
-        return EVQEPopulation(
-            individuals=tuple(new_individuals),
-            species_representatives=population.species_representatives,
-            species_members={},
+        """Constructor method"""
+        mutation_function: MutationFunction = optimize_all_parameters_of_individual
+        super().__init__(
+            mutation_function=mutation_function, mutation_probability=mutation_probability, random_seed=random_seed
         )
 
-    def get_n_expected_circuit_evaluations(self, population: EVQEPopulation) -> Optional[int]:
+    def apply_operator(self, population: EVQEPopulation, operator_context: EVQEOperatorContext) -> EVQEPopulation:
+        return super().apply_operator(population=population, operator_context=operator_context)
+
+    def get_n_expected_circuit_evaluations(
+        self, population: EVQEPopulation, operator_context: EVQEOperatorContext
+    ) -> Optional[int]:
         average_n_layers: float = sum(len(individual.layers) for individual in population.individuals) / len(
             population.individuals
         )
-        if self.expected_circuit_evaluations_per_optimizer_run is not None:
+        if operator_context.optimizer_n_circuit_evaluations is not None:
             expectation_value: float = (
                 self.mutation_probability
                 * len(population.individuals)
                 * average_n_layers
-                * self.expected_circuit_evaluations_per_optimizer_run
+                * operator_context.optimizer_n_circuit_evaluations
             )
             return ceil(expectation_value)
         return None
 
 
-class EVQETopologicalSearch(BaseEvolutionaryOperator[EVQEPopulation]):
+class EVQETopologicalSearch(BaseEVQEMutationOperator):
     """Mutation operator which adds one random circuit layer to some individuals of the population.
     This operator empties the species_members information of the EVQEPopulation
 
@@ -281,26 +324,45 @@ class EVQETopologicalSearch(BaseEvolutionaryOperator[EVQEPopulation]):
     """
 
     def __init__(self, mutation_probability: float, random_seed: Optional[int] = None):
-        self.mutation_probability: float = mutation_probability
-        self.random_generator: Random = Random(random_seed)
-
-    def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        new_individuals: list[EVQEIndividual] = list(population.individuals)
-
-        for i, individual in enumerate(population.individuals):
-            if self.random_generator.random() <= self.mutation_probability:
-                new_individuals[i] = EVQEIndividual.add_random_layers(
-                    individual=individual,
-                    n_layers=1,
-                    randomize_parameter_values=False,
-                    random_seed=new_random_seed(self.random_generator),
-                )
-
-        return EVQEPopulation(
-            individuals=tuple(new_individuals),
-            species_representatives=population.species_representatives,
-            species_members={},
+        mutation_function: MutationFunction = lambda individual, evaluator, optimizer, seed: (
+            EVQEIndividual.add_random_layers(individual=individual, n_layers=1, randomize_parameter_values=False),
+            0,
+        )
+        super().__init__(
+            mutation_function=mutation_function, mutation_probability=mutation_probability, random_seed=random_seed
         )
 
-    def get_n_expected_circuit_evaluations(self, population: EVQEPopulation) -> Optional[int]:
+    def apply_operator(self, population: EVQEPopulation, operator_context: EVQEOperatorContext) -> EVQEPopulation:
+        return super().apply_operator(population=population, operator_context=operator_context)
+
+    def get_n_expected_circuit_evaluations(
+        self, population: EVQEPopulation, operator_context: EVQEOperatorContext
+    ) -> Optional[int]:
+        return 0
+
+
+class EVQELayerRemoval(BaseEVQEMutationOperator):
+    """Mutation operator which removes a random amount of circuit layers from some individuals of the population.
+    This operator empties the species_members information of the EVQEPopulation
+
+    :param mutation_probability: with which an individual is mutated. Must be in the range (0, 1)
+    :type mutation_probability: float
+    :param random_seed: integer value to control randomness
+    :type random_seed: Optional[int]"""
+
+    def __init__(self, mutation_probability: float, random_seed: Optional[int]):
+        mutation_function: MutationFunction = lambda individual, evaluator, optimizer, seed: (
+            remove_random_layers_from_individual(individual=individual, random_seed=seed),
+            0,
+        )
+        super().__init__(
+            mutation_function=mutation_function, mutation_probability=mutation_probability, random_seed=random_seed
+        )
+
+    def apply_operator(self, population: EVQEPopulation, operator_context: EVQEOperatorContext) -> EVQEPopulation:
+        return super().apply_operator(population=population, operator_context=operator_context)
+
+    def get_n_expected_circuit_evaluations(
+        self, population: EVQEPopulation, operator_context: EVQEOperatorContext
+    ) -> Optional[int]:
         return 0

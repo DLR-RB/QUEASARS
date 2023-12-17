@@ -99,7 +99,6 @@ class OperatorContext:
     :type circuit_evaluation_count_callback: Callable[[Int], None]
     :param dask_client: Dask client to use for task parallelization
     :type: Client
-
     """
 
     circuit_evaluator: BaseCircuitEvaluator
@@ -108,14 +107,17 @@ class OperatorContext:
     dask_client: Client
 
 
-class BaseEvolutionaryOperator(ABC, Generic[POP]):
+CON = TypeVar("CON", bound=OperatorContext)
+
+
+class BaseEvolutionaryOperator(ABC, Generic[POP, CON]):
     """Base class representing any evolutionary operator, which maps from a population to a new population"""
 
     @abstractmethod
     def apply_operator(
         self,
         population: POP,
-        operator_context: OperatorContext,
+        operator_context: CON,
     ) -> POP:
         """
         Applies the operator to the population and returns a new, changed population. The original population
@@ -123,18 +125,20 @@ class BaseEvolutionaryOperator(ABC, Generic[POP]):
 
         :arg population: Population to apply the operator to
         :type population: BasePopulation
-        :arg operator_context:
-        :type operator_context:
+        :arg operator_context: additional context needed by the operator
+        :type operator_context: OperatorContext
         """
 
     @abstractmethod
-    def get_n_expected_circuit_evaluations(self, population: POP) -> Optional[int]:
+    def get_n_expected_circuit_evaluations(self, population: POP, operator_context: CON) -> Optional[int]:
         """Returns the expected amount of circuit evaluations needed for applying
         this operator to the given population. Since this is often probabilistic,
         this is only an estimate.
 
         :arg population: for which the amount of expected circuit evaluations shall be estimated
         :type population: BasePopulation
+        :arg operator_context: additional context needed by the Operator
+        :type operator_context: OperatorContext
         :return: the amount of expected circuit evaluations needed or None if no estimate can be given
         :rtype: Optional[int]
         """
