@@ -276,18 +276,13 @@ class EVQECircuitLayer:
         # Buffer the amount of parameters offered by this circuit layer to prevent recalculating it
         object.__setattr__(self, "_n_parameters", int(sum(gate.n_parameters() for gate in self.gates)))
 
+        # Buffer the amount of controlled gates to prevent recounting them
+        n_controlled_gates = sum(1 for gate in self.gates if isinstance(gate, ControlledGate))
+        object.__setattr__(self, "_n_controlled_gates", n_controlled_gates)
+
         # Disallow the creation of invalid circuit layers
         if not self.is_valid():
             raise EVQECircuitLayerException("The created layer is invalid!")
-
-        # Buffer a mapping for the parameter values indices associated with each qubit
-        parameter_index: int = 0
-        result_mapping: dict[int, tuple[int, ...]] = {}
-        for qubit_index, gate in enumerate(self.gates):
-            if gate.n_parameters() > 0:
-                result_mapping[qubit_index] = tuple(parameter_index + i for i in range(0, gate.n_parameters()))
-                parameter_index += gate.n_parameters()
-        object.__setattr__(self, "_qubit_parameter_index_mapping", MappingProxyType(result_mapping))
 
     @property
     def n_parameters(self) -> int:
@@ -297,6 +292,15 @@ class EVQECircuitLayer:
         """
         # This attribute is set in __post_init__ which mypy and pylint do not recognize.
         return self._n_parameters  # type: ignore # pylint: disable=no-member
+
+    @property
+    def n_controlled_gates(self) -> int:
+        """
+        :return: The number of controlled gates in this circuit layer
+        :rtype: int
+        """
+        # This attribute is set in __post_init__ which mypy and pylint do not recognize.
+        return self._n_controlled_gates  # type: ignore # pylint: disable=no-member
 
     def is_valid(self) -> bool:
         """Checks whether this circuit layer is valid
@@ -702,6 +706,14 @@ class EVQEIndividual(BaseIndividual):
             if i in self.layer_parameter_indices[layer_id]
         )
         return layer_parameter_values
+
+    def get_n_controlled_gates(self) -> int:
+        """Get the amount of controlled gates over all circuit layers of this individual
+
+        :return: the number of controlled gates
+        :rtype: int
+        """
+        return sum(layer.n_controlled_gates for layer in self.layers)
 
     def __hash__(self):
         return hash((self.n_qubits, self.layers))
