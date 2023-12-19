@@ -646,12 +646,12 @@ class EVQEIndividual(BaseIndividual):
         return self._layer_parameter_indices  # type: ignore # pylint: disable=no-member
 
     def get_quantum_circuit(self) -> QuantumCircuit:
-        return self.get_partially_parameterized_quantum_circuit(set())
-
-    def get_parameterized_quantum_circuit(self) -> QuantumCircuit:
         circuit: QuantumCircuit = self.get_quantum_circuit()
         circuit.assign_parameters(parameters=self.parameter_values, inplace=True)
         return circuit
+
+    def get_parameterized_quantum_circuit(self) -> QuantumCircuit:
+        return self.get_partially_parameterized_quantum_circuit(set(range(0, len(self.layers))))
 
     def get_partially_parameterized_quantum_circuit(self, parameterized_layers: set[int]):
         """Returns the quantum circuit as represented by this individual with only some

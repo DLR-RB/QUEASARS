@@ -21,10 +21,13 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
     :type species_representatives: Optional[set[EVQEIndividual]]
     :param species_members: dictionary mapping the species_representatives to all indices of the members of its species
     :type species_members: Optional[dict[EVQEIndividual, list[int]]
+    :param species_membership: dictionary mapping each individual's index to its species representative
+    :type species_membership: Optional[dict[int, int]
     """
 
     species_representatives: Optional[set[EVQEIndividual]]
     species_members: Optional[dict[EVQEIndividual, list[int]]]
+    species_membership: Optional[dict[int, EVQEIndividual]]
 
     @staticmethod
     def random_population(
@@ -70,4 +73,5 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
             individuals=individuals,
             species_representatives=None,
             species_members=None,
+            species_membership=None,
         )

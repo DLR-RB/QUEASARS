@@ -222,7 +222,8 @@ class BaseEVQEMutationOperator(BaseEvolutionaryOperator[EVQEPopulation, EVQEOper
         return EVQEPopulation(
             individuals=tuple(new_individuals),
             species_representatives=population.species_representatives,
-            species_members={},
+            species_members=None,
+            species_membership=None,
         )
 
     @abstractmethod
