@@ -12,4 +12,4 @@ def new_random_seed(random_generator: Random) -> int:
     :return: a new random seed
     :rtype: int
     """
-    return random_generator.randint(-2147483648, 2147483647)
+    return random_generator.randint(0, 2147483647)
