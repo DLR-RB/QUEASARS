@@ -16,7 +16,7 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.population import
 )
 
 
-class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation, OperatorContext]):
+class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
     """Class representing the speciation evolutionary operator within the EVQE algorithm.
 
     :param genetic_distance_threshold: maximum genetic distance between two individuals to classify
@@ -67,6 +67,7 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation, OperatorContext]):
         species_members = {
             population.individuals[self.random_generator.choice(members)]: members
             for members in species_members.values()
+            if len(members) > 0
         }
         for representative, members in species_members.items():
             for member in members:

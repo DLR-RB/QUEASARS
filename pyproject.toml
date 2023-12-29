@@ -71,6 +71,8 @@ module = [
     'qiskit_algorithms.minimum_eigensolvers.*',
     'qiskit_algorithms.optimizers',
     'qiskit_algorithms.optimizers.*',
+    'qiskit_algorithms.utils',
+    'qiskit_algorithms.utils.*',
 
 
 ]

@@ -75,15 +75,18 @@ class BasePopulationEvaluationResult(ABC, Generic[IND]):
 
     :param population: Population which was evaluated
     :type population: BasePopulation
-    :param expectation_values: Dictionary containing expectation values for the individuals of the evaluated population
-    :type expectation_values: dict[BaseIndividual, Optional[float]]
+    :param expectation_values: Expectation values for the individuals of the evaluated population
+    :type expectation_values: tuple[Optional[float], ...]
     :param best_individual: Best individual from within the evaluated population
     :type best_individual: BaseIndividual
+    :param best_expectation_value: Expectation value for the best individual
+    :type best_expectation_value: float
     """
 
     population: BasePopulation[IND]
-    expectation_values: dict[IND, Optional[float]]
+    expectation_values: tuple[Optional[float], ...]
     best_individual: IND
+    best_expectation_value: float
 
 
 @dataclass
@@ -107,17 +110,14 @@ class OperatorContext:
     dask_client: Client
 
 
-CON = TypeVar("CON", bound=OperatorContext)
-
-
-class BaseEvolutionaryOperator(ABC, Generic[POP, CON]):
+class BaseEvolutionaryOperator(ABC, Generic[POP]):
     """Base class representing any evolutionary operator, which maps from a population to a new population"""
 
     @abstractmethod
     def apply_operator(
         self,
         population: POP,
-        operator_context: CON,
+        operator_context: OperatorContext,
     ) -> POP:
         """
         Applies the operator to the population and returns a new, changed population. The original population
@@ -130,7 +130,7 @@ class BaseEvolutionaryOperator(ABC, Generic[POP, CON]):
         """
 
     @abstractmethod
-    def get_n_expected_circuit_evaluations(self, population: POP, operator_context: CON) -> Optional[int]:
+    def get_n_expected_circuit_evaluations(self, population: POP, operator_context: OperatorContext) -> Optional[int]:
         """Returns the expected amount of circuit evaluations needed for applying
         this operator to the given population. Since this is often probabilistic,
         this is only an estimate.
