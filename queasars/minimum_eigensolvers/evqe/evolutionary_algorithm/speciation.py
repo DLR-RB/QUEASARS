@@ -56,6 +56,7 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
                     species_members[representative].append(i)
                     species_membership[i] = representative
                     found_species = True
+                    break
 
             # if no close representative was found, make the individual its own representative, creating a new species
             if not found_species:
@@ -64,20 +65,21 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
                 species_membership[i] = individual
 
         # after species assignment draw new random species representatives
-        species_members = {
+        new_species_members: dict[EVQEIndividual, list[int]] = {
             population.individuals[self.random_generator.choice(members)]: members
             for members in species_members.values()
             if len(members) > 0
         }
-        for representative, members in species_members.items():
+        species_membership = dict()
+        for representative, members in new_species_members.items():
             for member in members:
                 species_membership[member] = representative
-        species_representatives = set(species_members.keys())
+        species_representatives = set(new_species_members.keys())
 
         return EVQEPopulation(
             individuals=population.individuals,
             species_representatives=species_representatives,
-            species_members=species_members,
+            species_members=new_species_members,
             species_membership=species_membership,
         )
 

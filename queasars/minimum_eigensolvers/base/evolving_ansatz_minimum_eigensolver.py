@@ -25,11 +25,10 @@ from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
 
 
 POP = TypeVar("POP", bound=BasePopulation)
-CON = TypeVar("CON", bound=OperatorContext)
 
 
 @dataclass
-class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP, CON]):
+class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     """Configuration for the EvolvingAnsatzMinimumEigensolver
 
     :param population_initializer: Initialization function, which creates the initial population
