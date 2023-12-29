@@ -14,6 +14,8 @@ class BitstringEvaluator:
 
     def __init__(self, input_length: int, evaluation_function: Callable[[str], float]):
         """Constructor method"""
+        self._input_length: int = input_length
+        self.evaluation_function: Callable[[str], float] = evaluation_function
 
     def evaluate_bitstring(self, bitstring: str) -> float:
         """Applies the evaluation_function to the given bitstring and returns the resulting float.
@@ -24,7 +26,16 @@ class BitstringEvaluator:
         :return: Floating point number returned by the evaluation_function.
         :rtype: float
         """
-        raise NotImplementedError
+        return self.evaluation_function(bitstring)
+
+    @property
+    def input_length(self):
+        """Gets the length of the bitstrings on which this BitstringEvaluator may act
+
+        :return: length of the bitstrings on which this BistringEvaluator may act
+        :rtype: int
+        """
+        return self._input_length
 
 
 class BitstringEvaluatorException(Exception):

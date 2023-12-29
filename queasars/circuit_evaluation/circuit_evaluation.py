@@ -4,8 +4,11 @@
 from abc import ABC, abstractmethod
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult
+from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
+from qiskit.result import QuasiDistribution
+
+from qiskit_algorithms.minimum_eigensolvers.diagonal_estimator import _DiagonalEstimator
 
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 
@@ -28,6 +31,15 @@ class BaseCircuitEvaluator(ABC):
         :return: The list of the resulting floating point number
         :rtype: list[list[float]]"""
 
+    @property
+    def n_qubits(self) -> int:
+        """Get the size of the quantum circuits (in terms of qubits), which this CircuitEvaluator can evaluate
+
+        :return: the amount of qubits
+        :rtype: int
+        """
+        return 0
+
 
 class CircuitEvaluatorException(Exception):
     """Class for exceptions caused during the evaluation of quantum circuits"""
@@ -36,15 +48,21 @@ class CircuitEvaluatorException(Exception):
 class OperatorCircuitEvaluator(BaseCircuitEvaluator):
     """Class which evaluates quantum circuits by estimating the eigenvalue of the circuit for a given operator
 
-    :param estimator: Estimator primitive used for estimating the circuit's eigenvalue
-    :type estimator: BaseEstimator
-    :param operator: Operator for which the eigenvalue is estimated
+    :param qiskit_primitive: Qiskit primitive used for estimating the circuit's eigenvalue.
+        Must be an Estimator or a Sampler
+    :type qiskit_primitive: BaseEstimator | BaseSampler
+    :param operator: Operator for which the eigenvalue is estimated. If the qiskit_primitive is a sampler it
+        must be diagonal
     :type operator: BaseOperator
     """
 
-    def __init__(self, estimator: BaseEstimator, operator: BaseOperator):
+    def __init__(self, qiskit_primitive: BaseEstimator | BaseSampler, operator: BaseOperator):
         """Constructor Method"""
-        self.estimator: BaseEstimator = estimator
+        self.estimator: BaseEstimator
+        if isinstance(qiskit_primitive, BaseEstimator):
+            self.estimator = qiskit_primitive
+        if isinstance(qiskit_primitive, BaseSampler):
+            self.estimator = _DiagonalEstimator(sampler=qiskit_primitive)
         self.operator: BaseOperator = operator
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
@@ -53,6 +71,10 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         ).result()
         result_list: list[float] = list(evaluation_result.values)
         return result_list
+
+    @property
+    def n_qubits(self) -> int:
+        return self.operator.num_qubits
 
 
 class BitstringCircuitEvaluator(BaseCircuitEvaluator):
@@ -68,6 +90,26 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
 
     def __init__(self, sampler: BaseSampler, bitstring_evaluator: BitstringEvaluator):
         """Constructor Method"""
+        self.sampler: BaseSampler = sampler
+        self.bitstring_evaluator: BitstringEvaluator = bitstring_evaluator
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
-        raise NotImplementedError
+        circuits = [circuit.measure_all(inplace=False) for circuit in circuits]
+        evaluation_result: SamplerResult = self.sampler.run(
+            circuits=circuits, parameter_values=parameter_values
+        ).result()
+        quasi_distributions: list[QuasiDistribution] = evaluation_result.quasi_dists
+        expectation_values: list[float] = []
+        for distribution in quasi_distributions:
+            binary_distribution = distribution.binary_probabilities(num_bits=self.bitstring_evaluator.input_length)
+            expectation_values.append(
+                sum(
+                    probability * self.bitstring_evaluator.evaluate_bitstring(bitstring)
+                    for bitstring, probability in binary_distribution.items()
+                )
+            )
+        return expectation_values
+
+    @property
+    def n_qubits(self) -> int:
+        return self.bitstring_evaluator.input_length
