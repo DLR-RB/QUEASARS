@@ -49,7 +49,6 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     """
 
     population_initializer: Callable[[None], POP]
-    evolutionary_operators: list[BaseEvolutionaryOperator[POP, CON]]
     estimator: Optional[BaseEstimator]
     sampler: BaseSampler
     max_generations: Optional[int]
