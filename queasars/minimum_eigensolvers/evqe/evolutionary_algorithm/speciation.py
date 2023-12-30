@@ -32,9 +32,9 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
         self.random_generator: Random = Random(random_seed)
 
     def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        species_representatives: set[EVQEIndividual]
+        species_representatives: list[EVQEIndividual]
         if population.species_representatives is None:
-            species_representatives = set()
+            species_representatives = []
             species_members: dict[EVQEIndividual, list[int]] = {}
         else:
             species_representatives = population.species_representatives
@@ -60,7 +60,7 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
 
             # if no close representative was found, make the individual its own representative, creating a new species
             if not found_species:
-                species_representatives.add(individual)
+                species_representatives.append(individual)
                 species_members[individual] = [i]
                 species_membership[i] = individual
 
@@ -70,11 +70,11 @@ class EVQESpeciation(BaseEvolutionaryOperator[EVQEPopulation]):
             for members in species_members.values()
             if len(members) > 0
         }
-        species_membership = dict()
+        species_membership = {}
         for representative, members in new_species_members.items():
             for member in members:
                 species_membership[member] = representative
-        species_representatives = set(new_species_members.keys())
+        species_representatives = list(new_species_members.keys())
 
         return EVQEPopulation(
             individuals=population.individuals,

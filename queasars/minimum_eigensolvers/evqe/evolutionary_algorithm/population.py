@@ -17,7 +17,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
     of its own species. If no information on speciation is available, species_representatives and species_members
     are both None
 
-    :param species_representatives: set of species representatives. Its cardinality gives the amount of species
+    :param species_representatives: list of species representatives. Its cardinality gives the amount of species
     :type species_representatives: Optional[set[EVQEIndividual]]
     :param species_members: dictionary mapping the species_representatives to all indices of the members of its species
     :type species_members: Optional[dict[EVQEIndividual, list[int]]
@@ -25,7 +25,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
     :type species_membership: Optional[dict[int, int]
     """
 
-    species_representatives: Optional[set[EVQEIndividual]]
+    species_representatives: Optional[list[EVQEIndividual]]
     species_members: Optional[dict[EVQEIndividual, list[int]]]
     species_membership: Optional[dict[int, EVQEIndividual]]
 

@@ -646,7 +646,7 @@ class EVQEIndividual(BaseIndividual):
         return self._layer_parameter_indices  # type: ignore # pylint: disable=no-member
 
     def get_quantum_circuit(self) -> QuantumCircuit:
-        circuit: QuantumCircuit = self.get_quantum_circuit()
+        circuit: QuantumCircuit = self.get_parameterized_quantum_circuit()
         circuit.assign_parameters(parameters=self.parameter_values, inplace=True)
         return circuit
 
