@@ -197,7 +197,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         current_best_individual: Optional[BaseIndividual] = None
         current_best_expectation_value: Optional[float] = None
         population_evaluations: list[BasePopulationEvaluationResult] = []
-        self.configuration.termination_criterion.reset_state()
+        if self.configuration.termination_criterion is not None:
+            self.configuration.termination_criterion.reset_state()
 
         def result_callback(evaluation_result: BasePopulationEvaluationResult) -> None:
             nonlocal current_best_individual
