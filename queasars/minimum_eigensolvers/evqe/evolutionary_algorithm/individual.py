@@ -208,9 +208,14 @@ class EVQECircuitLayer:
         :rtype: EVQECircuitLayer
         """
 
+        if n_qubits < 1:
+            raise EVQEIndividualException("A circuit layer may not have fewer than one qubit!")
+
         # Ensure, that the previous layer matches the layer to be generated
         if previous_layer is not None and previous_layer.n_qubits != n_qubits:
-            raise ValueError("previous_layer must have exactly as many qubits as the layer to be generated!")
+            raise EVQECircuitLayerException(
+                "Previous_layer must have exactly as many qubits as the layer to be generated!"
+            )
 
         # Initialize a buffer to hold the gates and parameters for the new layer
         chosen_gates: list[EVQEGate] = list(IdentityGate(qubit_index=qubit_index) for qubit_index in range(0, n_qubits))

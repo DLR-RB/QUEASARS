@@ -5,7 +5,7 @@ from random import Random
 
 
 def new_random_seed(random_generator: Random) -> int:
-    """Generate a new random integer seed in the range (-2147483648, 2147483647)
+    """Generate a new random integer seed in the range (0, 2147483647)
 
     :arg random_generator: used to generate a new integer seed
     :type random_generator: Random
