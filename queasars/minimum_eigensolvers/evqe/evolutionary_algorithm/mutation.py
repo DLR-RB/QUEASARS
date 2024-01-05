@@ -4,7 +4,7 @@
 from abc import abstractmethod
 from math import ceil
 from random import Random
-from typing import Optional, TypeAlias, Callable
+from typing import Optional, TypeAlias, Callable, Union
 
 from dask.distributed import Future, wait
 from numpy import asarray, reshape, dtype
@@ -56,7 +56,7 @@ def optimize_layer_of_individual(
     parameter_values: tuple[float, ...] = individual.get_layer_parameter_values(layer_id=layer_id)
     n_parameters: int = len(parameter_values)
 
-    def evaluation_callback(parameter_values: NDArray) -> NDArray | float:
+    def evaluation_callback(parameter_values: NDArray) -> Union[NDArray, float]:
         parameters: list[list[float]] = reshape(parameter_values, (-1, n_parameters)).tolist()
         batch_size: int = len(parameters)
 

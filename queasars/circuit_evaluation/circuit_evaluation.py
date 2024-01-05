@@ -2,6 +2,7 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from abc import ABC, abstractmethod
+from typing import Union
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult, SamplerResult
@@ -56,7 +57,7 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
     :type operator: BaseOperator
     """
 
-    def __init__(self, qiskit_primitive: BaseEstimator | BaseSampler, operator: BaseOperator):
+    def __init__(self, qiskit_primitive: Union[BaseEstimator, BaseSampler], operator: BaseOperator):
         """Constructor Method"""
         self.estimator: BaseEstimator
         if isinstance(qiskit_primitive, BaseEstimator):

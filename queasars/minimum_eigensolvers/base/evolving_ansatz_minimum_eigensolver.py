@@ -1,7 +1,7 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
-from typing import Callable, TypeVar, Generic, Optional
+from typing import Callable, TypeVar, Generic, Optional, Union
 from dataclasses import dataclass
 
 from dask.distributed import Client, LocalCluster
@@ -105,7 +105,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def compute_minimum_eigenvalue(
         self,
         operator: BaseOperator,
-        aux_operators: ListOrDict[BaseOperator] | None = None,
+        aux_operators: Optional[ListOrDict[BaseOperator]] = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
@@ -116,12 +116,12 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
             returned.
-        :type aux_operators: ListOrDict[BaseOperator] | None
+        :type aux_operators: Optional[ListOrDict[BaseOperator]]
 
         Returns:
             An evolving ansatz minimum eigensolver result
         """
-        evaluation_primitive: BaseEstimator | BaseSampler
+        evaluation_primitive: Union[BaseEstimator, BaseSampler]
         if self.configuration.estimator is not None:
             evaluation_primitive = self.configuration.estimator
         else:
@@ -130,7 +130,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         evaluator: BaseCircuitEvaluator
         evaluator = OperatorCircuitEvaluator(qiskit_primitive=evaluation_primitive, operator=operator)
 
-        aux_evaluators: ListOrDict[BaseCircuitEvaluator] | None
+        aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]]
         if aux_operators is None:
             aux_evaluators = None
         if isinstance(aux_operators, list):
@@ -149,7 +149,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def compute_minimum_function_value(
         self,
         operator: BitstringEvaluator,
-        aux_operators: ListOrDict[BitstringEvaluator] | None = None,
+        aux_operators: Optional[ListOrDict[BitstringEvaluator]] = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """
         Computes the minimum function value of a function mapping bitstrings to real valued numbers.
@@ -161,7 +161,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
             returned.
-        :type aux_operators: ListOrDict[BaseOperator] | None
+        :type aux_operators: Optional[ListOrDict[BaseOperator]]
 
         Returns:
             An evolving ansatz minimum eigensolver result
@@ -170,7 +170,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             sampler=self.configuration.sampler, bitstring_evaluator=operator
         )
 
-        aux_evaluators: ListOrDict[BaseCircuitEvaluator] | None
+        aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]]
         if aux_operators is None:
             aux_evaluators = None
         if isinstance(aux_operators, list):
@@ -189,7 +189,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def _solve_by_evolution(
         self,
         circuit_evaluator: BaseCircuitEvaluator,
-        aux_circuit_evaluators: ListOrDict[BaseCircuitEvaluator] | None,
+        aux_circuit_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]],
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         n_circuit_evaluations: int = 0
         n_generations: int = 0
@@ -322,19 +322,19 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
 
     def __init__(self) -> None:
         super().__init__()
-        self._eigenstate: QuasiDistribution | None = None
-        self._optimal_parameters: dict | None = None
-        self._optimal_circuit: QuantumCircuit | None = None
-        self._circuit_evaluations: int | None = None
-        self._generations: int | None = None
-        self._population_evaluation_results: list[BasePopulationEvaluationResult] | None = None
+        self._eigenstate: Optional[QuasiDistribution] = None
+        self._optimal_parameters: Optional[dict] = None
+        self._optimal_circuit: Optional[QuantumCircuit] = None
+        self._circuit_evaluations: Optional[int] = None
+        self._generations: Optional[int] = None
+        self._population_evaluation_results: Optional[list[BasePopulationEvaluationResult]] = None
 
     @property
-    def eigenstate(self) -> QuasiDistribution | None:
+    def eigenstate(self) -> Optional[QuasiDistribution]:
         """Return the quasi-distribution sampled from the final state
 
         :return: Quasi-distribution sampled from the final state
-        :rtype: QuasiDistribution | None
+        :rtype: Optional[QuasiDistribution]
         """
         return self._eigenstate
 
@@ -348,11 +348,11 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._eigenstate = value
 
     @property
-    def optimal_parameters(self) -> dict | None:
+    def optimal_parameters(self) -> Optional[dict]:
         """Returns the optimal parameters in a dictionary
 
         :return: The optimal parameters
-        :rtype: dict | None
+        :rtype: Optional[dict]
         """
         return self._optimal_parameters
 
@@ -366,12 +366,12 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._optimal_parameters = value
 
     @property
-    def optimal_circuit(self) -> QuantumCircuit | None:
+    def optimal_circuit(self) -> Optional[QuantumCircuit]:
         """The optimal circuit. Along with the optimal parameters,
         this can be used to retrieve the minimum eigenstate.
 
         :return: The optimal parameterized quantum circuit
-        :rtype: QuantumCircuit | None
+        :rtype: Optional[QuantumCircuit]
         """
         return self._optimal_circuit
 
@@ -385,7 +385,7 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._optimal_circuit = value
 
     @property
-    def circuit_evaluations(self) -> int | None:
+    def circuit_evaluations(self) -> Optional[int]:
         """Returns the number of circuit evaluations used by the eigensolver
 
         :return: The number of circuit evaluations
@@ -403,11 +403,11 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._circuit_evaluations = value
 
     @property
-    def generations(self) -> int | None:
+    def generations(self) -> Optional[int]:
         """Returns the number of generations the evolutionary algorithm was run for
 
         :return: The number of generations the algorithm was run for
-        :rtype: int | None
+        :rtype: Optional[int]
         """
         return self._generations
 
@@ -421,11 +421,11 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._generations = value
 
     @property
-    def population_evaluation_results(self) -> list[BasePopulationEvaluationResult] | None:
+    def population_evaluation_results(self) -> Optional[list[BasePopulationEvaluationResult]]:
         """Returns the list of  all population evaluation results
 
         :return: The list of all population evaluation results gathered during the optimization
-        :rtype: list[BasePopulationEvaluationResult] | None
+        :rtype: Optional[list[BasePopulationEvaluationResult]]
         """
         return self._population_evaluation_results
 
@@ -439,11 +439,11 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._population_evaluation_results = value
 
     @property
-    def final_population_evaluation_result(self) -> BasePopulationEvaluationResult | None:
+    def final_population_evaluation_result(self) -> Optional[BasePopulationEvaluationResult]:
         """Returns the final population evaluation result
 
         :return: The final population evaluation result
-        :rtype: BasePopulationEvaluationResult | None
+        :rtype: Optional[BasePopulationEvaluationResult]
         """
         if self.population_evaluation_results is not None and len(self.population_evaluation_results) != 0:
             return self.population_evaluation_results[-1]
