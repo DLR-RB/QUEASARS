@@ -44,7 +44,8 @@ def optimize_layer_of_individual(
     :type optimizer: Optimizer
     :arg random_seed: integer value to control randomness
     :type random_seed: Optional[int]
-    :return: a new individual with optimized parameter values for the given layer
+    :return: a new individual with optimized parameter values for the given layer, as well as the amount of the
+        circuit evaluations which were needed
     :rtype: tuple[EVQEIndividual, int]
     """
     if random_seed is not None:

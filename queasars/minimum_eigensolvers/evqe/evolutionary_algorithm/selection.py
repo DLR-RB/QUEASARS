@@ -83,7 +83,7 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
                 + self.alpha_penalty * len(individual.layers)
                 + self.beta_penalty * individual.get_n_controlled_gates()
             )
-            / float(len(population.species_members[population.species_membership[i]]))
+            * float(len(population.species_members[population.species_membership[i]]))
             for i, individual in enumerate(population.individuals)
         ]
 

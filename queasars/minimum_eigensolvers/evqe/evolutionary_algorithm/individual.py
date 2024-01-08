@@ -526,6 +526,10 @@ class EVQEIndividual(BaseIndividual):
         :return: the new individual
         :rtype: EVQEIndividual
         """
+
+        if n_layers < 1:
+            raise EVQEIndividualException("n_layers must be at least 1!")
+
         new_layers: list[EVQECircuitLayer] = []
         random_generator = Random(random_seed)
 
@@ -567,8 +571,13 @@ class EVQEIndividual(BaseIndividual):
         :return: the new individual
         :rtype: EVQEIndividual
         """
-        if not 0 < n_layers < len(individual.layers):
-            raise EVQEIndividualException("Cannot remove an invalid amount of layers!")
+
+        if not 0 < n_layers:
+            raise EVQEIndividualException("n_layers must be at least 1!")
+        if not n_layers < len(individual.layers):
+            raise EVQEIndividualException(
+                "Layer removal must leave at least one layer remaining! Choose a smaller n_layer value"
+            )
 
         # Remove the last layers
         layers: list[EVQECircuitLayer] = list(individual.layers)[0 : len(individual.layers) - n_layers]
