@@ -1,6 +1,6 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-
+import logging
 from typing import Callable, TypeVar, Generic, Optional, Union
 from dataclasses import dataclass
 
@@ -101,6 +101,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         """Constructor method"""
         super().__init__()
         self.configuration = configuration
+        self.logger = logging.getLogger(__name__)
 
     def compute_minimum_eigenvalue(
         self,
@@ -216,6 +217,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 current_best_individual = evaluation_result.best_individual
                 current_best_expectation_value = evaluation_result.best_expectation_value
 
+            self.logger.info("Expectation value of best individual found so far: %d" % current_best_expectation_value)
+
             if self.configuration.termination_criterion is not None:
                 if current_best_individual is None or current_best_expectation_value is None:
                     raise Exception("No current best individual was determined before calling the termination check!")
@@ -247,6 +250,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         population: BasePopulation = self.configuration.population_initializer(circuit_evaluator.n_qubits)
 
         while not terminate:
+            self.logger.info("Starting generation: %d" % n_generations)
+
             if self.configuration.max_generations is not None and n_generations >= self.configuration.max_generations:
                 terminate = True
 
