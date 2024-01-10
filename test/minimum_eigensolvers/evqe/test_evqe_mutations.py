@@ -6,7 +6,7 @@ import pytest
 from dask.distributed import LocalCluster, Client
 from qiskit.quantum_info.random import random_hermitian
 from qiskit_aer.primitives import Estimator
-from qiskit_algorithms.optimizers import SPSA, Optimizer
+from qiskit_algorithms.optimizers import NFT, Optimizer
 
 from queasars.circuit_evaluation.circuit_evaluation import OperatorCircuitEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import OperatorContext, BasePopulationEvaluationResult
@@ -26,7 +26,7 @@ class TestEVQEMutations:
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
         return EVQEPopulation.random_population(
-            n_qubits=3, n_layers=2, n_individuals=25, randomize_parameter_values=False, random_seed=0
+            n_qubits=2, n_layers=2, n_individuals=25, randomize_parameter_values=False, random_seed=0
         )
 
     @pytest.fixture
@@ -39,7 +39,7 @@ class TestEVQEMutations:
     @pytest.fixture
     def circuit_evaluator(self) -> OperatorCircuitEvaluator:
         if self.evaluator is None:
-            hermitian = random_hermitian(dims=8, seed=0)
+            hermitian = random_hermitian(dims=4, seed=0)
             estimator = Estimator()
             estimator.set_options(seed=0)
             self.evaluator = OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hermitian)
@@ -56,7 +56,7 @@ class TestEVQEMutations:
 
     @pytest.fixture
     def optimizer(self) -> Optimizer:
-        return SPSA(maxiter=20, perturbation=0.1, learning_rate=0.1, trust_region=True)
+        return NFT(maxfev=40)
 
     def test_optimize_last_layer_mutation(self, initial_population, operator_context, optimizer):
         context = operator_context

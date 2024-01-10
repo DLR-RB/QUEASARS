@@ -4,7 +4,7 @@
 from abc import abstractmethod
 from math import ceil
 from random import Random
-from typing import Optional, TypeAlias, Callable, Union
+from typing import Optional, Callable, Union
 
 from dask.distributed import Future, wait
 from numpy import asarray, reshape, dtype
@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from qiskit.circuit import QuantumCircuit
 from qiskit_algorithms.optimizers import Optimizer, OptimizerResult
 from qiskit_algorithms.utils import algorithm_globals
+from typing_extensions import TypeAlias
 
 from queasars.circuit_evaluation.circuit_evaluation import BaseCircuitEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator, OperatorContext
