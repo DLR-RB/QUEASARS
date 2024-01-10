@@ -10,6 +10,7 @@ from qiskit_algorithms.optimizers import NFT, Optimizer
 
 from queasars.circuit_evaluation.circuit_evaluation import OperatorCircuitEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import OperatorContext, BasePopulationEvaluationResult
+from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import EVQEIndividual
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.population import EVQEPopulation
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.mutation import (
     EVQELastLayerParameterSearch,
@@ -21,7 +22,7 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.speciation import
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.selection import EVQESelection
 
 
-class TestEVQEMutations:
+class TestEVQEOperators:
     client: Optional[Client] = None
     evaluator: Optional[OperatorCircuitEvaluator] = None
 
@@ -129,3 +130,37 @@ class TestEVQEMutations:
         new_individual_length = sum(len(individual.layers) for individual in new_population.individuals)
 
         assert initial_individual_length > new_individual_length
+
+    def test_speciation(self, initial_population, operator_context, optimizer):
+        genetic_distance = 2
+        last_layer_parameter_search = EVQELastLayerParameterSearch(
+            mutation_probability=1, optimizer=optimizer, optimizer_n_circuit_evaluations=40
+        )
+        topological_search = EVQETopologicalSearch(mutation_probability=1, random_seed=0)
+        speciation = EVQESpeciation(genetic_distance_threshold=genetic_distance, random_seed=0)
+        selection = EVQESelection(alpha_penalty=0.1, beta_penalty=0.1, random_seed=0)
+
+        population = last_layer_parameter_search.apply_operator(
+            population=initial_population, operator_context=operator_context
+        )
+        population = speciation.apply_operator(population=population, operator_context=operator_context)
+        population = selection.apply_operator(population=population, operator_context=operator_context)
+        population = topological_search.apply_operator(population=population, operator_context=operator_context)
+        population = last_layer_parameter_search.apply_operator(
+            population=population, operator_context=operator_context
+        )
+        population = speciation.apply_operator(population=population, operator_context=operator_context)
+
+        assert population.species_representatives is not None
+        assert population.species_members is not None
+        assert population.species_membership is not None
+
+        for representative in population.species_representatives:
+            for member_index in population.species_members[representative]:
+                if representative != population.individuals[member_index]:
+                    assert (
+                        EVQEIndividual.get_genetic_distance(
+                            individual_1=representative, individual_2=population.individuals[member_index]
+                        )
+                        < genetic_distance
+                    )
