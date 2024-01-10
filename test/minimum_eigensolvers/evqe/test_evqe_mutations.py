@@ -14,6 +14,8 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.population import
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.mutation import (
     EVQELastLayerParameterSearch,
     EVQEParameterSearch,
+    EVQETopologicalSearch,
+    EVQELayerRemoval,
 )
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.speciation import EVQESpeciation
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.selection import EVQESelection
@@ -107,3 +109,23 @@ class TestEVQEMutations:
         _ = evaluation.apply_operator(population=population, operator_context=operator_context)
 
         assert sum(evaluation_results[1].expectation_values) < sum(evaluation_results[0].expectation_values)
+
+    def test_topological_search_mutation(self, initial_population, operator_context):
+        topological_search = EVQETopologicalSearch(mutation_probability=0.5, random_seed=0)
+
+        initial_individual_length = sum(len(individual.layers) for individual in initial_population.individuals)
+        new_population = topological_search.apply_operator(
+            population=initial_population, operator_context=operator_context
+        )
+        new_individual_length = sum(len(individual.layers) for individual in new_population.individuals)
+
+        assert initial_individual_length < new_individual_length
+
+    def test_layer_removal_mutation(self, initial_population, operator_context):
+        layer_removal = EVQELayerRemoval(mutation_probability=0.5, random_seed=0)
+
+        initial_individual_length = sum(len(individual.layers) for individual in initial_population.individuals)
+        new_population = layer_removal.apply_operator(population=initial_population, operator_context=operator_context)
+        new_individual_length = sum(len(individual.layers) for individual in new_population.individuals)
+
+        assert initial_individual_length > new_individual_length

@@ -218,6 +218,13 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 current_best_expectation_value = evaluation_result.best_expectation_value
 
             self.logger.info("Expectation value of best individual found so far: %d" % current_best_expectation_value)
+            filtered_expectations = [
+                expectation for expectation in evaluation_result.expectation_values if expectation is not None
+            ]
+            self.logger.info(
+                "Average expectation value in the population currently: %d"
+                % (sum(filtered_expectations) / len(filtered_expectations))
+            )
 
             if self.configuration.termination_criterion is not None:
                 if current_best_individual is None or current_best_expectation_value is None:
