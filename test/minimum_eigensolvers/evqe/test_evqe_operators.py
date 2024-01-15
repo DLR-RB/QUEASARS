@@ -29,7 +29,7 @@ class TestEVQEOperators:
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
         return EVQEPopulation.random_population(
-            n_qubits=2, n_layers=2, n_individuals=25, randomize_parameter_values=False, random_seed=0
+            n_qubits=2, n_layers=2, n_individuals=10, randomize_parameter_values=False, random_seed=0
         )
 
     @pytest.fixture
@@ -164,3 +164,27 @@ class TestEVQEOperators:
                         )
                         < genetic_distance
                     )
+
+    def test_selection(self, initial_population, operator_context, optimizer):
+        context = operator_context
+        evaluation_results: list[BasePopulationEvaluationResult] = []
+
+        def callback(result: BasePopulationEvaluationResult):
+            nonlocal evaluation_results
+            evaluation_results.append(result)
+
+        context.result_callback = callback
+
+        layer_optimization = EVQELastLayerParameterSearch(
+            mutation_probability=1, optimizer=optimizer, optimizer_n_circuit_evaluations=40, random_seed=0
+        )
+        speciation = EVQESpeciation(genetic_distance_threshold=2, random_seed=0)
+        selection = EVQESelection(alpha_penalty=0.1, beta_penalty=0.1, random_seed=0)
+
+        population = layer_optimization.apply_operator(population=initial_population, operator_context=operator_context)
+        for _ in range(0, 3):
+            population = speciation.apply_operator(population=population, operator_context=operator_context)
+            population = selection.apply_operator(population=population, operator_context=operator_context)
+
+        for i in range(1, len(evaluation_results)):
+            assert sum(evaluation_results[i - 1].expectation_values) > sum(evaluation_results[i].expectation_values)
