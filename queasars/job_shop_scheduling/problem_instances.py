@@ -103,7 +103,6 @@ class Job:
 
         visited_machines: set[Machine] = set()
         for operation in self.operations:
-
             if operation.machine in visited_machines:
                 return False
             visited_machines.add(operation.machine)
@@ -152,7 +151,6 @@ class JobShopSchedulingProblemInstance:
             return False
 
         for job in self.jobs:
-
             if not job.is_valid(machines=self.machines):
                 return False
 
