@@ -1,12 +1,16 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
+
 from typing import Optional
 
 import pytest
 from dask.distributed import LocalCluster, Client
-from qiskit.quantum_info.random import random_hermitian
+from docplex.mp.model import Model
 from qiskit_aer.primitives import Estimator
 from qiskit_algorithms.optimizers import NFT, Optimizer
+from qiskit_optimization.translators import from_docplex_mp, to_ising
+from qiskit_optimization.converters import IntegerToBinary
+from qiskit.quantum_info import Operator
 
 from queasars.circuit_evaluation.circuit_evaluation import OperatorCircuitEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import OperatorContext, BasePopulationEvaluationResult
@@ -25,27 +29,41 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.selection import 
 class TestEVQEOperators:
     client: Optional[Client] = None
     evaluator: Optional[OperatorCircuitEvaluator] = None
+    operator: Optional[Operator] = None
 
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
         return EVQEPopulation.random_population(
-            n_qubits=2, n_layers=2, n_individuals=10, randomize_parameter_values=False, random_seed=0
+            n_qubits=4, n_layers=2, n_individuals=10, randomize_parameter_values=False, random_seed=0
         )
 
     @pytest.fixture
     def dask_client(self) -> Client:
         if self.client is None:
-            cluster = LocalCluster(processes=True)
+            cluster = LocalCluster(processes=True, n_workers=2)
             self.client = cluster.get_client()
         return self.client
 
     @pytest.fixture
-    def circuit_evaluator(self) -> OperatorCircuitEvaluator:
+    def hamiltonian(self) -> Operator:
+        if self.operator is None:
+            optimization_problem = Model()
+            x = optimization_problem.integer_var(lb=0, ub=3, name="x")
+            y = optimization_problem.integer_var(lb=0, ub=3, name="y")
+            optimization_problem.minimize(x**2 - y**2)
+
+            quadratic_program = from_docplex_mp(model=optimization_problem)
+            integer_converter = IntegerToBinary()
+            quadratic_program = integer_converter.convert(problem=quadratic_program)
+            self.operator, _ = to_ising(quad_prog=quadratic_program)
+        return self.operator
+
+    @pytest.fixture
+    def circuit_evaluator(self, hamiltonian) -> OperatorCircuitEvaluator:
         if self.evaluator is None:
-            hermitian = random_hermitian(dims=4, seed=0)
             estimator = Estimator()
             estimator.set_options(seed=0)
-            self.evaluator = OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hermitian)
+            self.evaluator = OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hamiltonian)
         return self.evaluator
 
     @pytest.fixture
