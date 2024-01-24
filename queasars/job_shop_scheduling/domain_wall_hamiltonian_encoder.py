@@ -1,0 +1,398 @@
+# Quantum Evolving Ansatz Variational Solver (QUEASARS)
+# Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
+
+from functools import reduce
+from itertools import permutations
+
+from qiskit.quantum_info.operators import SparsePauliOp
+
+from queasars.job_shop_scheduling.problem_instances import JobShopSchedulingProblemInstance, Machine, Operation
+
+
+def _constant_one_term(n_qubits: int) -> SparsePauliOp:
+    """
+    Returns a SparsePauliOp consisting only of identities. Within a hamiltonian this term
+    always evaluates to an eigenvalue of 1
+
+    :arg n_qubits: number of qubits in the quantum circuit
+    :type n_qubits: int
+    :return: a SparsePauliOp consisting only of identities
+    """
+    if n_qubits < 1:
+        raise ValueError("n_qubits must be at least one!")
+    return SparsePauliOp("I" * n_qubits)
+
+
+def _pauli_z_term(qubit_index: int, n_qubits: int) -> SparsePauliOp:
+    """
+    Returns a SparsePauliOp consisting of identities and one pauli z at the qubit_index. Within a hamiltonian
+    this term evaluates to an eigenvalue of -1, if the qubit at the qubit_index is one and 1 if the qubit at the
+    qubit index is zero
+
+    :arg qubit_index: index of the qubit to which the pauli z term shall apply
+    :type qubit_index: int
+    :arg n_qubits: number of qubits in the quantum circuit
+    :type n_qubits: int
+    """
+    if n_qubits < 1:
+        raise ValueError("n_qubits must be at least one!")
+
+    if not 0 <= qubit_index < n_qubits:
+        raise ValueError("The qubit index is invalid!")
+
+    pauli_list = ["I"] * n_qubits
+    pauli_list[qubit_index] = "Z"
+    pauli_string = reduce(lambda x, y: x + y, pauli_list)
+    return SparsePauliOp(pauli_string)
+
+
+class DomainWallVariable:
+    """
+    Class representing a variable encoded in the domain wall encoding. For more details on the domain wall
+    encoding see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta
+    This class specifically models a choice between n+1 floating point values for n qubits.
+
+    :param qubit_start_index: qubit index in the quantum circuit from which this variable starts.
+        The variable occupies the qubits in the range [qubit_index, ..., qubit_index+len(values)-1[
+    :type qubit_start_index: int
+    :param values: values between which this variable chooses
+    :type values: tuple[float, ...]
+    """
+
+    def __init__(self, qubit_start_index: int, values: tuple[float, ...]):
+        """Constructor Method"""
+        self._qubit_start_index: int = qubit_start_index
+
+        self._values: tuple[float, ...] = values
+        if len(self._values) < 1:
+            raise ValueError("The domain wall variable must at least have one value!")
+        self._value_indices: dict[float, int] = {value: i for i, value in enumerate(self._values)}
+        self._max_value = max(self._values)
+        self._min_value = min(self._values)
+
+        if len(self._values) != len(self._value_indices):
+            raise ValueError("All values of a domain wall variable must be unique!")
+
+        self._n_qubits: int = len(values) - 1
+
+    def _z_dash_term(self, i: int, quantum_circuit_n_qubits: int) -> SparsePauliOp:
+        """
+        Returns a SparsePauliOp, which represents the pauli z operator for the qubits of this variable
+        and -1 for the virtual qubit before and 1 for the virtual qubit after the variable's qubits.
+        For the reasoning behind this see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta
+        """
+        if i < -1 or i > self.n_qubits:
+            raise ValueError("The index is out of the bounds of the domain wall variable!")
+        if i == -1:
+            return -1 * _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+        if i == self.n_qubits:
+            return _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+        return _pauli_z_term(qubit_index=self._qubit_start_index + i, n_qubits=quantum_circuit_n_qubits)
+
+    @property
+    def values(self) -> tuple[float, ...]:
+        """
+        :return: the values between which this domain wall variable chooses
+        :rtype: tuple[float, ...]
+        """
+        return self._values
+
+    @property
+    def max_value(self) -> float:
+        """
+        :return: the maximum value contained in the domain wall variable's values
+        :rtype: float
+        """
+        return self._max_value
+
+    @property
+    def min_value(self) -> float:
+        """
+        :return: the minimum value contained in the domain wall variable's values
+        :rtype: float
+        """
+        return self._min_value
+
+    @property
+    def n_qubits(self) -> int:
+        """
+        :return: the amount of qubits needed by this variable
+        """
+        return self._n_qubits
+
+    def viability_term(self, penalty: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
+        """
+        Returns a SparsepauliOp which penalizes invalid variable states (states with more than one domain
+        wall). Within a hamiltonian this term evaluates to 0 only if the variable is in a valid state and to
+        (n-1)*penalty at maximum for the n values this variable can represent
+
+        :arg penalty: size of the applied penalty for each violation
+        :type penalty: float
+        :arg quantum_circuit_n_qubits: the amount of qubits in the quantum circuit in which this variable is part of
+        :type quantum_circuit_n_qubits: int
+        :return: a SparsePauliOp which penalizes invalid variable states
+        :rtype: SparsePauliOp
+        """
+        if self._n_qubits == 0:
+            return 0 * _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+
+        penalty = penalty / 2
+        local_terms: list[SparsePauliOp] = []
+        for i in range(-1, self._n_qubits):
+            local_terms.append(
+                1
+                / 2
+                * penalty
+                * (
+                    _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+                    - self._z_dash_term(
+                        i=i,
+                        quantum_circuit_n_qubits=quantum_circuit_n_qubits,
+                    ).compose(
+                        self._z_dash_term(
+                            i=i + 1,
+                            quantum_circuit_n_qubits=quantum_circuit_n_qubits,
+                        )
+                    )
+                )
+            )
+        local_terms.append(-1 * penalty * _constant_one_term(n_qubits=quantum_circuit_n_qubits))
+
+        return SparsePauliOp.sum(ops=local_terms)
+
+    def value_term(self, value: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
+        """Returns a SparsePauliOp which checks the variable for a given value. Within a hamiltonian
+        this term evaluates to one only if the variable is in a state which represents the given value and 0
+        otherwise. If the given value is not within the possible values of this variable, this raises a ValueError
+
+        :arg value: Value to check the variable for
+        :type value: float
+        :arg quantum_circuit_n_qubits: amount of qubits in the quantum circuit this variable is part of
+        :type quantum_circuit_n_qubits: int
+        :return: a SparsePauliOp checking the variable for the given value
+        :rtype: SparsePauliOp
+        """
+        if value not in self._value_indices:
+            raise ValueError("The domain wall variable can never assume this value!")
+        if self._n_qubits == 0:
+            return _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+
+        i = self._value_indices[value]
+        return (1 / 2) * (
+            self._z_dash_term(
+                i=i,
+                quantum_circuit_n_qubits=quantum_circuit_n_qubits,
+            )
+            - self._z_dash_term(
+                i=i - 1,
+                quantum_circuit_n_qubits=quantum_circuit_n_qubits,
+            )
+        )
+
+
+class JSSPDomainWallHamiltonianEncoder:
+    """
+    Encoding class used to encode a JobShopSchedulingProblemInstance as a Hamiltonian.
+    This uses the Time-indexed model to represent the JSSP with the variables being encoded as domain wall variables
+
+    :param jssp_instance: job shop scheduling problem instance to encode as a hamiltonian
+    :type jssp_instance: JobShopSchedulingProblemInstance
+    :param time_limit: maximum allowed makespan for possible solutions
+    :type time_limit: int
+    :param penalty: size of the penalties applied to invalid solutions
+    :type penalty: float
+    """
+
+    def __init__(self, jssp_instance: JobShopSchedulingProblemInstance, time_limit: int, penalty: float):
+        self.jssp_instance: JobShopSchedulingProblemInstance = jssp_instance
+        self.time_limit: int = time_limit
+        self._encoding_prepared: bool = False
+        self._hamiltonian_prepared: bool = False
+        self._machine_operations: dict[Machine, list[Operation]] = {}
+        self._operation_start_variables: dict[Operation, DomainWallVariable] = {}
+        self._n_qubits: int = 0
+        self._local_terms: list[SparsePauliOp] = []
+        self._penalty: float = penalty
+
+    @property
+    def n_qubits(self) -> int:
+        """
+        :return: the amount of qubits needed to encode this JSSP problem instance
+        :rtype: int
+        """
+        if not self._encoding_prepared:
+            self._prepare_encoding()
+        return self._n_qubits
+
+    def get_problem_hamiltonian(self) -> SparsePauliOp:
+        """
+        :return: the problem encoded as a hamiltonian in the form of a SparsePauliOp
+        :rtype: SparsePauliOp
+        """
+        if not self._encoding_prepared:
+            self._prepare_encoding()
+
+        if not self._hamiltonian_prepared:
+            self._prepare_hamiltonian()
+
+        return SparsePauliOp.sum(self._local_terms)
+
+    def _prepare_encoding(self) -> None:
+        """Counts the needed qubits to encode the problem" and assigns the necessary domain wall variables"""
+        for job in self.jssp_instance.jobs:
+            for i, operation in enumerate(job.operations):
+                if operation.machine not in self._machine_operations:
+                    self._machine_operations[operation.machine] = []
+                self._machine_operations[operation.machine].append(operation)
+
+                start_offset = sum(operation.processing_duration for j, operation in enumerate(job.operations) if j < i)
+                end_offset = sum(operation.processing_duration for j, operation in enumerate(job.operations) if j >= i)
+
+                n_start_times = self.time_limit - (start_offset + end_offset) + 1
+
+                if n_start_times < 1:
+                    raise ValueError("There is no feasible solution for the given time_limit!")
+
+                self._operation_start_variables[operation] = DomainWallVariable(
+                    qubit_start_index=self._n_qubits,
+                    values=tuple(range(start_offset, start_offset + n_start_times)),
+                )
+
+                self._n_qubits += self._operation_start_variables[operation].n_qubits
+
+        self._encoding_prepared = True
+
+    def _prepare_hamiltonian(self):
+        """
+        Gathers the terms making up the hamiltonian. These include penalties for invalid variable states,
+        penalties for invalid ordering and overlapping of operations and an optimization term to minimize the
+        makespan of the problem
+        """
+        for job in self.jssp_instance.jobs:
+            for operation in job.operations:
+                variable_viability_term = self._operation_start_variables[operation].viability_term(
+                    penalty=10 * self._penalty, quantum_circuit_n_qubits=self._n_qubits
+                )
+                self._local_terms.append(variable_viability_term)
+
+            for i in range(0, len(job.operations) - 1):
+                precedence_term = self._operation_precedence_term(
+                    job.operations[i], job.operations[i + 1], self._penalty
+                )
+                self._local_terms.extend(precedence_term)
+
+        for operations in self._machine_operations.values():
+            if len(operations) < 2:
+                continue
+            for operation_1, operation_2 in permutations(operations, 2):
+                overlap_term = self._operation_overlap_term(
+                    operation_1=operation_1, operation_2=operation_2, penalty=self._penalty
+                )
+                self._local_terms.append(overlap_term)
+
+        self._local_terms.append(self._makespan_optimization_term(max_value=self._penalty - 1))
+        self._hamiltonian_prepared = True
+
+    def _operation_overlap_term(self, operation_1: Operation, operation_2: Operation, penalty: float) -> SparsePauliOp:
+        """
+        Return a SparsePauliOp which penalizes variable states which make operation_1 and operation_2 overlap.
+        Within a hamiltonian this term evaluates to zero if the two operations do not overlap and to penalty if they
+        overlap
+
+        :arg operation_1: operation which must not overlap operation_2
+        :type operation_1: Operation
+        :arg operation_2: operation which must not overlap operation_1
+        :type operation_2: Operation
+        :arg penalty: penalty value which is applied if the operations overlap
+        :type penalty: float
+        :return: a SparsePauliOp which penalizes variable states in which the two operations overlap
+        :rtype: SparsePauliOp
+        """
+        start_variable_1 = self._operation_start_variables[operation_1]
+        start_variable_2 = self._operation_start_variables[operation_2]
+
+        if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
+            return 0 * _constant_one_term(n_qubits=self._n_qubits)
+
+        local_terms = []
+        for start_time_1 in start_variable_1.values:
+            for start_time_2 in start_variable_2.values:
+                if start_time_1 <= start_time_2 < start_time_1 + operation_1.processing_duration:
+                    local_terms.append(
+                        penalty
+                        * start_variable_1.value_term(
+                            value=start_time_1, quantum_circuit_n_qubits=self._n_qubits
+                        ).compose(
+                            start_variable_2.value_term(value=start_time_2, quantum_circuit_n_qubits=self._n_qubits)
+                        )
+                    )
+        return SparsePauliOp.sum(local_terms)
+
+    def _operation_precedence_term(
+        self, operation_1: Operation, operation_2: Operation, penalty: float
+    ) -> SparsePauliOp:
+        """
+        Returns a SparsePauliOp which penalizes variable states in which operation_2 start before operation_1 ends.
+        Within a hamiltonian this term evaluates to zero only if operation_2 starts after (or at the same time) the
+        operation_1 has ended. Otherwise, it evaluates to penalty
+
+        :arg operation_1: operation which must precede operation_2
+        :type operation_1: Operation
+        :arg operation_2: operation which must start after (or at the same time) operation_1 has finished
+        :type operation_2: Operation
+        :arg penalty: penalty value which is applied if the operation precedence is violated
+        :type penalty: float
+        :return: a SparsePauliOp which penalizes variable states which violate the operation precedence
+        :rtype: SparsePauliOp
+        """
+        start_variable_1 = self._operation_start_variables[operation_1]
+        start_variable_2 = self._operation_start_variables[operation_2]
+
+        if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
+            return 0 * _constant_one_term(n_qubits=self._n_qubits)
+
+        local_terms = []
+        for start_time_1 in start_variable_1.values:
+            for start_time_2 in start_variable_2.values:
+                if start_time_2 < start_time_1 + operation_1.processing_duration:
+                    local_terms.append(
+                        penalty
+                        * start_variable_1.value_term(
+                            value=start_time_1, quantum_circuit_n_qubits=self._n_qubits
+                        ).compose(
+                            start_variable_2.value_term(value=start_time_2, quantum_circuit_n_qubits=self._n_qubits)
+                        )
+                    )
+
+        return SparsePauliOp.sum(local_terms)
+
+    def _makespan_optimization_term(self, max_value: float) -> SparsePauliOp:
+        """
+        Returns a SparsePauliOp which increasingly penalizes the last operation of a job,
+        for increasing start times in accordance with the optimization term proposed in
+        https://www.sciencedirect.com/science/article/pii/S0377221723002072 .
+        Optimizing this term should amount to optimizing the makespan of the JSSP.
+        The optimization term is scaled to always be smaller than max_value
+
+        :arg max_value: maximum value of the optimization term
+        :type max_value: float
+        :return: a SparsePauliOp which penalizes JSSP solutions with higher makespans
+        :rtype: SparsePauliOp
+        """
+        n_jobs = len(self.jssp_instance.jobs)
+        max_optimization_value = n_jobs * (n_jobs + 1) ** self.time_limit
+
+        local_terms = []
+        for job in self.jssp_instance.jobs:
+            last_operation = job.operations[-1]
+            start_variable = self._operation_start_variables[last_operation]
+            for start_time in sorted(start_variable.values):
+                operation_end = start_time + last_operation.processing_duration
+                local_terms.append(
+                    (1 / max_optimization_value)
+                    * (max_value - 1)
+                    * (n_jobs + 1) ** operation_end
+                    * start_variable.value_term(value=start_time, quantum_circuit_n_qubits=self._n_qubits)
+                )
+
+        return SparsePauliOp.sum(local_terms)
