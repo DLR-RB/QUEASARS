@@ -3,10 +3,18 @@
 
 from functools import reduce
 from itertools import permutations
+from typing import Optional
 
 from qiskit.quantum_info.operators import SparsePauliOp
 
-from queasars.job_shop_scheduling.problem_instances import JobShopSchedulingProblemInstance, Machine, Operation
+from queasars.job_shop_scheduling.problem_instances import (
+    JobShopSchedulingProblemInstance,
+    Machine,
+    Operation,
+    Job,
+    ScheduledOperation,
+    JobShopSchedulingResult,
+)
 
 
 def _constant_one_term(n_qubits: int) -> SparsePauliOp:
@@ -56,17 +64,17 @@ class DomainWallVariable:
         The variable occupies the qubits in the range [qubit_index, ..., qubit_index+len(values)-1[
     :type qubit_start_index: int
     :param values: values between which this variable chooses
-    :type values: tuple[float, ...]
+    :type values: tuple[int, ...]
     """
 
-    def __init__(self, qubit_start_index: int, values: tuple[float, ...]):
+    def __init__(self, qubit_start_index: int, values: tuple[int, ...]):
         """Constructor Method"""
         self._qubit_start_index: int = qubit_start_index
 
-        self._values: tuple[float, ...] = values
+        self._values: tuple[int, ...] = tuple(sorted(values))
         if len(self._values) < 1:
             raise ValueError("The domain wall variable must at least have one value!")
-        self._value_indices: dict[float, int] = {value: i for i, value in enumerate(self._values)}
+        self._value_indices: dict[int, int] = {value: i for i, value in enumerate(self._values)}
         self._max_value = max(self._values)
         self._min_value = min(self._values)
 
@@ -90,10 +98,10 @@ class DomainWallVariable:
         return _pauli_z_term(qubit_index=self._qubit_start_index + i, n_qubits=quantum_circuit_n_qubits)
 
     @property
-    def values(self) -> tuple[float, ...]:
+    def values(self) -> tuple[int, ...]:
         """
         :return: the values between which this domain wall variable chooses
-        :rtype: tuple[float, ...]
+        :rtype: tuple[int, ...]
         """
         return self._values
 
@@ -101,7 +109,7 @@ class DomainWallVariable:
     def max_value(self) -> float:
         """
         :return: the maximum value contained in the domain wall variable's values
-        :rtype: float
+        :rtype: int
         """
         return self._max_value
 
@@ -109,7 +117,7 @@ class DomainWallVariable:
     def min_value(self) -> float:
         """
         :return: the minimum value contained in the domain wall variable's values
-        :rtype: float
+        :rtype: int
         """
         return self._min_value
 
@@ -160,13 +168,13 @@ class DomainWallVariable:
 
         return SparsePauliOp.sum(ops=local_terms)
 
-    def value_term(self, value: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
+    def value_term(self, value: int, quantum_circuit_n_qubits: int) -> SparsePauliOp:
         """Returns a SparsePauliOp which checks the variable for a given value. Within a hamiltonian
         this term evaluates to one only if the variable is in a state which represents the given value and 0
         otherwise. If the given value is not within the possible values of this variable, this raises a ValueError
 
         :arg value: Value to check the variable for
-        :type value: float
+        :type value: int
         :arg quantum_circuit_n_qubits: amount of qubits in the quantum circuit this variable is part of
         :type quantum_circuit_n_qubits: int
         :return: a SparsePauliOp checking the variable for the given value
@@ -188,6 +196,33 @@ class DomainWallVariable:
                 quantum_circuit_n_qubits=quantum_circuit_n_qubits,
             )
         )
+
+    def value_from_bitlist(self, bit_list: list[int]) -> Optional[int]:
+        """
+        Calculates the value held in this domain wall variable for an
+        assignment of bit values to the qubits given as a bit_list for the
+        whole quantum circuit
+
+        :arg bit_list: representing a value assignment to the quantum circuit's qubits. All list entries must
+            be zero or one
+        :type bit_list: list[int]
+        :return: the value held in this variable
+        :rtype: int
+        """
+
+        bit_list = bit_list[self._qubit_start_index : self._qubit_start_index + self.n_qubits]
+        domain_wall_index = len(bit_list)
+        for i, value in enumerate(bit_list):
+            if value == 0:
+                domain_wall_index = i
+                break
+            if value != 1:
+                raise ValueError("The bit_list must only contain 0 or 1 values!")
+
+        if not sum(bit_list[domain_wall_index:]) == 0:
+            return None
+
+        return self.values[domain_wall_index]
 
 
 class JSSPDomainWallHamiltonianEncoder:
@@ -236,6 +271,33 @@ class JSSPDomainWallHamiltonianEncoder:
             self._prepare_hamiltonian()
 
         return SparsePauliOp.sum(self._local_terms)
+
+    def translate_result_bitstring(self, bitstring: str, reverse: bool = True) -> JobShopSchedulingResult:
+        if len(bitstring) != self.n_qubits:
+            raise ValueError("The bitstring length does not match the problem size!")
+
+        if reverse:
+            bitstring = str(reversed(bitstring))
+
+        def translate(string: str) -> int:
+            if string == "1":
+                return 1
+            if string == "0":
+                return 0
+            raise ValueError("The bitstring may not contain any value apart from 1 or 0!")
+
+        bit_list = [translate(char) for char in bitstring]
+
+        job_schedules: dict[Job, tuple[ScheduledOperation, ...]] = {}
+        for job in self.jssp_instance.jobs:
+            scheduled_operations: list[ScheduledOperation] = []
+            for operation in job.operations:
+                domain_wall_variable = self._operation_start_variables[operation]
+                value = domain_wall_variable.value_from_bitlist(bit_list=bit_list)
+                scheduled_operations.append(ScheduledOperation(operation=operation, start_time=value))
+            job_schedules[job] = tuple(scheduled_operations)
+
+        return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules)
 
     def _prepare_encoding(self) -> None:
         """Counts the needed qubits to encode the problem" and assigns the necessary domain wall variables"""
@@ -386,11 +448,11 @@ class JSSPDomainWallHamiltonianEncoder:
         for job in self.jssp_instance.jobs:
             last_operation = job.operations[-1]
             start_variable = self._operation_start_variables[last_operation]
-            for start_time in sorted(start_variable.values):
+            for start_time in start_variable.values:
                 operation_end = start_time + last_operation.processing_duration
                 local_terms.append(
                     (1 / max_optimization_value)
-                    * (max_value - 1)
+                    * max_value
                     * (n_jobs + 1) ** operation_end
                     * start_variable.value_term(value=start_time, quantum_circuit_n_qubits=self._n_qubits)
                 )

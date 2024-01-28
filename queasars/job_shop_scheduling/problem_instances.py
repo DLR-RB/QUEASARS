@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 from typing import Optional
+from textwrap import indent
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,9 @@ class Machine:
     def __post_init__(self):
         if not self.is_valid():
             raise JobShopSchedulingProblemException("This Machine is invalid and cannot be instantiated!")
+
+    def __repr__(self):
+        return self.name
 
 
 @dataclass(frozen=True)
@@ -62,6 +66,9 @@ class Operation:
     def __post_init__(self):
         if not self.is_valid():
             raise JobShopSchedulingProblemException("This Operation is invalid and cannot be instantiated!")
+
+    def __repr__(self):
+        return f"{self.name}({self.machine.name}, {self.processing_duration})"
 
 
 @dataclass(frozen=True)
@@ -112,9 +119,15 @@ class Job:
 
         return True
 
-    def __post_init__(self):
-        if not self.is_valid():
-            raise JobShopSchedulingProblemException("This Job is invalid and cannot be instantiated!")
+    def __repr__(self):
+        header = f"{self.name}:\n"
+        text = ""
+        for operation in self.operations:
+            text += str(operation) + "\n"
+        return header + indent(
+            text=text,
+            prefix=" " * 2,
+        )
 
 
 @dataclass(frozen=True)
@@ -161,6 +174,71 @@ class JobShopSchedulingProblemInstance:
             raise JobShopSchedulingProblemException(
                 "This JobShopProblemInstance is invalid and cannot be instantiated!"
             )
+
+    def __repr__(self):
+        header = self.name + "\n"
+
+        machine_header = "Machines:\n"
+        machine_text = ""
+        for machine in self.machines:
+            machine_text += str(machine) + "\n"
+
+        job_header = "Jobs:\n"
+        job_text = ""
+        for job in self.jobs:
+            job_text += str(job)
+
+        return (
+            header
+            + indent(text=machine_header, prefix=" " * 2)
+            + indent(text=machine_text, prefix=" " * 4)
+            + indent(text=job_header, prefix=" " * 2)
+            + indent(text=job_text, prefix=" " * 4)
+        )
+
+
+@dataclass(frozen=True)
+class ScheduledOperation:
+    """
+    Dataclass representing the fact that an Operation has been scheduled to start
+    at a certain time
+
+    :param operation: which has been scheduled
+    :type operation: Operation
+    :param start_time: at which the operation has been scheduled to start. A value of None represents
+        the operation not being scheduled or invalidly being scheduled
+    :type start_time: Optional[int]
+    """
+
+    operation: Operation
+    start_time: Optional[int]
+
+    def __repr__(self):
+        return f"{str(self.operation)} scheduled at: {self.start_time}"
+
+
+@dataclass(frozen=True)
+class JobShopSchedulingResult:
+    """
+    Dataclass representing an attempted solution to the given job shop scheduling problem instance
+
+    :param problem_instance: for which this schedule represents an attempted solution
+    :type problem_instance: JobShopSchedulingProblemInstance
+    :param schedule: which attempts to solve the given problem instance
+    :type schedule: dict[Job, tuple[ScheduledOperation, ...]]
+    """
+
+    problem_instance: JobShopSchedulingProblemInstance
+    schedule: dict[Job, tuple[ScheduledOperation, ...]]
+
+    def __repr__(self):
+        header = f"{self.problem_instance.name} solution:\n"
+        text = ""
+        for job in self.problem_instance.jobs:
+            text += indent(text=f"{job.name}:\n", prefix=" " * 2)
+            for scheduled_operation in self.schedule[job]:
+                text += indent(text=f"{str(scheduled_operation)}\n", prefix=" " * 4)
+        return header + text
 
 
 class JobShopSchedulingProblemException(Exception):
