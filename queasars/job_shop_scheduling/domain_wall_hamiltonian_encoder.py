@@ -293,11 +293,23 @@ class JSSPDomainWallHamiltonianEncoder:
             scheduled_operations: list[ScheduledOperation] = []
             for operation in job.operations:
                 domain_wall_variable = self._operation_start_variables[operation]
-                value = domain_wall_variable.value_from_bitlist(bit_list=bit_list)
-                scheduled_operations.append(ScheduledOperation(operation=operation, start_time=value))
+                start_time = domain_wall_variable.value_from_bitlist(bit_list=bit_list)
+                if start_time is None:
+                    schedule = None
+                else:
+                    schedule = (start_time, start_time + operation.processing_duration)
+                scheduled_operations.append(ScheduledOperation(operation=operation, schedule=schedule))
             job_schedules[job] = tuple(scheduled_operations)
 
-        return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules)
+        operation_ends = (
+            scheduled_operations[-1].schedule[1]
+            for scheduled_operations in job_schedules.values()
+            if scheduled_operations[-1].schedule is not None
+        )
+
+        return JobShopSchedulingResult(
+            problem_instance=self.jssp_instance, schedule=job_schedules, makespan=max(operation_ends)
+        )
 
     def _prepare_encoding(self) -> None:
         """Counts the needed qubits to encode the problem" and assigns the necessary domain wall variables"""
@@ -374,6 +386,9 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_2 = self._operation_start_variables[operation_2]
 
         if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
+            return 0 * _constant_one_term(n_qubits=self._n_qubits)
+
+        if start_variable_2.max_value + operation_2.processing_duration <= start_variable_1.min_value:
             return 0 * _constant_one_term(n_qubits=self._n_qubits)
 
         local_terms = []

@@ -205,16 +205,23 @@ class ScheduledOperation:
 
     :param operation: which has been scheduled
     :type operation: Operation
-    :param start_time: at which the operation has been scheduled to start. A value of None represents
-        the operation not being scheduled or invalidly being scheduled
-    :type start_time: Optional[int]
+    :param schedule: tuple which contains the time at which the operation is scheduled to start and to end.
+        The length of that time interval must match the operation's processing duration!
+        A value of None represents the operation not being scheduled or invalidly being scheduled
+    :type schedule: Optional[tuple[int, int]]
     """
 
     operation: Operation
-    start_time: Optional[int]
+    schedule: Optional[tuple[int, int]]
+
+    def __post_init__(self):
+        if self.schedule is not None and self.schedule[1] - self.schedule[0] != self.operation.processing_duration:
+            raise JobShopSchedulingProblemException(
+                "The schedule of a scheduled operation must match the processing duration of it's operation!"
+            )
 
     def __repr__(self):
-        return f"{str(self.operation)} scheduled at: {self.start_time}"
+        return f"{str(self.operation)} starts at: {self.schedule[0]} and ends at: {self.schedule[1]}"
 
 
 @dataclass(frozen=True)
@@ -226,13 +233,16 @@ class JobShopSchedulingResult:
     :type problem_instance: JobShopSchedulingProblemInstance
     :param schedule: which attempts to solve the given problem instance
     :type schedule: dict[Job, tuple[ScheduledOperation, ...]]
+    :param makespan: time after which the last operation of the last job has finished in the schedule
+    :type makespan: int
     """
 
     problem_instance: JobShopSchedulingProblemInstance
     schedule: dict[Job, tuple[ScheduledOperation, ...]]
+    makespan: int
 
     def __repr__(self):
-        header = f"{self.problem_instance.name} solution:\n"
+        header = f"{self.problem_instance.name} solution with makespan {self.makespan}\n"
         text = ""
         for job in self.problem_instance.jobs:
             text += indent(text=f"{job.name}:\n", prefix=" " * 2)
