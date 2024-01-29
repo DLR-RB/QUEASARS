@@ -4,6 +4,8 @@
 from abc import ABC, abstractmethod
 from typing import Union
 
+from numpy import real
+
 from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
@@ -62,15 +64,19 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         self.estimator: BaseEstimator
         if isinstance(qiskit_primitive, BaseEstimator):
             self.estimator = qiskit_primitive
+        self.measure: bool = False
         if isinstance(qiskit_primitive, BaseSampler):
+            self.measure = True
             self.estimator = _DiagonalEstimator(sampler=qiskit_primitive)
         self.operator: BaseOperator = operator
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
+        if self.measure:
+            circuits = [circuit.measure_all(inplace=False) for circuit in circuits]
         evaluation_result: EstimatorResult = self.estimator.run(
             circuits=circuits, observables=[self.operator] * len(circuits), parameter_values=parameter_values
         ).result()
-        result_list: list[float] = list(evaluation_result.values)
+        result_list: list[float] = list(real(evaluation_result.values))
         return result_list
 
     @property
