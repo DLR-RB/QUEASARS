@@ -2,7 +2,7 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from functools import reduce
-from itertools import permutations
+from itertools import combinations
 from typing import Optional
 
 from qiskit.quantum_info.operators import SparsePauliOp
@@ -272,12 +272,17 @@ class JSSPDomainWallHamiltonianEncoder:
 
         return SparsePauliOp.sum(self._local_terms)
 
-    def translate_result_bitstring(self, bitstring: str, reverse: bool = True) -> JobShopSchedulingResult:
+    def translate_result_bitstring(self, bitstring: str) -> JobShopSchedulingResult:
+        """
+        Translates a bitstring as measured on a quantum circuit to it's corresponding job shop scheduling result.
+        The bitstring must only contain 1 and 0s and must be of length self.n_qubits
+
+        :arg bitstring: string of 1 and 0s measured on the quantum circuit
+        :type bitstring: str
+        :return: the JobShopSchedulingResult this bitstring represents
+        """
         if len(bitstring) != self.n_qubits:
             raise ValueError("The bitstring length does not match the problem size!")
-
-        if reverse:
-            bitstring = str(reversed(bitstring))
 
         def translate(string: str) -> int:
             if string == "1":
@@ -358,13 +363,14 @@ class JSSPDomainWallHamiltonianEncoder:
         for operations in self._machine_operations.values():
             if len(operations) < 2:
                 continue
-            for operation_1, operation_2 in permutations(operations, 2):
+            for operation_1, operation_2 in combinations(operations, 2):
                 overlap_term = self._operation_overlap_term(
                     operation_1=operation_1, operation_2=operation_2, penalty=self._penalty
                 )
                 self._local_terms.append(overlap_term)
 
-        self._local_terms.append(self._makespan_optimization_term(max_value=self._penalty - 1))
+        self._local_terms.append(self._makespan_optimization_term(max_value=(self._penalty - 1) / 2))
+        self._local_terms.append(self._early_start_term(max_value=(self._penalty - 1) / 2))
         self._hamiltonian_prepared = True
 
     def _operation_overlap_term(self, operation_1: Operation, operation_2: Operation, penalty: float) -> SparsePauliOp:
@@ -394,7 +400,10 @@ class JSSPDomainWallHamiltonianEncoder:
         local_terms = []
         for start_time_1 in start_variable_1.values:
             for start_time_2 in start_variable_2.values:
-                if start_time_1 <= start_time_2 < start_time_1 + operation_1.processing_duration:
+                if (
+                    start_time_1 <= start_time_2 < start_time_1 + operation_1.processing_duration
+                    or start_time_2 <= start_time_1 < start_time_2 + operation_2.processing_duration
+                ):
                     local_terms.append(
                         penalty
                         * start_variable_1.value_term(
@@ -470,6 +479,34 @@ class JSSPDomainWallHamiltonianEncoder:
                     * max_value
                     * (n_jobs + 1) ** operation_end
                     * start_variable.value_term(value=start_time, quantum_circuit_n_qubits=self._n_qubits)
+                )
+
+        return SparsePauliOp.sum(local_terms)
+
+    def _early_start_term(self, max_value: float) -> SparsePauliOp:
+        """
+        Returns a SparsePauliOp which penalizes all operations of all jobs linearly for starting later than
+        the earliest possible start time. The optimization term is scaled to always be smaller than max_value
+
+        :arg max_value: maximum value of the optimization term
+        :type max_value: float
+        :return: a SparsePauliOp which penalizes all operations which start later than necessary
+        :rtype: SparsePauliOp
+        """
+        max_optimization_value = sum(
+            (variable.n_qubits**2 + variable.n_qubits) / 2 for variable in self._operation_start_variables.values()
+        )
+
+        local_terms = []
+        for start_variable in self._operation_start_variables.values():
+            for i, value in enumerate(start_variable.values):
+                if i == 0:
+                    continue
+                local_terms.append(
+                    (1 / max_optimization_value)
+                    * max_value
+                    * i
+                    * start_variable.value_term(value=value, quantum_circuit_n_qubits=self._n_qubits)
                 )
 
         return SparsePauliOp.sum(local_terms)
