@@ -1,6 +1,7 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-from typing import Any
+from typing import Any, Optional
+from pathlib import Path
 
 from matplotlib import pyplot
 from matplotlib import colormaps
@@ -16,17 +17,28 @@ from queasars.job_shop_scheduling.problem_instances import (
 )
 
 
-def plot_jssp_problem_instance_gantt(problem_instance: JobShopSchedulingProblemInstance):
+def plot_jssp_problem_instance_gantt(
+    problem_instance: JobShopSchedulingProblemInstance, colormap: str = "Accent", save_path: Optional[Path] = None
+) -> Optional[Figure]:
     """
-    Plots a job shop scheduling problem instance using matplotlib
+    Plots a job shop scheduling problem instance using matplotlib and saves the figure or
+    returns the handle to the created figure depending on whether a save_path was given
 
     :arg problem_instance: to plot
     :type problem_instance: JobShopSchedulingProblemInstance
+    :arg colormap: name of a matplotlib ColorMap
+    :type colormap: str
+    :arg save_path: optional file path to which to save the plot to. The file type is determined by the file type ending
+        contained in the path. If the figure is saved, the figure is closed afterwards and None is returned instead of
+        the figure handle
+    :type save_path: Path
+    :return: the matplotlib figure handle for the created plot if it was not saved
+    :rtype: Optional[Figure]
     """
 
     fig, ax = pyplot.subplots()
 
-    cmap = colormaps["Set1"]
+    cmap = colormaps[colormap].resampled(len(problem_instance.machines))
     machine_color_map: dict = {machine: cmap(i) for i, machine in enumerate(problem_instance.machines)}
 
     max_end = 0
@@ -50,19 +62,35 @@ def plot_jssp_problem_instance_gantt(problem_instance: JobShopSchedulingProblemI
     ax.set_xlabel("Time")
     _create_color_legend(fig=fig, color_labels={color: machine.name for machine, color in machine_color_map.items()})
 
-    pyplot.show()
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight")
+        pyplot.close(fig)
+        return None
+
+    return fig
 
 
-def plot_jssp_problem_solution_gantt(result: JobShopSchedulingResult):
+def plot_jssp_problem_solution_gantt(
+    result: JobShopSchedulingResult, colormap: str = "Accent", save_path: Optional[Path] = None
+) -> Optional[Figure]:
     """
-    Plots a job shop scheduling result using matplotlib
+    Plots a job shop scheduling result using matplotlib and saves the figure or
+    returns the handle to the created figure depending on whether a save_path was given
 
-    :arg result: to plot
+    :arg result: job shop scheduling result to plot
     :type result: JobShopSchedulingResult
+    :arg colormap: name of a matplotlib ColorMap
+    :type colormap: str
+    :arg save_path: optional file path to which to save the plot to. The file type is determined by the file type ending
+        contained in the path. If the figure is saved, the figure is closed afterwards and None is returned instead of
+        the figure handle
+    :type save_path: Path
+    :return: the matplotlib figure handle for the created plot if it was not saved
+    :rtype: Optional[Figure]
     """
     fig, ax = pyplot.subplots()
 
-    cmap = colormaps["Set1"]
+    cmap = colormaps[colormap].resampled(len(result.problem_instance.jobs))
     job_color_map: dict = {job: cmap(i) for i, job in enumerate(result.problem_instance.jobs)}
 
     machine_schedule: dict[Machine, list[tuple[ScheduledOperation, Job]]] = {
@@ -93,7 +121,12 @@ def plot_jssp_problem_solution_gantt(result: JobShopSchedulingResult):
 
     _create_color_legend(fig=fig, color_labels={color: job.name for job, color in job_color_map.items()})
 
-    pyplot.show()
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight")
+        pyplot.close(fig)
+        return None
+
+    return fig
 
 
 def _create_color_legend(fig: Figure, color_labels: dict[Any, str]) -> None:
