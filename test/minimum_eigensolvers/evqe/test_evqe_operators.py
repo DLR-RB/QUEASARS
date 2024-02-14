@@ -70,7 +70,7 @@ class TestEVQEOperators:
     def operator_context(self, dask_client, circuit_evaluator) -> OperatorContext:
         return OperatorContext(
             circuit_evaluator=circuit_evaluator,
-            dask_client=dask_client,
+            parallel_executor=dask_client,
             result_callback=lambda x: None,
             circuit_evaluation_count_callback=lambda x: None,
         )
