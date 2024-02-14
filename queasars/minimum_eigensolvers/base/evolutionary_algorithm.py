@@ -2,11 +2,12 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional, Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from typing import TypeVar, Generic, Optional, Callable, Union
 
-from qiskit.circuit import QuantumCircuit
 from dask.distributed import Client
+from qiskit.circuit import QuantumCircuit
 
 from queasars.circuit_evaluation.circuit_evaluation import BaseCircuitEvaluator
 
@@ -100,14 +101,15 @@ class OperatorContext:
     :param circuit_evaluation_count_callback: Callback functions to report the number of circuit evaluations
         used by an operator.
     :type circuit_evaluation_count_callback: Callable[[Int], None]
-    :param dask_client: Dask client to use for task parallelization
-    :type: Client
+    :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
+        a python ThreadPool executor
+    :type parallel_executor: Union[Client, ThreadPoolExecutor]
     """
 
     circuit_evaluator: BaseCircuitEvaluator
     result_callback: Callable[[BasePopulationEvaluationResult], None]
     circuit_evaluation_count_callback: Callable[[int], None]
-    dask_client: Client
+    parallel_executor: Union[Client, ThreadPoolExecutor]
 
 
 class BaseEvolutionaryOperator(ABC, Generic[POP]):

@@ -1,14 +1,15 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 import logging
 from typing import Callable, TypeVar, Generic, Optional, Union
-from dataclasses import dataclass
 
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client
 
+from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
-from qiskit.circuit import QuantumCircuit
 from qiskit.result import QuasiDistribution
 
 from qiskit_algorithms.list_or_dict import ListOrDict
@@ -64,9 +65,9 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :param termination_criterion: criterion which defines how to determine whether the solver has converged.
         Either max_generations or max_circuit_evaluations or termination_criterion needs to be provided
     :type termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
-    :param dask_client: optional dask client to facilitate parallelization, if None is given, a dask local cluster using
-        multiprocessing is spun up for that purpose
-    :type dask_client: Client
+    :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
+        a python ThreadPool executor
+    :type parallel_executor: Union[Client, ThreadPoolExecutor]
     """
 
     population_initializer: Callable[[int], POP]
@@ -76,7 +77,7 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     max_generations: Optional[int]
     max_circuit_evaluations: Optional[int]
     termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
-    dask_client: Optional[Client]
+    parallel_executor: Union[Client, ThreadPoolExecutor]
 
     def __post_init__(self):
         if self.max_generations is None and self.max_circuit_evaluations is None and self.termination_criterion is None:
@@ -239,19 +240,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             nonlocal n_circuit_evaluations
             n_circuit_evaluations += evaluations
 
-        client: Client
-        if self.configuration.dask_client is not None:
-            client = self.configuration.dask_client
-        else:
-            cluster = LocalCluster(processes=True)
-            client = cluster.get_client()
-            self.configuration.dask_client = client
-
         operator_context: OperatorContext = OperatorContext(
             circuit_evaluator=circuit_evaluator,
             result_callback=result_callback,
             circuit_evaluation_count_callback=circuit_evaluation_callback,
-            dask_client=client,
+            parallel_executor=self.configuration.parallel_executor,
         )
 
         population: BasePopulation = self.configuration.population_initializer(circuit_evaluator.n_qubits)
