@@ -135,14 +135,14 @@ class TestEVQECircuitLayer:
             u_instructions = circuit.get_instructions("u")
 
             for _, qargs, _ in u_instructions:
-                gate = RotationGate(qubit_index=qargs[0].index)
+                gate = RotationGate(qubit_index=qargs[0]._index)
                 assert gate in filtered_gates, f"failed for circuit layer {i}"
                 filtered_gates.remove(gate)
 
             cu3_instructions = circuit.get_instructions("cu3")
 
             for _, qargs, _ in cu3_instructions:
-                gate = ControlledRotationGate(qubit_index=qargs[1].index, control_qubit_index=qargs[0].index)
+                gate = ControlledRotationGate(qubit_index=qargs[1]._index, control_qubit_index=qargs[0]._index)
                 assert gate in filtered_gates, f"failed for circuit layer {i}"
                 filtered_gates.remove(gate)
 

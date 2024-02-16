@@ -84,7 +84,7 @@ class IdentityGate(EVQEGate):
         return 0
 
     def apply_gate(self, circuit: QuantumCircuit, parameter_name_prefix: str) -> None:
-        circuit.i(self.qubit_index)
+        circuit.id(self.qubit_index)
 
 
 @dataclass(frozen=True, eq=True)

@@ -7,7 +7,7 @@ from typing import Union
 from numpy import real
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult, SamplerResult
+from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult, SamplerResult, PrimitiveJob
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit.result import QuasiDistribution
 
@@ -59,9 +59,13 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
     :type operator: BaseOperator
     """
 
-    def __init__(self, qiskit_primitive: Union[BaseEstimator, BaseSampler], operator: BaseOperator):
+    def __init__(
+        self,
+        qiskit_primitive: Union[BaseEstimator[PrimitiveJob[EstimatorResult]], BaseSampler[PrimitiveJob[SamplerResult]]],
+        operator: BaseOperator,
+    ):
         """Constructor Method"""
-        self.estimator: BaseEstimator
+        self.estimator: BaseEstimator[PrimitiveJob[EstimatorResult]]
         if isinstance(qiskit_primitive, BaseEstimator):
             self.estimator = qiskit_primitive
         self.measure: bool = False
@@ -95,9 +99,9 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
     :type bitstring_evaluator: BitstringEvaluator
     """
 
-    def __init__(self, sampler: BaseSampler, bitstring_evaluator: BitstringEvaluator):
+    def __init__(self, sampler: BaseSampler[PrimitiveJob[SamplerResult]], bitstring_evaluator: BitstringEvaluator):
         """Constructor Method"""
-        self.sampler: BaseSampler = sampler
+        self.sampler: BaseSampler[PrimitiveJob[SamplerResult]] = sampler
         self.bitstring_evaluator: BitstringEvaluator = bitstring_evaluator
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
