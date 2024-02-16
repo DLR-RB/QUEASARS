@@ -25,7 +25,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = ">=3.9.0,<3.12"
-qiskit = ">=0.44.0"
+qiskit = ">=1.0.0"
 qiskit-algorithms = ">=0.2.0"
 qiskit-aer=">=0.13.1"
 qiskit-optimization = ">= 0.6.0"
