@@ -242,7 +242,7 @@ class BatchingMutexSampler(BaseSampler[PrimitiveJob[SamplerResult]]):
                 + "Please set any options before wrapping the Sampler!"
             )
         job = PrimitiveJob(self._call, circuits, parameter_values)
-        job.submit()
+        job._submit()
         return job
 
 
@@ -295,5 +295,5 @@ class BatchingMutexEstimator(BaseEstimator[PrimitiveJob[EstimatorResult]]):
                 + "Please set any options before wrapping the Estimator!"
             )
         job = PrimitiveJob(self._call, circuits, observables, parameter_values)
-        job.submit()
+        job._submit()
         return job
