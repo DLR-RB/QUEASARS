@@ -1,10 +1,10 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import pytest
-from dask.distributed import LocalCluster, Client
 from docplex.mp.model import Model
 from qiskit_aer.primitives import Estimator
 from qiskit_algorithms.optimizers import NFT, Optimizer
@@ -27,9 +27,9 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.selection import 
 
 
 class TestEVQEOperators:
-    client: Optional[Client] = None
-    evaluator: Optional[OperatorCircuitEvaluator] = None
-    operator: Optional[Operator] = None
+    _executor: Optional[ThreadPoolExecutor] = None
+    _evaluator: Optional[OperatorCircuitEvaluator] = None
+    _operator: Optional[Operator] = None
 
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
@@ -38,15 +38,14 @@ class TestEVQEOperators:
         )
 
     @pytest.fixture
-    def dask_client(self) -> Client:
-        if self.client is None:
-            cluster = LocalCluster(processes=True, n_workers=2)
-            self.client = cluster.get_client()
-        return self.client
+    def executor(self) -> ThreadPoolExecutor:
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=4)
+        return self._executor
 
     @pytest.fixture
     def hamiltonian(self) -> Operator:
-        if self.operator is None:
+        if self._operator is None:
             optimization_problem = Model()
             x = optimization_problem.integer_var(lb=0, ub=3, name="x")
             y = optimization_problem.integer_var(lb=0, ub=3, name="y")
@@ -55,22 +54,22 @@ class TestEVQEOperators:
             quadratic_program = from_docplex_mp(model=optimization_problem)
             integer_converter = IntegerToBinary()
             quadratic_program = integer_converter.convert(problem=quadratic_program)
-            self.operator, _ = to_ising(quad_prog=quadratic_program)
-        return self.operator
+            self._operator, _ = to_ising(quad_prog=quadratic_program)
+        return self._operator
 
     @pytest.fixture
     def circuit_evaluator(self, hamiltonian) -> OperatorCircuitEvaluator:
-        if self.evaluator is None:
+        if self._evaluator is None:
             estimator = Estimator()
             estimator.set_options(seed=0)
-            self.evaluator = OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hamiltonian)
-        return self.evaluator
+            self._evaluator = OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hamiltonian)
+        return self._evaluator
 
     @pytest.fixture
-    def operator_context(self, dask_client, circuit_evaluator) -> OperatorContext:
+    def operator_context(self, executor, circuit_evaluator) -> OperatorContext:
         return OperatorContext(
             circuit_evaluator=circuit_evaluator,
-            parallel_executor=dask_client,
+            parallel_executor=executor,
             result_callback=lambda x: None,
             circuit_evaluation_count_callback=lambda x: None,
         )

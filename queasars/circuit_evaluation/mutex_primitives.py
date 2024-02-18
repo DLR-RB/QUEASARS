@@ -1,8 +1,10 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-from threading import Lock, Condition
+from threading import Condition
 from time import sleep
 from typing import Callable, Optional, Generic, TypeVar, Any, Sequence
+
+from dask.utils import SerializableLock
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import SamplerResult, EstimatorResult
@@ -44,10 +46,12 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
         self.batch_waiting_duration: Optional[float] = batch_waiting_duration
         self.n_args: int = f_n_args
 
-        self._entry_lock = Lock()
-        self._variable_lock = Lock()
-        self._internal_wait_condition = Condition()
-        self._external_wait_condition = Condition()
+        self._entry_lock: SerializableLock = SerializableLock()
+        self._variable_lock: SerializableLock = SerializableLock()
+        # According to dask's documentation SerializableLock satisfies the same interface as Lock.
+        # Due to this fact the type error here is ignored.
+        self._internal_wait_condition: Condition = Condition(lock=SerializableLock())  # type: ignore[arg-type]
+        self._external_wait_condition: Condition = Condition(lock=SerializableLock())  # type: ignore[arg-type]
         self._thread_counter: int = 0
         self._entry_counter: int = 0
         self._batched_args: tuple[tuple[Any, ...], ...] = tuple()

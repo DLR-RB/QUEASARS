@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from random import Random
 from typing import Callable, Optional, Union
 
-from dask.distributed import Client as DaskClient
+from dask.distributed import Client
 
 from qiskit.primitives import Estimator, Sampler
 from qiskit.quantum_info.operators.base_operator import BaseOperator
@@ -42,31 +42,17 @@ class EVQEMinimumEigensolverConfiguration:
     :param estimator: Estimator primitive used to estimate the circuit's eigenvalue. If none is provided for that
         purpose, the sampler is used instead. If reproducible behaviour is required, the seed option of the estimator
         needs to be set. If a dask Client is used as the parallel_executor,
-        the Estimator needs to be serializable by dask, otherwise the computation will fail. If a ThreadPoolExecutor
-        with more than one worker is used as the parallel_executor, the Estimator needs to be threadsafe since it
-        will be accessed concurrently. To achieve this you can wrap it in
-        :py:class:`queasars.circuit_evaluation.mutex_primitives.BatchingMutexSampler
+        the Estimator needs to be serializable by dask, otherwise the computation will fail
     :type estimator: Optional[Estimator]
     :param sampler: Sampler primitive used to measure the circuits QuasiDistribution. If reproducible behaviour is
         required, the seed option of the estimator needs to be set. If a dask Client is used as the parallel_executor,
-        the Sampler needs to be serializable by dask, otherwise the computation will fail. If a ThreadPoolExecutor
-        with more than one worker is used as the parallel_executor, the sampler needs to be threadsafe since it
-        will be accessed concurrently. To achieve this you can wrap it in
-        :py:class:`queasars.circuit_evaluation.mutex_primitives.BatchingMutexEstimator
+        the Sampler needs to be serializable by dask, otherwise the computation will fail
     :type sampler: Sampler
     :param optimizer: Qiskit optimizer used to optimize the parameter values. Should be configured to terminate after
         a relatively low amount of circuit evaluations to enable the gradual evolution of the individuals
     :type optimizer: Optimizer
     :param optimizer_n_circuit_evaluations: amount of circuit evaluations expected per optimizer run, None if unknown
     :type optimizer_n_circuit_evaluations: Optional[int]
-    :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
-        a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
-        by dask, otherwise the computation will fail. If a ThreadPoolExecutor with more than one worker is used,
-        both the Sampler and Estimator need to be threadsafe since they will be accessed concurrently.
-        To achieve this you can wrap them in
-        :py:class:`queasars.circuit_evaluation.mutex_primitives.BatchingMutexSampler and
-        :py:class:`queasars.circuit_evaluation.mutex_primitives.BatchingMutexEstimator respectively
-    :type parallel_executor: Union[Client, ThreadPoolExecutor]
     :param max_generations: Maximum amount of generations the evolution may go on for. Either max_generations or
         max_circuit_evaluations or termination_criterion needs to be provided
     :type max_generations: Optional[int]
@@ -104,13 +90,23 @@ class EVQEMinimumEigensolverConfiguration:
     :type topological_search_probability: float
     :param layer_removal_probability: probability with which the layer removal mutation is applied to an individual
         during one generation. Must be in the range (0, 1)
+    :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
+        a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
+        by dask, otherwise the computation will fail. If no parallel_executor is provided a ThreadPoolExecutor
+        with as many threads as population_size will be launched
+    :type parallel_executor: Optional[Union[Client, ThreadPoolExecutor]]
+    :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
+        Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
+        a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
+        For safety reasons this is enabled by default. If the sampler and estimator are threadsafe or the dask client
+        is configured with only one thread per process, disabling this option may lead to performance improvements
+    :type mutually_exclusive_primitives: bool
     """
 
     estimator: Optional[Estimator]
     sampler: Sampler
     optimizer: Optimizer
     optimizer_n_circuit_evaluations: Optional[int]
-    parallel_executor: Union[DaskClient, ThreadPoolExecutor]
     max_generations: Optional[int]
     max_circuit_evaluations: Optional[int]
     termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
@@ -123,6 +119,8 @@ class EVQEMinimumEigensolverConfiguration:
     parameter_search_probability: float
     topological_search_probability: float
     layer_removal_probability: float
+    parallel_executor: Optional[Union[Client, ThreadPoolExecutor]] = None
+    mutually_exclusive_primitives: bool = True
 
     def __post_init__(self):
         if self.max_generations is None and self.max_circuit_evaluations is None and self.termination_criterion is None:
@@ -187,6 +185,13 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
                 random_seed=new_random_seed(random_generator=self.random_generator),
             ),
         ]
+
+        parallel_executor: Union[Client, ThreadPoolExecutor]
+        if configuration.parallel_executor is None:
+            parallel_executor = ThreadPoolExecutor(max_workers=configuration.population_size)
+        else:
+            parallel_executor = configuration.parallel_executor
+
         config: EvolvingAnsatzMinimumEigensolverConfiguration = EvolvingAnsatzMinimumEigensolverConfiguration(
             population_initializer=population_initializer,
             evolutionary_operators=evolutionary_operators,
@@ -195,7 +200,8 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             max_generations=configuration.max_generations,
             max_circuit_evaluations=configuration.max_circuit_evaluations,
             termination_criterion=configuration.termination_criterion,
-            parallel_executor=configuration.parallel_executor,
+            parallel_executor=parallel_executor,
+            mutually_exclusive_primitives=configuration.mutually_exclusive_primitives,
         )
         super().__init__(configuration=config)
 

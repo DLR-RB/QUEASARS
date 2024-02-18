@@ -1,8 +1,6 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
-from dask.distributed import LocalCluster
-
 from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeImprovementTolerance
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolver, EVQEMinimumEigensolverConfiguration
 
@@ -38,7 +36,6 @@ class TestEVQEAlgorithm:
             estimator=estimator,
             optimizer=optimizer,
             optimizer_n_circuit_evaluations=40,
-            parallel_executor=LocalCluster(processes=True, n_workers=2).get_client(),
             max_generations=None,
             max_circuit_evaluations=None,
             termination_criterion=termination_criterion,
@@ -51,6 +48,8 @@ class TestEVQEAlgorithm:
             parameter_search_probability=0.25,
             topological_search_probability=0.5,
             layer_removal_probability=0.5,
+            parallel_executor=None,
+            mutually_exclusive_primitives=True,
         )
 
         solver = EVQEMinimumEigensolver(configuration=solver_configuration)
