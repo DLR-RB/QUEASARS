@@ -15,18 +15,37 @@ class BitstringEvaluator:
     def __init__(self, input_length: int, evaluation_function: Callable[[str], float]):
         """Constructor method"""
         self._input_length: int = input_length
-        self.evaluation_function: Callable[[str], float] = evaluation_function
+        self._evaluation_function: Callable[[str], float] = evaluation_function
+
+    def _check_bitstring(self, bitstring: str) -> None:
+        """
+        Raises an exception if the bitstring is invalid, therefore if it is not of the length
+        self._input_length or if it contains characters other than '0' or '1'.
+
+        :arg bitstring: to check for validity in the context of this BitstringEvaluator
+        :type bitstring: str
+        :raises: BitstringEvaluatorException
+        """
+        if len(bitstring) != self._input_length:
+            raise BitstringEvaluatorException(
+                f"Bitstring must be of the length {self._input_length} " + f"but was of length {len(bitstring)}!"
+            )
+
+        if any(character not in ("0", "1") for character in bitstring):
+            raise BitstringEvaluatorException("Bitstring may not contain characters other than '0' or '1'!")
 
     def evaluate_bitstring(self, bitstring: str) -> float:
-        """Applies the evaluation_function to the given bitstring and returns the resulting float.
+        """Applies the _evaluation_function to the given bitstring and returns the resulting float.
         :arg bitstring: Bitstring to apply the the evaluation_function to
         :type bitstring: str
         :raises: BitstringEvaluatorException: If the given bitstring does not match input_length,
-            if it contains characters other than 0 or 1, or if the evaluation_function itself fails.
-        :return: Floating point number returned by the evaluation_function.
+            if it contains characters other than 0 or 1, or if the _evaluation_function itself fails.
+        :return: Floating point number returned by the _evaluation_function.
         :rtype: float
         """
-        return self.evaluation_function(bitstring)
+
+        self._check_bitstring(bitstring=bitstring)
+        return self._evaluation_function(bitstring)
 
     @property
     def input_length(self):
