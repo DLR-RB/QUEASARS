@@ -35,13 +35,13 @@ class BaseCircuitEvaluator(ABC):
         :rtype: list[list[float]]"""
 
     @property
+    @abstractmethod
     def n_qubits(self) -> int:
         """Get the size of the quantum circuits (in terms of qubits), which this CircuitEvaluator can evaluate
 
         :return: the amount of qubits
         :rtype: int
         """
-        return 0
 
 
 class CircuitEvaluatorException(Exception):
