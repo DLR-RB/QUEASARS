@@ -54,7 +54,8 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
     :param qiskit_primitive: Qiskit primitive used for estimating the circuit's eigenvalue.
         Must be an Estimator or a Sampler. The usage of an Estimator is the preferred option
     :type qiskit_primitive: BaseEstimator | BaseSampler
-    :param operator: Operator for which the eigenvalue is estimated. If the qiskit_primitive is a sampler it
+    :param operator: Operator for which the eigenvalue is estimated. If the operator is not hermitian,
+        the complex part of the result is dropped. If the qiskit_primitive is a sampler, the operator
         must be diagonal
     :type operator: BaseOperator
     """
@@ -82,8 +83,7 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         evaluation_result: EstimatorResult = self._estimator.run(
             circuits=circuits, observables=[self.operator] * len(circuits), parameter_values=parameter_values
         ).result()
-        result_list: list[float] = list(real(evaluation_result.values))
-        return result_list
+        return list(real(evaluation_result.values))
 
     @property
     def n_qubits(self) -> int:
