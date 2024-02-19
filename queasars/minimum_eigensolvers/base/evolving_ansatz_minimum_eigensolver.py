@@ -171,9 +171,9 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             sampler=self.configuration.sampler, bitstring_evaluator=operator
         )
 
-        aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]]
+        aux_evaluators: ListOrDict[BaseCircuitEvaluator]
         if aux_operators is None:
-            aux_evaluators = None
+            aux_evaluators = []
         if isinstance(aux_operators, list):
             aux_evaluators = [
                 BitstringCircuitEvaluator(sampler=self.configuration.sampler, bitstring_evaluator=aux_operator)
@@ -190,7 +190,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def _solve_by_evolution(
         self,
         circuit_evaluator: BaseCircuitEvaluator,
-        aux_circuit_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]],
+        aux_circuit_evaluators: ListOrDict[BaseCircuitEvaluator],
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         n_circuit_evaluations: int = 0
         n_generations: int = 0
@@ -318,23 +318,22 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         result.generations = n_generations
         result.population_evaluation_results = population_evaluations
 
-        if aux_circuit_evaluators is not None:
-            if isinstance(aux_circuit_evaluators, list):
-                result.aux_operators_evaluated = [
-                    evaluator.evaluate_circuits(
-                        [current_best_individual.get_parameterized_quantum_circuit()],
-                        [list(current_best_individual.get_parameter_values())],
-                    )[0]
-                    for evaluator in aux_circuit_evaluators
-                ]
-            if isinstance(aux_circuit_evaluators, dict):
-                result.aux_operators_evaluated = {
-                    name: evaluator.evaluate_circuits(
-                        [current_best_individual.get_parameterized_quantum_circuit()],
-                        [list(current_best_individual.get_parameter_values())],
-                    )[0]
-                    for name, evaluator in aux_circuit_evaluators.items()
-                }
+        if isinstance(aux_circuit_evaluators, list):
+            result.aux_operators_evaluated = [
+                evaluator.evaluate_circuits(
+                    [current_best_individual.get_parameterized_quantum_circuit()],
+                    [list(current_best_individual.get_parameter_values())],
+                )[0]
+                for evaluator in aux_circuit_evaluators
+            ]
+        if isinstance(aux_circuit_evaluators, dict):
+            result.aux_operators_evaluated = {
+                name: evaluator.evaluate_circuits(
+                    [current_best_individual.get_parameterized_quantum_circuit()],
+                    [list(current_best_individual.get_parameter_values())],
+                )[0]
+                for name, evaluator in aux_circuit_evaluators.items()
+            }
 
         return result
 
