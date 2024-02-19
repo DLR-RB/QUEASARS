@@ -95,7 +95,8 @@ class OperatorContext:
 
     :param circuit_evaluator: CircuitEvaluator used to get the expectation value of the circuits (Individuals)
     :type circuit_evaluator: BaseCircuitEvaluator
-    :param result_callback: Callback function to report results from evaluating a population
+    :param result_callback: Callback function to report results from evaluating a population. Calling this
+        Callback marks the end of the current generation after the current operation has finished
     :type result_callback: Callable[[BasePopulationEvaluationResult], None]
     :param circuit_evaluation_count_callback: Callback functions to report the number of circuit evaluations
         used by an operator.

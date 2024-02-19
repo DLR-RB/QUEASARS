@@ -206,6 +206,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             nonlocal current_best_expectation_value
             nonlocal population_evaluations
             nonlocal terminate
+            nonlocal n_generations
 
             population_evaluations.append(evaluation_result)
 
@@ -217,6 +218,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 current_best_individual = evaluation_result.best_individual
                 current_best_expectation_value = evaluation_result.best_expectation_value
 
+            self.logger.info(f"Results for generation: {n_generations}")
             self.logger.info("Expectation value of best individual found so far: %d" % current_best_expectation_value)
             filtered_expectations = [
                 expectation for expectation in evaluation_result.expectation_values if expectation is not None
@@ -225,6 +227,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 "Average expectation value in the population currently: %d"
                 % (sum(filtered_expectations) / len(filtered_expectations))
             )
+
+            n_generations += 1
 
             if self.configuration.termination_criterion is not None:
                 if current_best_individual is None or current_best_expectation_value is None:
@@ -256,19 +260,20 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
 
         population: BasePopulation = self.configuration.population_initializer(circuit_evaluator.n_qubits)
 
+        self.logger.info("Starting evolution!")
+
         while not terminate:
-            self.logger.info("Starting generation: %d" % n_generations)
-
-            if self.configuration.max_generations is not None and n_generations >= self.configuration.max_generations:
-                terminate = True
-
-            if (
-                self.configuration.max_circuit_evaluations is not None
-                and n_circuit_evaluations >= self.configuration.max_circuit_evaluations
-            ):
-                terminate = True
 
             for operator in self.configuration.evolutionary_operators:
+
+                # Terminate if the maximum circuit evaluation count has been exceeded
+                if (
+                    self.configuration.max_circuit_evaluations is not None
+                    and n_circuit_evaluations >= self.configuration.max_circuit_evaluations
+                ):
+                    terminate = True
+
+                # Terminate if the next operation is expected to exceed the circuit evaluation count
                 estimated_evaluations: Optional[int] = operator.get_n_expected_circuit_evaluations(
                     population=population, operator_context=operator_context
                 )
@@ -279,12 +284,17 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 ):
                     terminate = True
 
+                # Terminate if the maximum amount of generations have passed
+                if (
+                    self.configuration.max_generations is not None
+                    and n_generations >= self.configuration.max_generations
+                ):
+                    terminate = True
+
                 if terminate:
                     break
 
                 population = operator.apply_operator(population=population, operator_context=operator_context)
-
-            n_generations += 1
 
         if (
             current_best_individual is None
