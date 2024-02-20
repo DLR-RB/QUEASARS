@@ -221,6 +221,8 @@ class ScheduledOperation:
             )
 
     def __repr__(self):
+        if self.schedule is None:
+            return f"{str(self.operation)} was not or invalidly scheduled."
         return f"{str(self.operation)} starts at: {self.schedule[0]} and ends at: {self.schedule[1]}"
 
 
