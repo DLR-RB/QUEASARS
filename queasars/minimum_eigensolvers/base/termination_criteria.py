@@ -1,7 +1,8 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-
 from abc import ABC, abstractmethod
+from math import ceil
+from typing import Callable, Optional
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseIndividual, BasePopulationEvaluationResult
 
@@ -105,3 +106,58 @@ class BestIndividualRelativeImprovementTolerance(EvolvingAnsatzMinimumEigensolve
             return False
 
         return True
+
+
+class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+
+    def __init__(
+        self,
+        distance_measure: Callable[[BaseIndividual, BaseIndividual], float],
+        distance_threshold: float,
+        quantile: float,
+    ):
+        self._distance_measure: Callable[[BaseIndividual, BaseIndividual], float] = distance_measure
+        self._distance_threshold: float = distance_threshold
+        self._quantile: float = quantile
+        self._last_individuals: Optional[tuple[BaseIndividual, ...]] = None
+
+    def _generational_distance(
+        self, from_population: tuple[BaseIndividual, ...], to_population: tuple[BaseIndividual, ...]
+    ) -> float:
+        distance_sum: float = 0
+        for from_individual in from_population:
+            distance_sum += min(
+                self._distance_measure(from_individual, to_individual) for to_individual in to_population
+            )
+        return distance_sum / len(from_population)
+
+    def reset_state(self) -> None:
+        pass
+
+    def check_termination(
+        self,
+        population_evaluation: BasePopulationEvaluationResult,
+        best_individual: BaseIndividual,
+        best_expectation_value: float,
+    ) -> bool:
+
+        results: tuple[tuple[BaseIndividual, float], ...] = tuple(
+            zip(population_evaluation.population.individuals, population_evaluation.expectation_values)
+        )
+        results = tuple(sorted(results, key=lambda x: x[1]))
+        quantile_index = ceil(len(results) * self._quantile)
+        individuals = tuple(individual for individual, evaluation in results[:quantile_index])
+
+        if self._last_individuals is not None:
+            average_hausdorff_distance = max(
+                self._generational_distance(self._last_individuals, individuals),
+                self._generational_distance(individuals, self._last_individuals),
+            )
+
+            print("distance:", average_hausdorff_distance)
+
+            if average_hausdorff_distance < self._distance_threshold:
+                return True
+
+        self._last_individuals = individuals
+        return False
