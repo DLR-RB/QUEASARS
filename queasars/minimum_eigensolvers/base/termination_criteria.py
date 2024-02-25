@@ -108,6 +108,25 @@ class BestIndividualRelativeImprovementTolerance(EvolvingAnsatzMinimumEigensolve
         return True
 
 
+class BestIndividualAbsoluteExpectationValueTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+
+    def __init__(self, expectation_threshold: float):
+        self._expectation_threshold: float = expectation_threshold
+
+    def reset_state(self) -> None:
+        pass
+
+    def check_termination(
+        self,
+        population_evaluation: BasePopulationEvaluationResult,
+        best_individual: BaseIndividual,
+        best_expectation_value: float,
+    ) -> bool:
+        if best_expectation_value < self._expectation_threshold:
+            return True
+        return False
+
+
 class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
 
     def __init__(
