@@ -141,12 +141,17 @@ class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
         best_expectation_value: float,
     ) -> bool:
 
-        results: tuple[tuple[BaseIndividual, float], ...] = tuple(
+        results: tuple[tuple[BaseIndividual, Optional[float]], ...] = tuple(
             zip(population_evaluation.population.individuals, population_evaluation.expectation_values)
         )
-        results = tuple(sorted(results, key=lambda x: x[1]))
-        quantile_index = ceil(len(results) * self._quantile)
-        individuals = tuple(individual for individual, evaluation in results[:quantile_index])
+        filtered_results: tuple[tuple[BaseIndividual, float], ...] = tuple(
+            (ind, fit) for ind, fit in results if fit is not None
+        )
+        filtered_results = tuple(sorted(filtered_results, key=lambda x: x[1]))
+        quantile_index: int = ceil(len(filtered_results) * self._quantile)
+        individuals: tuple[BaseIndividual, ...] = tuple(
+            individual for individual, evaluation in filtered_results[:quantile_index]
+        )
 
         if self._last_individuals is not None:
             average_hausdorff_distance = max(
