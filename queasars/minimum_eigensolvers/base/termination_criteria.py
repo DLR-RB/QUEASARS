@@ -131,17 +131,21 @@ class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
 
     def __init__(
         self,
-        distance_measure: Callable[[BaseIndividual, BaseIndividual], float],
+        distance_measure: Callable[[tuple[BaseIndividual, float], tuple[BaseIndividual, float]], float],
         distance_threshold: float,
         quantile: float,
     ):
-        self._distance_measure: Callable[[BaseIndividual, BaseIndividual], float] = distance_measure
+        self._distance_measure: Callable[[tuple[BaseIndividual, float], tuple[BaseIndividual, float]], float] = (
+            distance_measure
+        )
         self._distance_threshold: float = distance_threshold
         self._quantile: float = quantile
-        self._last_individuals: Optional[tuple[BaseIndividual, ...]] = None
+        self._last_individuals: Optional[tuple[tuple[BaseIndividual, float], ...]] = None
 
     def _generational_distance(
-        self, from_population: tuple[BaseIndividual, ...], to_population: tuple[BaseIndividual, ...]
+        self,
+        from_population: tuple[tuple[BaseIndividual, float], ...],
+        to_population: tuple[tuple[BaseIndividual, float], ...],
     ) -> float:
         distance_sum: float = 0
         for from_individual in from_population:
@@ -168,8 +172,8 @@ class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
         )
         filtered_results = tuple(sorted(filtered_results, key=lambda x: x[1]))
         quantile_index: int = ceil(len(filtered_results) * self._quantile)
-        individuals: tuple[BaseIndividual, ...] = tuple(
-            individual for individual, evaluation in filtered_results[:quantile_index]
+        individuals: tuple[tuple[BaseIndividual, float], ...] = tuple(
+            individual for individual in filtered_results[:quantile_index]
         )
 
         if self._last_individuals is not None:
