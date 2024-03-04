@@ -395,7 +395,7 @@ class EVQECircuitLayerException(Exception):
     """Class for exceptions caused during operations involving the EVQECircuitLayer"""
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class EVQEIndividual(BaseIndividual):
     """Dataclass for individuals of the EVQE evolutionary algorithm, which
     represent a parameterized quantum circuit along with the corresponding parameter values
@@ -730,8 +730,11 @@ class EVQEIndividual(BaseIndividual):
         """
         return sum(layer.n_controlled_gates for layer in self.layers)
 
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
     def __hash__(self):
-        return hash((self.n_qubits, self.layers))
+        return hash((self.n_qubits, self.layers, self.parameter_values))
 
 
 class EVQEIndividualException(Exception):
