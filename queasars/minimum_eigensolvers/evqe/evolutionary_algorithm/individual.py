@@ -659,11 +659,6 @@ class EVQEIndividual(BaseIndividual):
         # This attribute is set in __post_init__ which mypy does not recognize.
         return self._layer_parameter_indices  # type: ignore # pylint: disable=no-member
 
-    def get_quantum_circuit(self) -> QuantumCircuit:
-        circuit: QuantumCircuit = self.get_parameterized_quantum_circuit()
-        circuit.assign_parameters(parameters=self.parameter_values, inplace=True)
-        return circuit
-
     def get_parameterized_quantum_circuit(self) -> QuantumCircuit:
         return self.get_partially_parameterized_quantum_circuit(set(range(0, len(self.layers))))
 

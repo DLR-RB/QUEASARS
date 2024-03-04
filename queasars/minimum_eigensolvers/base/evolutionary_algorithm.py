@@ -16,14 +16,14 @@ class BaseIndividual(ABC):
     ansatz eigensolvers such an individual genome represents a parameterized quantum circuit with a defined list
     of rotation angles"""
 
-    @abstractmethod
     def get_quantum_circuit(self) -> QuantumCircuit:
         """
-        Builds the quantum circuit as specified by this genome using the appropriate rotation angles.
+        Builds the quantum circuit as specified by this genome using the appropriate parameter values
 
         :return: A non parameterized quantum circuit
         :rtype: QuantumCircuit
         """
+        return self.get_parameterized_quantum_circuit().assign_parameters(parameters=self.get_parameter_values())
 
     @abstractmethod
     def get_parameterized_quantum_circuit(
@@ -32,7 +32,7 @@ class BaseIndividual(ABC):
         """
         Builds a parameterized quantum circuit as specified in this individual's genome. The returned circuit is only
         an appropriate representation of this individual, if the parameters are manually populated by the angles
-        as returned by `get_rotation_angles()`
+        as returned by `get_parameter_values()`
 
         :return: A parameterized quantum circuit
         :rtype: QuantumCircuit
@@ -43,7 +43,7 @@ class BaseIndividual(ABC):
         """
         Get the parameter values for the parameterized quantum circuit, as specified in this individual's genome
 
-        :return: A list of rotation angles
+        :return: A tuple of parameter values
         :rtype: tuple[float, ...]
         """
 
