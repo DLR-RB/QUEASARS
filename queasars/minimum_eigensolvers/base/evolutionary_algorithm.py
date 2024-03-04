@@ -79,7 +79,8 @@ class BasePopulationEvaluationResult(ABC, Generic[IND]):
 
     :param population: Population which was evaluated
     :type population: BasePopulation
-    :param expectation_values: Expectation values for the individuals of the evaluated population
+    :param expectation_values: Expectation values for the individuals of the evaluated population.
+        The indices of the expectation values match the indices of the individuals in population.individuals
     :type expectation_values: tuple[Optional[float], ...]
     :param best_individual: Best individual from within the evaluated population
     :type best_individual: BaseIndividual
