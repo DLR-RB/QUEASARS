@@ -52,7 +52,7 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
         needs to be set
     :type estimator: Optional[BaseEstimator]
     :param sampler: Sampler primitive used to measure the circuits QuasiDistribution. If reproducible behaviour is
-        required, the seed option of the estimator needs to be set
+        required, the seed option of the sampler needs to be set
     :type sampler: BaseSampler
     :param max_generations: Maximum amount of generations the evolution may go on for. Either max_generations or
         max_circuit_evaluations or termination_criterion needs to be provided
@@ -66,7 +66,7 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :type termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
     :param dask_client: optional dask client to facilitate parallelization, if None is given, a dask local cluster using
         multiprocessing is spun up for that purpose
-    :type dask_client: Client
+    :type dask_client: Optional[Client]
     """
 
     population_initializer: Callable[[int], POP]
