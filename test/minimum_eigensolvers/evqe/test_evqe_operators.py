@@ -1,17 +1,13 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
-from typing import Optional
-
+from dask.distributed import LocalCluster
 import pytest
-from dask.distributed import LocalCluster, Client
-from docplex.mp.model import Model
 from qiskit_aer.primitives import Estimator
 from qiskit_algorithms.optimizers import NFT, Optimizer
-from qiskit_optimization.translators import from_docplex_mp, to_ising
-from qiskit_optimization.converters import IntegerToBinary
-from qiskit.quantum_info import Operator
+from qiskit.quantum_info import SparsePauliOp
 
+from test.minimum_eigensolvers.evqe.model import create_sample_model, translate_model_to_hamiltonian
 from queasars.circuit_evaluation.circuit_evaluation import OperatorCircuitEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import OperatorContext, BasePopulationEvaluationResult
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import EVQEIndividual
@@ -26,10 +22,15 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.speciation import
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.selection import EVQESelection
 
 
+@pytest.fixture(scope="module")
+def dask_client():
+    cluster = LocalCluster(n_workers=2)
+    client = cluster.get_client()
+    yield client
+    cluster.close()
+
+
 class TestEVQEOperators:
-    client: Optional[Client] = None
-    evaluator: Optional[OperatorCircuitEvaluator] = None
-    operator: Optional[Operator] = None
 
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
@@ -38,36 +39,23 @@ class TestEVQEOperators:
         )
 
     @pytest.fixture
-    def dask_client(self) -> Client:
-        if self.client is None:
-            cluster = LocalCluster(processes=True, n_workers=2)
-            self.client = cluster.get_client()
-        return self.client
-
-    @pytest.fixture
-    def hamiltonian(self) -> Operator:
-        if self.operator is None:
-            optimization_problem = Model()
-            x = optimization_problem.integer_var(lb=0, ub=3, name="x")
-            y = optimization_problem.integer_var(lb=0, ub=3, name="y")
-            optimization_problem.minimize(x**2 - y**2)
-
-            quadratic_program = from_docplex_mp(model=optimization_problem)
-            integer_converter = IntegerToBinary()
-            quadratic_program = integer_converter.convert(problem=quadratic_program)
-            self.operator, _ = to_ising(quad_prog=quadratic_program)
-        return self.operator
+    def hamiltonian(self) -> SparsePauliOp:
+        model = create_sample_model()
+        hamiltonian, _ = translate_model_to_hamiltonian(model=model)
+        return hamiltonian
 
     @pytest.fixture
     def circuit_evaluator(self, hamiltonian) -> OperatorCircuitEvaluator:
-        if self.evaluator is None:
-            estimator = Estimator()
-            estimator.set_options(seed=0)
-            self.evaluator = OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hamiltonian)
-        return self.evaluator
+        estimator = Estimator(approximation=True)
+        estimator.set_options(seed=0)
+        return OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hamiltonian)
 
     @pytest.fixture
-    def operator_context(self, dask_client, circuit_evaluator) -> OperatorContext:
+    def optimizer(self) -> Optimizer:
+        return NFT(maxfev=40)
+
+    @pytest.fixture
+    def operator_context(self, circuit_evaluator, dask_client) -> OperatorContext:
         return OperatorContext(
             circuit_evaluator=circuit_evaluator,
             dask_client=dask_client,
@@ -75,19 +63,19 @@ class TestEVQEOperators:
             circuit_evaluation_count_callback=lambda x: None,
         )
 
-    @pytest.fixture
-    def optimizer(self) -> Optimizer:
-        return NFT(maxfev=40)
-
-    def test_optimize_last_layer_mutation(self, initial_population, operator_context, optimizer):
-        context = operator_context
+    def test_optimize_last_layer_mutation(self, initial_population, optimizer, circuit_evaluator, dask_client):
         evaluation_results: list[BasePopulationEvaluationResult] = []
 
         def callback(result: BasePopulationEvaluationResult):
             nonlocal evaluation_results
             evaluation_results.append(result)
 
-        context.result_callback = callback
+        operator_context = OperatorContext(
+            circuit_evaluator=circuit_evaluator,
+            dask_client=dask_client,
+            result_callback=callback,
+            circuit_evaluation_count_callback=lambda x: None,
+        )
 
         last_layer_search = EVQELastLayerParameterSearch(
             mutation_probability=0.3, optimizer=optimizer, optimizer_n_circuit_evaluations=40, random_seed=0
@@ -102,17 +90,23 @@ class TestEVQEOperators:
         population = speciation.apply_operator(population=population, operator_context=operator_context)
         _ = evaluation.apply_operator(population=population, operator_context=operator_context)
 
-        assert sum(evaluation_results[1].expectation_values) < sum(evaluation_results[0].expectation_values)
+        assert sum(evaluation_results[1].expectation_values) < sum(
+            evaluation_results[0].expectation_values
+        ), "Last layer optimization did not improve the expectation values on average!"
 
-    def test_parameter_search_mutation(self, initial_population, operator_context, optimizer):
-        context = operator_context
+    def test_parameter_search_mutation(self, initial_population, optimizer, circuit_evaluator, dask_client):
         evaluation_results: list[BasePopulationEvaluationResult] = []
 
         def callback(result: BasePopulationEvaluationResult):
             nonlocal evaluation_results
             evaluation_results.append(result)
 
-        context.result_callback = callback
+        operator_context = OperatorContext(
+            circuit_evaluator=circuit_evaluator,
+            dask_client=dask_client,
+            result_callback=callback,
+            circuit_evaluation_count_callback=lambda x: None,
+        )
 
         parameter_search = EVQEParameterSearch(
             mutation_probability=0.3, optimizer=optimizer, optimizer_n_circuit_evaluations=40, random_seed=0
@@ -127,7 +121,9 @@ class TestEVQEOperators:
         population = speciation.apply_operator(population=population, operator_context=operator_context)
         _ = evaluation.apply_operator(population=population, operator_context=operator_context)
 
-        assert sum(evaluation_results[1].expectation_values) < sum(evaluation_results[0].expectation_values)
+        assert sum(evaluation_results[1].expectation_values) < sum(
+            evaluation_results[0].expectation_values
+        ), "Parameter search did not improve the expectation values on average!"
 
     def test_topological_search_mutation(self, initial_population, operator_context):
         topological_search = EVQETopologicalSearch(mutation_probability=0.5, random_seed=0)
@@ -138,7 +134,9 @@ class TestEVQEOperators:
         )
         new_individual_length = sum(len(individual.layers) for individual in new_population.individuals)
 
-        assert initial_individual_length < new_individual_length
+        assert (
+            initial_individual_length < new_individual_length
+        ), "Topological search did not increase the amount of layers in the population!"
 
     def test_layer_removal_mutation(self, initial_population, operator_context):
         layer_removal = EVQELayerRemoval(mutation_probability=0.5, random_seed=0)
@@ -149,7 +147,7 @@ class TestEVQEOperators:
 
         assert initial_individual_length > new_individual_length
 
-    def test_speciation(self, initial_population, operator_context, optimizer):
+    def test_speciation(self, initial_population, optimizer, operator_context):
         genetic_distance = 2
         last_layer_parameter_search = EVQELastLayerParameterSearch(
             mutation_probability=1, optimizer=optimizer, optimizer_n_circuit_evaluations=40
@@ -181,6 +179,9 @@ class TestEVQEOperators:
                             individual_1=representative, individual_2=population.individuals[member_index]
                         )
                         < genetic_distance
+                    ), (
+                        "A member of a species has exceeded the genetic_distance it should at "
+                        + "maximum have to its species representative!"
                     )
 
     def test_selection(self, initial_population, operator_context, optimizer):
@@ -205,4 +206,6 @@ class TestEVQEOperators:
             population = selection.apply_operator(population=population, operator_context=operator_context)
 
         for i in range(1, len(evaluation_results)):
-            assert sum(evaluation_results[i - 1].expectation_values) > sum(evaluation_results[i].expectation_values)
+            assert sum(evaluation_results[i - 1].expectation_values) > sum(
+                evaluation_results[i].expectation_values
+            ), "Selection did not improve the expectation values in the population on average!"
