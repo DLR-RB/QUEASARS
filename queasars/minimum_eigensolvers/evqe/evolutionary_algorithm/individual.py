@@ -708,7 +708,8 @@ class EVQEIndividual(BaseIndividual):
         """
         Returns the parameter values for a specified circuit layer
 
-        :param layer_id: index of the layer
+        :param layer_id: index of the layer. This value can also be negative to index layers starting from the last
+            layer. For instance -1 refers to the last layer and -2 to the second to last layer of the individual
         :type layer_id: int
         :return: the parameter values
         :rtype: tuple[float, ...]
