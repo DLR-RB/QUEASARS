@@ -473,7 +473,8 @@ class EVQEIndividual(BaseIndividual):
 
         :arg individual: on which the new individual is based
         :type individual: EVQEIndividual
-        :arg layer_id: index of the layer whose parameter values shall be changed
+        :arg layer_id: index of the layer whose parameter values shall be changed. Negative indices are allowed.
+            For instance -1 will refer to the last layer of the individual and -2 to the second to last layer
         :type layer_id: int
         :arg parameter_values: to set the layer's parameters to
         :type parameter_values: tuple[float, ...]
@@ -595,8 +596,8 @@ class EVQEIndividual(BaseIndividual):
     @staticmethod
     def get_genetic_distance(individual_1: "EVQEIndividual", individual_2: "EVQEIndividual") -> int:
         """
-        Returns the genetic distance between two individuals, which is defined as the sum of the amount of
-        all layers of both individuals subtracted by the amount of shared layers
+        Returns the genetic distance between two individuals, which is defined as the ceiling of the average amount of
+        layers subtracted by the amount of shared layers
 
         :param individual_1: individual to determine genetic distance from
         :type individual_1: EVQEIndividual
@@ -604,8 +605,13 @@ class EVQEIndividual(BaseIndividual):
         :type individual_2: EVQEIndividual
         :return:
         """
-        n_all_layers: int = ceil(0.5 * (len(individual_1.layers) + len(individual_2.layers)))
-        n_shared_layers: int = len({layer for layer in individual_1.layers if layer in individual_2.layers})
+        n_layers_id1 = len(individual_1.layers)
+        n_layers_id2 = len(individual_2.layers)
+        n_all_layers: int = ceil(0.5 * (n_layers_id1 + n_layers_id2))
+        n_shared_layers = 0
+        for i in range(0, min(n_layers_id1, n_layers_id2)):
+            if individual_1.layers[i] == individual_2.layers[i]:
+                n_shared_layers += 1
 
         return n_all_layers - n_shared_layers
 
