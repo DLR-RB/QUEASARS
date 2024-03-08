@@ -627,7 +627,7 @@ class EVQEIndividual(BaseIndividual):
         if not self.is_valid():
             raise EVQEIndividualException("The created individual is not valid!")
 
-        # Initialize an immutable mapping to hold the parameter indices for each layer
+        # Initialize a mapping to hold the parameter indices for each layer
         layer_parameter_indices: dict[int, tuple[int, ...]] = {}
         parameter_index: int = 0
         for i, layer in enumerate(self.layers):
@@ -665,8 +665,7 @@ class EVQEIndividual(BaseIndividual):
         self,
     ) -> MappingProxyType[int, tuple[int, ...]]:
         """
-        :return: An immutable mapping, which maps the layer index to
-            the parameter indices which belong ot it
+        :return: A mapping, which maps the layer index to the parameter indices which belong ot it
         :rtype: MappingProxyType[EVQECircuitLayer, tuple[int, ...]]
         """
         # This attribute is set in __post_init__ which mypy does not recognize.
