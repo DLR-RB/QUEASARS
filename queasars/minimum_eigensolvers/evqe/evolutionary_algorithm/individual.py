@@ -679,7 +679,9 @@ class EVQEIndividual(BaseIndividual):
         """Returns the quantum circuit as represented by this individual with only some
         circuit layers being parameterized
 
-        :arg parameterized_layers: indices of the circuit layers which shall be parameterized
+        :arg parameterized_layers: indices of the circuit layers which shall be parameterized. The indices can also be
+            negative to index layers starting from the last layer. For instance -1 refers to the last layer and -2 to
+            the second to last layer of the individual
         :type parameterized_layers: set[int]
         :return: the partially parameterized QuantumCircuit
         :rtype: QuantumCircuit
