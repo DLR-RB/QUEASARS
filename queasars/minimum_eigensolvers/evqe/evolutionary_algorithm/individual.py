@@ -577,7 +577,7 @@ class EVQEIndividual(BaseIndividual):
             raise EVQEIndividualException("n_layers must be at least 1!")
         if not n_layers < len(individual.layers):
             raise EVQEIndividualException(
-                "Layer removal must leave at least one layer remaining! Choose a smaller n_layer value"
+                "Removed too many layers (one layer must remain)! Choose a smaller n_layer value"
             )
 
         # Remove the last layers
