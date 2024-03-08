@@ -348,13 +348,13 @@ class EVQECircuitLayer:
 
         return is_valid
 
-    def get_parameterized_layer_gate(self, layer_id: int) -> Gate:
-        """Creates a parameterized qiskit Gate which can apply this circuit layer to any quantum circuit.
+    def get_parameterized_layer_circuit(self, layer_id: int) -> QuantumCircuit:
+        """Creates a parameterized quantum circuit which contains only this circuit layer
 
         :arg layer_id: id used in parameter and gate naming, should be unique for all layers of a quantum circuit
         :type layer_id: int
-        :return: a qiskit Gate operator with which this layer can be applied
-        :rtype: Gate
+        :return: a parameterized quantum circuit containing only this circuit layer
+        :rtype: QuantumCircuit
         """
         circuit = QuantumCircuit(self.n_qubits, name=f"layer_{layer_id}")
 
@@ -362,10 +362,20 @@ class EVQECircuitLayer:
         for gate in self.gates:
             gate.apply_gate(circuit=circuit, parameter_name_prefix=layer_prefix)
 
-        return circuit_to_gate(circuit)
+        return circuit
+
+    def get_parameterized_layer_gate(self, layer_id: int) -> Gate:
+        """Creates a parameterized qiskit Gate which can apply this circuit layer to any quantum circuit
+
+        :arg layer_id: id used in parameter and gate naming, should be unique for all layers of a quantum circuit
+        :type layer_id: int
+        :return: a qiskit Gate operator with which this layer can be applied
+        :rtype: Gate
+        """
+        return circuit_to_gate(self.get_parameterized_layer_circuit(layer_id=layer_id))
 
     def get_layer_gate(self, layer_id: int, parameter_values: tuple[float, ...]) -> Gate:
-        """Creates a qiskit Gate which can apply this circuit layer to any quantum circuit using the given parameters.
+        """Creates a qiskit Gate which can apply this circuit layer to any quantum circuit using the given parameters
 
         :arg layer_id: id used in parameter and gate naming, should be unique for all layers of a quantum circuit
         :type layer_id: int
@@ -380,14 +390,8 @@ class EVQECircuitLayer:
                 "The amount of provided parameter values must match this layer's n_parameters!"
             )
 
-        circuit = QuantumCircuit(self.n_qubits, name=f"layer_{layer_id}")
-
-        layer_prefix = f"layer{layer_id}_"
-        for gate in self.gates:
-            gate.apply_gate(circuit=circuit, parameter_name_prefix=layer_prefix)
-
+        circuit = self.get_parameterized_layer_circuit(layer_id=layer_id)
         circuit.assign_parameters(parameters=parameter_values, inplace=True)
-
         return circuit_to_gate(circuit)
 
 
