@@ -214,7 +214,8 @@ class EVQECircuitLayer:
         # Ensure, that the previous layer matches the layer to be generated
         if previous_layer is not None and previous_layer.n_qubits != n_qubits:
             raise EVQECircuitLayerException(
-                "Previous_layer must have exactly as many qubits as the layer to be generated!"
+                f"The previous_layer has {previous_layer.n_qubits} qubits which differs from the {n_qubits} "
+                + "for the layer which shall be randomly generated! The amount of qubits for both layers must match!"
             )
 
         # Initialize a buffer to hold the gates and parameters for the new layer
