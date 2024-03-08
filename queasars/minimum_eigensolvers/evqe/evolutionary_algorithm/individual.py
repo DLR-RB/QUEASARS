@@ -314,28 +314,22 @@ class EVQECircuitLayer:
         :return: True, if it is valid, False otherwise
         :rtype: bool
         """
-        is_valid = True
 
         # The circuit layer must have exactly as many gates as qubits
         if len(self.gates) != self.n_qubits:
-            is_valid = False
-
-        if not is_valid:
             return False
 
         # Check the validity of each gate
         for gate_index, gate in enumerate(self.gates):
             # Ensure each gate is at the right position in the gates tuple
             if gate_index != gate.qubit_index:
-                is_valid = False
-                break
+                return False
 
             # Ensure each ControlledGate has a correctly assigned ControlGate
             if isinstance(gate, ControlledGate):
                 control_gate = self.gates[gate.control_qubit_index]
                 if not (isinstance(control_gate, ControlGate) and control_gate.controlled_qubit_index == gate_index):
-                    is_valid = False
-                    break
+                    return False
 
             # Ensure each ControlGate has a correctly assigned ControlledGate
             if isinstance(gate, ControlGate):
@@ -344,10 +338,9 @@ class EVQECircuitLayer:
                     isinstance(controlled_gate, ControlledRotationGate)
                     and controlled_gate.control_qubit_index == gate_index
                 ):
-                    is_valid = False
-                    break
+                    return False
 
-        return is_valid
+        return True
 
     def get_parameterized_layer_circuit(self, layer_id: int) -> QuantumCircuit:
         """Creates a parameterized quantum circuit which contains only this circuit layer
@@ -641,24 +634,21 @@ class EVQEIndividual(BaseIndividual):
         :return: True if the individual is valid, False otherwise
         :rtype: bool
         """
-        is_valid = True
 
         # Check that the individual has at least one circuit layer
         if len(self.layers) <= 0:
-            is_valid = False
+            return False
 
         # Check that each layer is valid and of the correct size
         for layer in self.layers:
-            if not layer.is_valid():
-                is_valid = False
-            if not layer.n_qubits == self.n_qubits:
-                is_valid = False
+            if (not layer.is_valid()) or (not layer.n_qubits == self.n_qubits):
+                return False
 
         # Check that the correct amount of parameters is provided
         if len(self.parameter_values) != sum(layer.n_parameters for layer in self.layers):
             return False
 
-        return is_valid
+        return True
 
     @property
     def layer_parameter_indices(
