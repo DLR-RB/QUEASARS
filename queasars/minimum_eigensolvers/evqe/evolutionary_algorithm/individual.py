@@ -409,6 +409,8 @@ class EVQEIndividual(BaseIndividual):
     :type n_qubits: int
     :param layers: circuit layers of which this individual's quantum circuit consists of
     :type layers: tuple[EVQECircuitLayer, ...]
+    :param parameter_values: parameter values with which to populate the parameterized rotation gates
+    :type parameter_values: tuple[float, ...]
     """
 
     n_qubits: int
