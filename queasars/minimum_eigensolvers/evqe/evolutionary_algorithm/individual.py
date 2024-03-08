@@ -28,7 +28,7 @@ class EVQEGateType(Enum):
     CONTROLLED_ROTATION = 3
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class EVQEGate(ABC):
     """Abstract dataclass representing a quantum gate.
     This class is intended for structuring the genome and not for implementing quantum gate functionality
@@ -69,7 +69,7 @@ class EVQEGate(ABC):
         """
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class IdentityGate(EVQEGate):
     """Dataclass representing an identity gate.
     This class is intended for structuring the genome and not for implementing quantum gate functionality
@@ -87,7 +87,7 @@ class IdentityGate(EVQEGate):
         circuit.id(self.qubit_index)
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class RotationGate(EVQEGate):
     """Dataclass representing a rotation gate.
     This class is intended for structuring the genome and not for implementing quantum gate functionality
@@ -110,7 +110,7 @@ class RotationGate(EVQEGate):
         )
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class ControlGate(EVQEGate):
     """Dataclass representing the controlling part of a controlled quantum gate. It is not a valid gate on its own.
     It needs a matching ControlledGate to be placed at the qubit of the controlled_qubit_index.
@@ -134,7 +134,7 @@ class ControlGate(EVQEGate):
         pass
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class ControlledGate(EVQEGate, ABC):
     """Dataclass representing a controlled quantum gate. It is not a valid gate on its own.
     It needs a matching ControlGate to be placed at the qubit of the control_qubit_index.
@@ -147,7 +147,7 @@ class ControlledGate(EVQEGate, ABC):
     control_qubit_index: int
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class ControlledRotationGate(ControlledGate):
     """Dataclass representing a ControlledGate which applies a rotation to the qubit.
     It needs a matching ControlGate to be placed at the qubit of the control_qubit_index.
@@ -173,7 +173,7 @@ class ControlledRotationGate(ControlledGate):
         )
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class EVQECircuitLayer:
     """Dataclass representing a single circuit layer in quantum circuit.
     This class is intended for structuring the genome and not for implementing quantum circuit functionality
