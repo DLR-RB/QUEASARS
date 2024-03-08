@@ -349,7 +349,7 @@ class EVQECircuitLayer:
         return is_valid
 
     def get_parameterized_layer_gate(self, layer_id: int) -> Gate:
-        """Creates a parameterized qiskit Gate which can apply this circuit layer to any quantum circuit..
+        """Creates a parameterized qiskit Gate which can apply this circuit layer to any quantum circuit.
 
         :arg layer_id: id used in parameter and gate naming, should be unique for all layers of a quantum circuit
         :type layer_id: int
