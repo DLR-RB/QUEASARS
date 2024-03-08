@@ -4,17 +4,16 @@
 import pytest
 from pytest import raises
 from random import Random
+
 from qiskit.circuit import QuantumCircuit
 
-from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import (
+from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import EVQEIndividual, EVQEIndividualException
+from queasars.minimum_eigensolvers.evqe.quantum_circuit.circuit_layer import EVQECircuitLayer, EVQECircuitLayerException
+from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import (
     RotationGate,
     ControlGate,
     ControlledRotationGate,
     IdentityGate,
-    EVQECircuitLayer,
-    EVQECircuitLayerException,
-    EVQEIndividual,
-    EVQEIndividualException,
 )
 from queasars.utility.random import new_random_seed
 
