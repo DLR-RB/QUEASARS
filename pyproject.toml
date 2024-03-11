@@ -77,8 +77,6 @@ module = [
     'qiskit_algorithms.optimizers.*',
     'qiskit_algorithms.utils',
     'qiskit_algorithms.utils.*',
-
-
 ]
 ignore_missing_imports = true
 

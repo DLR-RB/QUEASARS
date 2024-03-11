@@ -16,7 +16,11 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.population import
 
 
 class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
-    """Class representing the selection evolutionary operator of the EVQE algorithm
+    """
+    Class representing the selection evolutionary operator of the EVQE algorithm. Directly before this
+    Operator is applied a speciation Operator must have been applied. In other words, the EVQEPopulation's
+    species_representatives, species_members and species_membership attributes may not be None when this Operator
+    is applied
 
     :param alpha_penalty: scaling factor for penalizing the amount of circuit layers of an individual
     :type: float
@@ -32,8 +36,8 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
         self.random_generator: Random = Random(random_seed)
 
     def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        # measure the expectation values for all individuals
-        future_circuit_evaluations: list[Future] = [
+        # evaluate all individuals
+        future_evaluation_results: list[Future] = [
             operator_context.dask_client.submit(
                 operator_context.circuit_evaluator.evaluate_circuits,
                 [individual.get_parameterized_quantum_circuit()],
@@ -42,9 +46,9 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
             for individual in population.individuals
         ]
 
-        wait(future_circuit_evaluations)
-        circuit_evaluations: list[float] = [future.result()[0] for future in future_circuit_evaluations]
-        del future_circuit_evaluations
+        wait(future_evaluation_results)
+        evaluation_results: list[float] = [future.result()[0] for future in future_evaluation_results]
+        del future_evaluation_results
         operator_context.circuit_evaluation_count_callback(len(population.individuals))
 
         # cannot apply selection if speciation was not done beforehand
@@ -59,26 +63,26 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
                 + "attribute of the population is None!"
             )
 
-        # report the best individual
-        best_individual_index: int = int(argmin(circuit_evaluations))
-        evaluation_result: BasePopulationEvaluationResult[EVQEIndividual] = BasePopulationEvaluationResult(
+        # report the result of the evaluation
+        best_individual_index: int = int(argmin(evaluation_results))
+        result: BasePopulationEvaluationResult[EVQEIndividual] = BasePopulationEvaluationResult(
             population=population,
-            expectation_values=tuple(circuit_evaluations),
+            expectation_values=tuple(evaluation_results),
             best_individual=population.individuals[best_individual_index],
-            best_expectation_value=circuit_evaluations[best_individual_index],
+            best_expectation_value=evaluation_results[best_individual_index],
         )
-        operator_context.result_callback(evaluation_result)
+        operator_context.result_callback(result)
 
-        # disallow negative or 0 values in fitnesses by shifting all expectation values by a fixed offset
+        # disallow negative or 0 values in fitnesses by shifting all evaluation results by a fixed offset
         offset: float
-        if circuit_evaluations[best_individual_index] <= 0:
-            offset = -circuit_evaluations[best_individual_index] + 1
+        if evaluation_results[best_individual_index] <= 0:
+            offset = -evaluation_results[best_individual_index] + 1
         else:
             offset = 0
 
         fitness_values: list[float] = [
             (
-                circuit_evaluations[i]
+                evaluation_results[i]
                 + offset
                 + self.alpha_penalty * len(individual.layers)
                 + self.beta_penalty * individual.get_n_controlled_gates()
