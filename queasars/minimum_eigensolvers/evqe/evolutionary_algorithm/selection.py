@@ -16,7 +16,11 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.population import
 
 
 class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
-    """Class representing the selection evolutionary operator of the EVQE algorithm
+    """
+    Class representing the selection evolutionary operator of the EVQE algorithm. Directly before this
+    Operator is applied a speciation Operator must have been applied. In other words, the EVQEPopulation's
+    species_representatives, species_members and species_membership attributes may not be None when this Operator
+    is applied
 
     :param alpha_penalty: scaling factor for penalizing the amount of circuit layers of an individual
     :type: float
