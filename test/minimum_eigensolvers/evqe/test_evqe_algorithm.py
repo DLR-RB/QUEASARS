@@ -13,10 +13,9 @@ from test.minimum_eigensolvers.evqe.solver import (
 
 @pytest.fixture(scope="module")
 def dask_client():
-    cluster = LocalCluster(n_workers=2)
-    client = cluster.get_client()
-    yield client
-    cluster.close()
+    with LocalCluster(n_workers=2) as cluster:
+        client = cluster.get_client()
+        yield client
 
 
 class TestEVQEAlgorithm:

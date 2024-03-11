@@ -9,7 +9,7 @@ from qiskit_algorithms.optimizers import NFT
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
     EvolvingAnsatzMinimumEigensolverResult,
 )
-from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeImprovementTolerance
+from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeChangeTolerance
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolver, EVQEMinimumEigensolverConfiguration
 
 
@@ -17,7 +17,7 @@ def create_sample_solver(client: Optional[Client] = None) -> EVQEMinimumEigensol
     estimator = Estimator(approximation=True)
     sampler = Sampler()
     optimizer = NFT(maxiter=40)
-    termination_criterion = BestIndividualRelativeImprovementTolerance(minimum_relative_improvement=0.01)
+    termination_criterion = BestIndividualRelativeChangeTolerance(minimum_relative_change=0.005)
 
     solver_configuration = EVQEMinimumEigensolverConfiguration(
         sampler=sampler,
