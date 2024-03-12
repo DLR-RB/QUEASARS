@@ -25,7 +25,7 @@ class JSSPJSONEncoder(JSONEncoder):
         JobShopSchedulingProblemInstance,
         ScheduledOperation,
         JobShopSchedulingResult,
-        """
+    """
 
     def default(self, o: Any) -> Any:
 
@@ -86,7 +86,7 @@ class JSSPJSONDecoder(JSONDecoder):
         JobShopSchedulingProblemInstance,
         ScheduledOperation,
         JobShopSchedulingResult,
-        """
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(object_hook=self.object_hook, *args, **kwargs)
