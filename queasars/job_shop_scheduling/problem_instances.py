@@ -36,10 +36,14 @@ class Machine:
 @dataclass(frozen=True)
 class Operation:
     """Dataclass representing an operation in the context of the Job Shop Scheduling Problem. An operation is one
-    step in finishing a Job.
+    step in finishing a Job
 
-    :param name: identifier of the operation. Must not be an empty string
+    :param name: identifier of the operation. Must not be an empty string.
+        Must be unique between all operations of a job
     :type name: str
+    :param job_name: name of the job to which this operation belongs. Must exactly match
+        the name of the job it is part of
+    :type job_name: str
     :param machine: machine on which this operation must be executed
     :type machine: Machine
     :param processing_duration: amount of time units needed to finish the operation. Must be at least 1
@@ -47,6 +51,7 @@ class Operation:
     """
 
     name: str
+    job_name: str
     machine: Machine
     processing_duration: int
 
@@ -63,12 +68,23 @@ class Operation:
             return False
         return True
 
+    @property
+    def identifier(self) -> str:
+        """
+        Unique operation identifier in a valid JobShopSchedulingProblemInstance, consisting of both the job
+        and operation name.
+
+        :return: a unique string identifier for the operation
+        :rtype: str
+        """
+        return self.job_name + "_" + self.name
+
     def __post_init__(self):
         if not self.is_valid():
             raise JobShopSchedulingProblemException("This Operation is invalid and cannot be instantiated!")
 
     def __repr__(self):
-        return f"{self.name}({self.machine.name}, {self.processing_duration})"
+        return f"{self.identifier}({self.machine.name}, {self.processing_duration})"
 
 
 @dataclass(frozen=True)
@@ -105,11 +121,15 @@ class Job:
         if len(self.operations) == 0:
             return False
 
-        if len(set(self.operations)) != len(self.operations):
+        operation_identifiers = set(map(lambda x: x.identifier, self.operations))
+        if len(operation_identifiers) != len(self.operations):
             return False
 
         visited_machines: set[Machine] = set()
         for operation in self.operations:
+            if operation.job_name != self.name:
+                return False
+
             if operation.machine in visited_machines:
                 return False
             visited_machines.add(operation.machine)
@@ -160,7 +180,8 @@ class JobShopSchedulingProblemInstance:
         if len(set(self.machines)) != len(self.machines):
             return False
 
-        if len(set(self.jobs)) != len(self.jobs):
+        job_names = set(map(lambda x: x.name, self.jobs))
+        if len(job_names) != len(self.jobs):
             return False
 
         for job in self.jobs:

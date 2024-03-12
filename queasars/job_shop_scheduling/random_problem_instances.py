@@ -74,7 +74,7 @@ def random_job_shop_scheduling_instance(
     """
     random_generator: Random = Random(random_seed)
 
-    machines: tuple[Machine, ...] = tuple(Machine(f"machine_{i}") for i in range(0, n_machines))
+    machines: tuple[Machine, ...] = tuple(Machine(f"m{i}") for i in range(0, n_machines))
 
     jobs: list[Job] = []
     for i in range(0, n_jobs):
@@ -86,7 +86,8 @@ def random_job_shop_scheduling_instance(
         random_generator.shuffle(op_machines)
         operations = tuple(
             Operation(
-                name=f"job_{i}_op_{j}",
+                name=f"op{j}",
+                job_name=f"job{i}",
                 machine=op_machine,
                 processing_duration=_get_random_int_from_range(
                     random_range=op_duration, random_generator=random_generator
@@ -94,6 +95,6 @@ def random_job_shop_scheduling_instance(
             )
             for j, op_machine in enumerate(op_machines)
         )
-        jobs.append(Job(name=f"job_{i}", operations=operations))
+        jobs.append(Job(name=f"job{i}", operations=operations))
 
     return JobShopSchedulingProblemInstance(name=instance_name, machines=machines, jobs=tuple(jobs))

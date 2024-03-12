@@ -33,6 +33,7 @@ class JSSPJSONEncoder(JSONEncoder):
         if isinstance(o, Operation):
             return {
                 "operation_name": o.name,
+                "operation_job_name": o.job_name,
                 "operation_machine": self.default(o.machine),
                 "operation_processing_duration": o.processing_duration,
             }
@@ -84,6 +85,7 @@ class JSSPJSONDecoder(JSONDecoder):
 
         if (
             "operation_name" in object_dict
+            or "operation_job_name" in object_dict
             or "operation_machine" in object_dict
             or "operation_processing_duration" in object_dict
         ):
@@ -131,6 +133,7 @@ class JSSPJSONDecoder(JSONDecoder):
     def parse_operation(object_dict) -> Operation:
         return Operation(
             name=object_dict["operation_name"],
+            job_name=object_dict["operation_job_name"],
             machine=object_dict["operation_machine"],
             processing_duration=object_dict["operation_processing_duration"],
         )
