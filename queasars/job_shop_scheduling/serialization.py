@@ -15,6 +15,17 @@ from queasars.job_shop_scheduling.problem_instances import (
 
 
 class JSSPJSONEncoder(JSONEncoder):
+    """
+    JSONEncoder class for encoding objects of the job shop scheduling data classes in
+    queasars.job_shop_scheduling.problem_instances
+    This class can serialize:
+        Machine,
+        Operation,
+        Job,
+        JobShopSchedulingProblemInstance,
+        ScheduledOperation,
+        JobShopSchedulingResult,
+        """
 
     def default(self, o: Any) -> Any:
 
@@ -65,6 +76,17 @@ class JSSPJSONEncoder(JSONEncoder):
 
 
 class JSSPJSONDecoder(JSONDecoder):
+    """
+    JSONDecoder class for decoding objects of the job shop scheduling data classes in
+    queasars.job_shop_scheduling.problem_instances
+    This class can decode:
+        Machine,
+        Operation,
+        Job,
+        JobShopSchedulingProblemInstance,
+        ScheduledOperation,
+        JobShopSchedulingResult,
+        """
 
     def __init__(self, *args, **kwargs):
         super().__init__(object_hook=self.object_hook, *args, **kwargs)
