@@ -273,6 +273,48 @@ class JobShopSchedulingResult:
                 text += indent(text=f"{str(scheduled_operation)}\n", prefix=" " * 4)
         return header + text
 
+    def is_valid_solution(self) -> bool:
+        """
+        Checks whether this JobShopSchedulingResult is a valid solution. Therefore, it checks
+        that all operations are in the correct order and that no operation per job and per machine may
+        overlap
+
+        :return: true if the solution is valid and false otherwise
+        :rtype: bool
+        """
+        machine_operation_mapping: dict[Machine, list[ScheduledOperation]] = {
+            machine: [] for machine in self.problem_instance.machines
+        }
+
+        # Check that all operations per job are correctly ordered and not overlapping
+        for job in self.problem_instance.jobs:
+            previous_scheduled_operation: Optional[ScheduledOperation] = None
+            for scheduled_operation in self.schedule[job]:
+                machine_operation_mapping[scheduled_operation.operation.machine].append(scheduled_operation)
+                # All scheduled operations are checked here before they are accessed.
+                # This makes later accesses of schedule typesafe, but mypy cannot verify that.
+                if scheduled_operation.schedule is None:
+                    return False
+                if previous_scheduled_operation is not None:
+                    # The schedule can not be none here, ignore mypy!
+                    if scheduled_operation.schedule[0] < previous_scheduled_operation.schedule[1]:  # type: ignore
+                        return False
+                previous_scheduled_operation = scheduled_operation
+
+        # Check that all operations per machine are not overlapping
+        for scheduled_operations in machine_operation_mapping.values():
+            # The schedule can not be none here, ignore mypy!
+            sorted_operations = sorted(scheduled_operations, key=lambda x: x.schedule[0])  # type: ignore
+            previous_scheduled_operation = None
+            for scheduled_operation in sorted_operations:
+                if previous_scheduled_operation is not None:
+                    # The schedule can not be none here, ignore mypy!
+                    if scheduled_operation.schedule[0] < previous_scheduled_operation.schedule[1]:  # type: ignore
+                        return False
+                previous_scheduled_operation = scheduled_operation
+
+        return True
+
 
 class JobShopSchedulingProblemException(Exception):
     """Exception class representing exceptions caused by invalid job shop scheduling data."""
