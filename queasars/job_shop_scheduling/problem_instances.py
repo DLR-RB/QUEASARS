@@ -16,18 +16,9 @@ class Machine:
 
     name: str
 
-    def is_valid(self) -> bool:
-        """Method which checks whether a Machine is valid.
-        This specifically checks that the name of the Machine may not be an empty string
-
-        :return: true if the Machine is valid and false otherwise
-        :rtype: bool
-        """
-        return self.name != ""
-
     def __post_init__(self):
-        if not self.is_valid():
-            raise JobShopSchedulingProblemException("This Machine is invalid and cannot be instantiated!")
+        if self.name == "":
+            raise JobShopSchedulingProblemException("The name of a Machine cannot be an empty string!")
 
     def __repr__(self):
         return self.name
@@ -55,19 +46,6 @@ class Operation:
     machine: Machine
     processing_duration: int
 
-    def is_valid(self) -> bool:
-        """Method which checks whether an Operation is valid. This specifically checks that the name string
-        may not be empty and that the processing duration must be at least 1
-
-        :return: true if the Operation is valid and false otherwise
-        :rtype: bool
-        """
-        if self.name == "":
-            return False
-        if self.processing_duration <= 0:
-            return False
-        return True
-
     @property
     def identifier(self) -> str:
         """
@@ -80,8 +58,14 @@ class Operation:
         return self.job_name + "_" + self.name
 
     def __post_init__(self):
-        if not self.is_valid():
-            raise JobShopSchedulingProblemException("This Operation is invalid and cannot be instantiated!")
+        if self.name == "":
+            raise JobShopSchedulingProblemException("The name of an Operation cannot be an empty string!")
+        if self.job_name == "":
+            raise JobShopSchedulingProblemException("The job_name of an Operation cannot be an empty string!")
+        if self.processing_duration <= 0:
+            raise JobShopSchedulingProblemException(
+                f"The processing_duration of an Operation must at least be one, but it was {self.processing_duration}"
+            )
 
     def __repr__(self):
         return f"{self.identifier}({self.machine.name}, {self.processing_duration})"
@@ -102,42 +86,44 @@ class Job:
     name: str
     operations: tuple[Operation, ...]
 
-    def is_valid(self, machines: Optional[tuple[Machine, ...]] = None) -> bool:
-        """Method which checks whether a Job is valid. This specifically checks, that the job name must not be an
-        empty string, that the job must consist of at least one operation, that the operations must be unique,
-        that no machine is used more than once and if a tuple of usable machines is given,
-        that only these machines may be used
+    def is_consistent_with_machines(self, machines: tuple[Machine, ...]) -> bool:
+        """Method which checks that the operations of a job visit only a limited collection of machines
 
-        :arg machines: machines which the operations of this job may use. If any operation uses another machine
-            not included here, this makes the Job invalid. If no machines are provided, this check is skipped
-        :type machines: Optional[tuple[Machine, ...]]
+        :arg machines: machines which the operations of this job may use
+        :type machines: tuple[Machine, ...]
 
-        :return: true if the Job is valid, false otherwise
+        :return: True if only the given machines are visited, False otherwise
         :rtype: bool
         """
+        for operation in self.operations:
+            if machines is not None and operation.machine not in machines:
+                return False
+        return True
+
+    def __post_init__(self):
         if self.name == "":
-            return False
+            raise JobShopSchedulingProblemException("The name of a Job cannot be an empty string!")
 
         if len(self.operations) == 0:
-            return False
+            raise JobShopSchedulingProblemException(
+                "This job contains no operations! A job must contain at least 1 operation!"
+            )
 
         operation_identifiers = set(map(lambda x: x.identifier, self.operations))
         if len(operation_identifiers) != len(self.operations):
-            return False
+            raise JobShopSchedulingProblemException("The identifiers of all operations within a job must be unique!")
 
-        visited_machines: set[Machine] = set()
+        visited_machines = set()
         for operation in self.operations:
             if operation.job_name != self.name:
-                return False
-
+                raise JobShopSchedulingProblemException(
+                    f"The job_name of an operation was mismatched! Expected {self.name}, Got: {operation.job_name}"
+                )
             if operation.machine in visited_machines:
-                return False
+                raise JobShopSchedulingProblemException(
+                    f"The machine {operation.machine} was visited by more than one operation!"
+                )
             visited_machines.add(operation.machine)
-
-            if machines is not None and operation.machine not in machines:
-                return False
-
-        return True
 
     def __repr__(self):
         header = f"{self.name}:\n"
@@ -166,35 +152,29 @@ class JobShopSchedulingProblemInstance:
     machines: tuple[Machine, ...]
     jobs: tuple[Job, ...]
 
-    def is_valid(self) -> bool:
-        """Method which checks whether a JobShopSchedulingProblemInstance is valid. This specifically checks
-        that the problem instance's name may not be an empty string, that the machines anf Jobs must be unique and
-        that the jobs only make use of the problem instance's machines
-
-        :return: true if the JobShopProblemInstance is valid, false otherwise
-        :rtype: bool
-        """
+    def __post_init__(self):
         if self.name == "":
-            return False
+            raise JobShopSchedulingProblemException(
+                "The name of a JobShopSchedulingProblemInstance may not be an empty string!"
+            )
 
         if len(set(self.machines)) != len(self.machines):
-            return False
+            raise JobShopSchedulingProblemException(
+                "The Machines in a JobShopSchedulingProblemInstance must be unique!"
+            )
 
         job_names = set(map(lambda x: x.name, self.jobs))
         if len(job_names) != len(self.jobs):
-            return False
+            raise JobShopSchedulingProblemException(
+                "The names of the Jobs in a JobShopSchedulingProblemInstance must be unique!"
+            )
 
         for job in self.jobs:
-            if not job.is_valid(machines=self.machines):
-                return False
-
-        return True
-
-    def __post_init__(self):
-        if not self.is_valid():
-            raise JobShopSchedulingProblemException(
-                "This JobShopProblemInstance is invalid and cannot be instantiated!"
-            )
+            if not job.is_consistent_with_machines(machines=self.machines):
+                raise JobShopSchedulingProblemException(
+                    "The Jobs in a JobShopSchedulingProblemInstance must not access "
+                    + "other Machines than specified in its machines attribute!"
+                )
 
     def __repr__(self):
         header = self.name + "\n"
@@ -226,54 +206,124 @@ class ScheduledOperation:
 
     :param operation: which has been scheduled
     :type operation: Operation
-    :param schedule: tuple which contains the time at which the operation is scheduled to start and to end.
-        The length of that time interval must match the operation's processing duration!
-        A value of None represents the operation not being scheduled or invalidly being scheduled
-    :type schedule: Optional[tuple[int, int]]
+    :param start: time at which the operation has been scheduled to start. Can be None if the operation
+        was not scheduled
+    :type start: Optional[int]
     """
 
     operation: Operation
-    schedule: Optional[tuple[int, int]]
+    start: Optional[int]
 
-    def __post_init__(self):
-        if self.schedule is not None and self.schedule[1] - self.schedule[0] != self.operation.processing_duration:
-            raise JobShopSchedulingProblemException(
-                "The schedule of a scheduled operation must match the processing duration of it's operation!"
-            )
+    @property
+    def is_scheduled(self) -> bool:
+        """
+        :return: whether the operation was successfully scheduled
+        :rtype: bool
+        """
+        return self.start is not None
+
+    @property
+    def start_time(self) -> int:
+        """
+        :return: the start time of the operation, according to the schedule
+        :rtype: int
+        :raise: JobShopSchedulingProblemException, if the operation was not successfully scheduled
+        """
+        if self.start is None:
+            raise JobShopSchedulingProblemException("Can't retrieve the start time if the operation was not scheduled!")
+        return self.start
+
+    @property
+    def end_time(self) -> int:
+        """
+        :return: the end time of the operation, according to the schedule
+        :rtype: int
+        :raise: JobShopSchedulingProblemException, if the operation was not successfully scheduled
+        """
+        if self.start is None:
+            raise JobShopSchedulingProblemException("Can't retrieve the end time if the operation was not scheduled!")
+        return self.start + self.operation.processing_duration
 
     def __repr__(self):
-        if self.schedule is None:
+        if self.start is None:
             return f"{str(self.operation)} was not or invalidly scheduled."
-        return f"{str(self.operation)} starts at: {self.schedule[0]} and ends at: {self.schedule[1]}"
+        return f"{str(self.operation)} starts at: {self.start_time} and ends at: {self.end_time}"
 
 
-@dataclass(frozen=True)
 class JobShopSchedulingResult:
     """
-    Dataclass representing an attempted solution to the given job shop scheduling problem instance
+    Class representing an attempted solution to the given job shop scheduling problem instance
 
     :param problem_instance: for which this schedule represents an attempted solution
     :type problem_instance: JobShopSchedulingProblemInstance
     :param schedule: which attempts to solve the given problem instance
     :type schedule: dict[Job, tuple[ScheduledOperation, ...]]
-    :param makespan: time after which the last operation of the last job has finished in the schedule
-    :type makespan: int
     """
 
-    problem_instance: JobShopSchedulingProblemInstance
-    schedule: dict[Job, tuple[ScheduledOperation, ...]]
-    makespan: int
+    def __init__(
+        self, problem_instance: JobShopSchedulingProblemInstance, schedule: dict[Job, tuple[ScheduledOperation, ...]]
+    ):
 
-    def __repr__(self):
-        header = f"{self.problem_instance.name} solution with makespan {self.makespan}\n"
-        text = ""
-        for job in self.problem_instance.jobs:
-            text += indent(text=f"{job.name}:\n", prefix=" " * 2)
-            for scheduled_operation in self.schedule[job]:
-                text += indent(text=f"{str(scheduled_operation)}\n", prefix=" " * 4)
-        return header + text
+        if set(problem_instance.jobs) != set(schedule.keys()):
+            raise JobShopSchedulingProblemException(
+                "The JobShopSchedulingResult must contain the same Jobs "
+                + "as the problem instance which it is a solution to!"
+            )
 
-    def is_valid_solution(self) -> bool:
+        for job in problem_instance.jobs:
+            if job.operations != tuple(map(lambda x: x.operation, schedule[job])):
+                raise JobShopSchedulingProblemException(
+                    "The schedule for a Job must contain the same operations as the Job itself!"
+                )
+
+        self._problem_instance: JobShopSchedulingProblemInstance = problem_instance
+        self._schedule: dict[Job, tuple[ScheduledOperation, ...]] = schedule
+        self._is_valid: Optional[bool] = None
+        self._makespan: Optional[int] = None
+
+    @property
+    def problem_instance(self) -> JobShopSchedulingProblemInstance:
+        """
+        :return: the problem instance for which this result represents an attempted solution
+        :rtype: JobShopSchedulingProblemInstance
+        """
+        return self._problem_instance
+
+    @property
+    def schedule(self) -> dict[Job, tuple[ScheduledOperation, ...]]:
+        """
+        :return: schedule which attempts to solve the given problem instance
+        :rtype: dict[Job, tuple[ScheduledOperation, ...]]
+        """
+        return self._schedule
+
+    @property
+    def is_valid(self) -> bool:
+        """
+        :return: true, if the result adheres to all constraints of the JSSP and false otherwise
+        :rtype: bool
+        """
+        if self._is_valid is not None:
+            return self._is_valid
+        is_valid = self._is_valid_solution()
+        self._is_valid = is_valid
+        return is_valid
+
+    @property
+    def makespan(self) -> Optional[int]:
+        """
+        :return: the integer makespan if the result is valid and None otherwise
+        :rtype: Optional[int]
+        """
+        if not self.is_valid:
+            return None
+        if self._makespan is not None:
+            return self._makespan
+        makespan: int = max((scheduled_operations[-1].end_time for scheduled_operations in self.schedule.values()))
+        self._makespan = makespan
+        return makespan
+
+    def _is_valid_solution(self) -> bool:
         """
         Checks whether this JobShopSchedulingResult is a valid solution. Therefore, it checks
         that all operations are in the correct order and that no operation per job and per machine may
@@ -283,37 +333,42 @@ class JobShopSchedulingResult:
         :rtype: bool
         """
         machine_operation_mapping: dict[Machine, list[ScheduledOperation]] = {
-            machine: [] for machine in self.problem_instance.machines
+            machine: [] for machine in self._problem_instance.machines
         }
 
         # Check that all operations per job are correctly ordered and not overlapping
-        for job in self.problem_instance.jobs:
+        for job in self._problem_instance.jobs:
             previous_scheduled_operation: Optional[ScheduledOperation] = None
-            for scheduled_operation in self.schedule[job]:
+            for scheduled_operation in self._schedule[job]:
                 machine_operation_mapping[scheduled_operation.operation.machine].append(scheduled_operation)
                 # All scheduled operations are checked here before they are accessed.
-                # This makes later accesses of schedule typesafe, but mypy cannot verify that.
-                if scheduled_operation.schedule is None:
+                if not scheduled_operation.is_scheduled:
                     return False
                 if previous_scheduled_operation is not None:
-                    # The schedule can not be none here, ignore mypy!
-                    if scheduled_operation.schedule[0] < previous_scheduled_operation.schedule[1]:  # type: ignore
+                    if scheduled_operation.start_time < previous_scheduled_operation.end_time:
                         return False
                 previous_scheduled_operation = scheduled_operation
 
         # Check that all operations per machine are not overlapping
         for scheduled_operations in machine_operation_mapping.values():
-            # The schedule can not be none here, ignore mypy!
-            sorted_operations = sorted(scheduled_operations, key=lambda x: x.schedule[0])  # type: ignore
+            sorted_operations = sorted(scheduled_operations, key=lambda x: x.start_time)
             previous_scheduled_operation = None
             for scheduled_operation in sorted_operations:
                 if previous_scheduled_operation is not None:
-                    # The schedule can not be none here, ignore mypy!
-                    if scheduled_operation.schedule[0] < previous_scheduled_operation.schedule[1]:  # type: ignore
+                    if scheduled_operation.start_time < previous_scheduled_operation.end_time:
                         return False
                 previous_scheduled_operation = scheduled_operation
 
         return True
+
+    def __repr__(self):
+        header = f"{self._problem_instance.name} solution with makespan {self.makespan}\n"
+        text = ""
+        for job in self._problem_instance.jobs:
+            text += indent(text=f"{job.name}:\n", prefix=" " * 2)
+            for scheduled_operation in self._schedule[job]:
+                text += indent(text=f"{str(scheduled_operation)}\n", prefix=" " * 4)
+        return header + text
 
 
 class JobShopSchedulingProblemException(Exception):

@@ -63,16 +63,10 @@ class JSSPSCIPModelEncoder:
             scheduled_operations: list[ScheduledOperation] = []
             for operation in job.operations:
                 start_time: int = int(solution[self._operation_start_variables[operation]])
-                scheduled_operations.append(
-                    ScheduledOperation(
-                        operation=operation, schedule=(start_time, start_time + operation.processing_duration)
-                    )
-                )
+                scheduled_operations.append(ScheduledOperation(operation=operation, start=start_time))
             job_schedules[job] = tuple(scheduled_operations)
 
-        return JobShopSchedulingResult(
-            problem_instance=self._jssp_instance, schedule=job_schedules, makespan=int(solution[self._optimization_var])
-        )
+        return JobShopSchedulingResult(problem_instance=self._jssp_instance, schedule=job_schedules)
 
     def _prepare_variables(self):
         """

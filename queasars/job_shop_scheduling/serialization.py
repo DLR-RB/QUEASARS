@@ -62,14 +62,13 @@ class JSSPJSONEncoder(JSONEncoder):
         if isinstance(o, ScheduledOperation):
             return {
                 "scheduled_operation": self.default(o.operation),
-                "scheduled_operation_times": self.default(o.schedule),
+                "scheduled_start_time": self.default(o.start),
             }
 
         if isinstance(o, JobShopSchedulingResult):
             return {
                 "jssp_result_problem_instance": self.default(o.problem_instance),
                 "jssp_result_schedule": self.default(o.schedule),
-                "jssp_result_makespan": self.default(o.makespan),
             }
 
         return o
@@ -123,17 +122,11 @@ class JSSPJSONDecoder(JSONDecoder):
         ):
             return self.parse_jssp_instance(object_dict=object_dict)
 
-        if "scheduled_operation" in object_dict or "scheduled_operation_times" in object_dict:
+        if "scheduled_operation" in object_dict or "scheduled_start_time" in object_dict:
             return self.parse_scheduled_operation(object_dict=object_dict)
 
-        if (
-            "jssp_result_problem_instance" in object_dict
-            or "jssp_result_schedule" in object_dict
-            or "jssp_result_makespan" in object_dict
-        ):
+        if "jssp_result_problem_instance" in object_dict or "jssp_result_schedule" in object_dict:
             return self.parse_jssp_result(object_dict=object_dict)
-
-        raise Exception("Test")
 
     @staticmethod
     def parse_tuple(object_dict) -> tuple[Any]:
@@ -179,7 +172,7 @@ class JSSPJSONDecoder(JSONDecoder):
     def parse_scheduled_operation(object_dict) -> ScheduledOperation:
         return ScheduledOperation(
             operation=object_dict["scheduled_operation"],
-            schedule=object_dict["scheduled_operation_times"],
+            start=object_dict["scheduled_start_time"],
         )
 
     @staticmethod
@@ -187,5 +180,4 @@ class JSSPJSONDecoder(JSONDecoder):
         return JobShopSchedulingResult(
             problem_instance=object_dict["jssp_result_problem_instance"],
             schedule=object_dict["jssp_result_schedule"],
-            makespan=object_dict["jssp_result_makespan"],
         )

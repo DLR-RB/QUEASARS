@@ -320,25 +320,10 @@ class JSSPDomainWallHamiltonianEncoder:
             for operation in job.operations:
                 domain_wall_variable = self._operation_start_variables[operation]
                 start_time = domain_wall_variable.value_from_bitlist(bit_list=bit_list)
-                if start_time is None:
-                    schedule = None
-                else:
-                    schedule = (start_time, start_time + operation.processing_duration)
-                scheduled_operations.append(ScheduledOperation(operation=operation, schedule=schedule))
+                scheduled_operations.append(ScheduledOperation(operation=operation, start=start_time))
             job_schedules[job] = tuple(scheduled_operations)
 
-        operation_ends = tuple(
-            scheduled_operations[-1].schedule[1]
-            for scheduled_operations in job_schedules.values()
-            if scheduled_operations[-1].schedule is not None
-        )
-        makespan: int
-        if len(operation_ends) > 1:
-            makespan = max(operation_ends)
-        else:
-            makespan = -1
-
-        return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules, makespan=makespan)
+        return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules)
 
     def _prepare_encoding(self) -> None:
         """Counts the needed qubits to encode the problem" and assigns the necessary domain wall variables"""

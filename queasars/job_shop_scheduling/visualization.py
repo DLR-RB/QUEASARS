@@ -77,7 +77,7 @@ def plot_jssp_problem_solution_gantt(
     Plots a job shop scheduling result using matplotlib and saves the figure or
     returns the handle to the created figure depending on whether a save_path was given
 
-    :arg result: job shop scheduling result to plot
+    :arg result: job shop scheduling result to plot. The result must be valid otherwise, this raises a ValueError
     :type result: JobShopSchedulingResult
     :arg colormap: name of a matplotlib ColorMap
     :type colormap: str
@@ -85,9 +85,13 @@ def plot_jssp_problem_solution_gantt(
         contained in the path. If the figure is saved, the figure is closed afterwards and None is returned instead of
         the figure handle
     :type save_path: Path
+    :raise: ValueError, if the result is an invalid solution
     :return: the matplotlib figure handle for the created plot if it was not saved
     :rtype: Optional[Figure]
     """
+    if not result.is_valid:
+        raise ValueError("Only valid result can be plotted!")
+
     fig, ax = pyplot.subplots()
 
     cmap = colormaps[colormap].resampled(len(result.problem_instance.jobs))
@@ -104,11 +108,10 @@ def plot_jssp_problem_solution_gantt(
         x_ranges = []
         colors = []
         for scheduled_operation, job in machine_schedule[machine]:
-            if scheduled_operation.schedule is not None:
-                x_ranges.append(
-                    (scheduled_operation.schedule[0] + 0.02, scheduled_operation.operation.processing_duration - 0.04)
-                )
-                colors.append(job_color_map[job])
+            x_ranges.append(
+                (scheduled_operation.start_time + 0.02, scheduled_operation.operation.processing_duration - 0.04)
+            )
+            colors.append(job_color_map[job])
         if len(x_ranges) > 0:
             ax.broken_barh(xranges=x_ranges, yrange=(i + 0.75, 0.5), color=colors)
 
@@ -116,8 +119,9 @@ def plot_jssp_problem_solution_gantt(
     ax.set_yticks(range(1, len(result.problem_instance.machines) + 1))
     ax.set_yticklabels(machine.name for machine in result.problem_instance.machines)
     ax.set_ylabel("Machines")
-    ax.set_xticks(range(0, result.makespan + 1))
-    ax.set_xlabel("Time")
+    if result.makespan is not None:
+        ax.set_xticks(range(0, result.makespan + 1))
+        ax.set_xlabel("Time")
 
     _create_color_legend(fig=fig, color_labels={color: job.name for job, color in job_color_map.items()})
 
