@@ -197,6 +197,18 @@ class JobShopSchedulingProblemInstance:
             + indent(text=job_text, prefix=" " * 4)
         )
 
+    def get_semantically_unique_hash(self) -> int:
+        """
+        If two problem instances represent the same problem instance when ignoring names and irrelevant orderings
+        this method will return the same hash value.
+        """
+        machine_operations: dict[Machine, set[tuple[int, int]]] = {m: set() for m in self.machines}
+        for job in self.jobs:
+            for i, operation in enumerate(job.operations):
+                machine_operations[operation.machine].add((i, operation.processing_duration))
+        hashable = frozenset(frozenset(machine_set) for machine_set in machine_operations.values())
+        return hash(hashable)
+
 
 @dataclass(frozen=True)
 class ScheduledOperation:
