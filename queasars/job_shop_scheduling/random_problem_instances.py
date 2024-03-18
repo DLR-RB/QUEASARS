@@ -1,50 +1,56 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
-from typing import Union, Optional
+from typing import Union, Optional, TypeVar
 from random import Random
 
 from queasars.job_shop_scheduling.problem_instances import Machine, Operation, Job, JobShopSchedulingProblemInstance
 
 
-def _get_random_int_from_range(random_range: Union[int, tuple[int, int]], random_generator: Random) -> int:
-    """Returns a random integer given a value range and a random_generator.
+T = TypeVar("T")
 
-    :param random_range: range of values in the form (start, stop) with stop included in the range. It can also
-        be a single value, in that case this method without randomness always returns that single value
-    :type random_range: Union[int, tuple[int, int]]
-    :param random_generator: generator with which to choose the value
-    :type random_generator: Random
-    :return: a random value from the value_range
-    :rtype: int
+
+def _get_random_value_from_distribution(distribution: dict[T, float], random_generator: Random) -> T:
     """
-    if isinstance(random_range, int):
-        return random_range
-    return random_generator.randrange(start=random_range[0], stop=random_range[1] + 1, step=1)
+    Returns a random element from a probability distribution with the according likelihood.
 
-
-def _get_random_float_from_range(random_range: Union[float, tuple[float, float]], random_generator: Random) -> float:
-    """Returns a random floating point given a value range and a random_generator.
-
-    :param random_range: range of values in the form (start, stop) with stop included in the range. It can also
-        be a single value, in that case this method without randomness always returns that single value
-    :type random_range: Union[float, tuple[float, float]]
-    :param random_generator: generator with which to choose the value
+    :param distribution: dictionary in which the keys are the elements to be drawn from and the values are the
+        probabilities. The probabilities of all entries must add up to one
+    :type distribution: dict[T, float]
+    :param random_generator: random generator which seeds the randomness
     :type random_generator: Random
-    :return: a random value from the value_range
-    :rtype: float
+    :return: a random element from the distribution
+    :rtype: T
     """
-    if isinstance(random_range, float):
-        return random_range
-    return random_generator.random() * (random_range[1] - random_range[0]) + random_range[0]
+    if sum(distribution.values()) != 1:
+        raise ValueError("The probabilities in the distribution should add up to 1!")
+    return random_generator.choices(population=list(distribution.keys()), weights=list(distribution.values()), k=1)[0]
+
+
+def _get_value(value_or_distribution: Union[T, dict[T, float]], random_generator: Random) -> T:
+    """
+    Returns a random element of the distribution, ff the given value is a probability distribution,
+    and the value itself, if it is not.
+
+    :param value_or_distribution: probability distribution to draw from or basic value to return
+    :type value_or_distribution: Union[T, dict[T, float]
+    :param random_generator: random generator which seeds the randomness
+    :type random_generator: Random
+    :return:
+    """
+    if isinstance(value_or_distribution, dict):
+        return _get_random_value_from_distribution(
+            distribution=value_or_distribution, random_generator=random_generator
+        )
+    return value_or_distribution
 
 
 def random_job_shop_scheduling_instance(
     instance_name: str,
     n_jobs: int,
     n_machines: int,
-    relative_op_amount: Union[float, tuple[float, float]],
-    op_duration: Union[int, tuple[int, int]],
+    relative_op_amount: Union[float, dict[float, float]],
+    op_duration: Union[int, dict[int, float]],
     random_seed: Optional[int] = None,
 ):
     """
@@ -59,14 +65,13 @@ def random_job_shop_scheduling_instance(
         of machines which are actually used
     :type n_machines: int
     :arg relative_op_amount: relative amount of operations per job in relation to the amount of machines.
-        Can be a value or a value range as (start, stop). It must not exceed the range (0, 1). If a value range
-        is given the relative_op_amount is randomly drawn from the value range for each job. The actual
-        amount of operations per job is calculated as round(relative_op_amount*n_machines)
-    :type relative_op_amount: Union[float, tuple[float, float]
-    :arg op_duration: the discrete processing duration assigned to each job. It can be a value or a value range as
-        (start, stop). If a value range is given the processing duration is drawn randomly from the value range
-        for each Operation
-    :type op_duration: Union[int, tuple[int, int]
+        Can be a value or a probability distribution of values as a dictionary, in which the keys are the operations per
+        job and the values the probability with which this amount of operations per job occurs.
+    :type relative_op_amount: Union[float, dict[float, float]]
+    :arg op_duration: the discrete processing duration assigned to each job. It can be a value or a probability
+        distribution as dictionary, in which the keys are the processing duration and the values the probability
+        with which this processing duration occurs
+    :type op_duration: Union[int, dict[int, float]]
     :arg random_seed: seed value to control randomness
     :type random_seed: int
     :return: a random job shop scheduling problem instance
@@ -78,10 +83,7 @@ def random_job_shop_scheduling_instance(
 
     jobs: list[Job] = []
     for i in range(0, n_jobs):
-        n_ops = round(
-            _get_random_float_from_range(random_range=relative_op_amount, random_generator=random_generator)
-            * n_machines
-        )
+        n_ops = round(_get_value(relative_op_amount, random_generator) * n_machines)
         op_machines = random_generator.sample(population=machines, k=n_ops)
         random_generator.shuffle(op_machines)
         operations = tuple(
@@ -89,9 +91,7 @@ def random_job_shop_scheduling_instance(
                 name=f"op{j}",
                 job_name=f"job{i}",
                 machine=op_machine,
-                processing_duration=_get_random_int_from_range(
-                    random_range=op_duration, random_generator=random_generator
-                ),
+                processing_duration=_get_value(value_or_distribution=op_duration, random_generator=random_generator),
             )
             for j, op_machine in enumerate(op_machines)
         )
