@@ -1,6 +1,7 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Optional
 from textwrap import indent
@@ -202,11 +203,11 @@ class JobShopSchedulingProblemInstance:
         If two problem instances represent the same problem instance when ignoring names and irrelevant orderings
         this method will return the same hash value.
         """
-        machine_operations: dict[Machine, set[tuple[int, int]]] = {m: set() for m in self.machines}
+        machine_operations: dict[Machine, Counter[tuple[int, int]]] = {m: Counter() for m in self.machines}
         for job in self.jobs:
             for i, operation in enumerate(job.operations):
-                machine_operations[operation.machine].add((i, operation.processing_duration))
-        hashable = frozenset(frozenset(machine_set) for machine_set in machine_operations.values())
+                machine_operations[operation.machine].update([(i, operation.processing_duration)])
+        hashable = frozenset(frozenset(counter.items()) for counter in machine_operations.values())
         return hash(hashable)
 
 
