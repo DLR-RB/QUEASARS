@@ -2,11 +2,13 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from abc import abstractmethod
+from copy import deepcopy
 from math import ceil
 from random import Random
-from typing import Optional, Callable, Union
+from typing import Optional, Callable, Union, cast
 
-from dask.distributed import Future, wait
+from concurrent.futures import Future as ConcurrentFuture, wait as concurrent_wait
+from dask.distributed import Future as DaskFuture, wait as dask_wait, Client
 from numpy import asarray, reshape, dtype
 from numpy.typing import NDArray
 from qiskit.circuit import QuantumCircuit
@@ -190,16 +192,29 @@ class BaseEVQEMutationOperator(BaseEvolutionaryOperator[EVQEPopulation]):
         self.random_generator: Random = Random(random_seed)
 
     def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        mutated_individuals: dict[int, Future] = {}
+        uses_dask: bool = isinstance(operator_context.parallel_executor, Client)
+        mutated_individuals: dict[int, Union[DaskFuture, ConcurrentFuture]] = {}
+        if uses_dask:
+            cast(dict[int, DaskFuture], mutated_individuals)
+            wait = dask_wait
+        else:
+            cast(dict[int, ConcurrentFuture], mutated_individuals)
+            wait = concurrent_wait
+
         total_circuit_evaluations: int = 0
 
         for i, individual in enumerate(population.individuals):
             if self.random_generator.random() <= self.mutation_probability:
-                mutated_individuals[i] = operator_context.dask_client.submit(
+                optimizer: Optimizer
+                if uses_dask:
+                    optimizer = self.optimizer
+                else:
+                    optimizer = deepcopy(self.optimizer)
+                mutated_individuals[i] = operator_context.parallel_executor.submit(
                     self.mutation_function,
                     individual,
                     operator_context.circuit_evaluator,
-                    self.optimizer,
+                    optimizer,
                     new_random_seed(random_generator=self.random_generator),
                 )
 

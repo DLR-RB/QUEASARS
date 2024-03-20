@@ -1,9 +1,11 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-from typing import Optional
-from random import Random
 
-from dask.distributed import Future, wait
+from concurrent.futures import Future as ConcurrentFuture, wait as concurrent_wait
+from random import Random
+from typing import Optional, Union, cast
+
+from dask.distributed import Future as DaskFuture, wait as dask_wait, Client
 from numpy import argmin
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
@@ -36,12 +38,21 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
         self.random_generator: Random = Random(random_seed)
 
     def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
-        # evaluate all individuals
-        future_evaluation_results: list[Future] = [
-            operator_context.dask_client.submit(
+        # measure the expectation values for all individuals
+
+        future_evaluation_results: list[Union[DaskFuture, ConcurrentFuture]] = []
+        if isinstance(operator_context.parallel_executor, Client):
+            cast(list[DaskFuture], future_evaluation_results)
+            wait = dask_wait
+        else:
+            cast(list[ConcurrentFuture], future_evaluation_results)
+            wait = concurrent_wait
+
+        future_evaluation_results = [
+            operator_context.parallel_executor.submit(
                 operator_context.circuit_evaluator.evaluate_circuits,
                 [individual.get_parameterized_quantum_circuit()],
-                [individual.get_parameter_values()],
+                [list(individual.get_parameter_values())],
             )
             for individual in population.individuals
         ]
