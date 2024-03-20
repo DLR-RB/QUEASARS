@@ -234,11 +234,29 @@ class JSSPDomainWallHamiltonianEncoder:
     :type jssp_instance: JobShopSchedulingProblemInstance
     :param time_limit: maximum allowed makespan for possible solutions
     :type time_limit: int
-    :param penalty: size of the penalties applied to invalid solutions
-    :type penalty: float
+    :param encoding_penalty: penalty added to the optimization value for violating the encoding constraint
+    :type encoding_penalty: float
+    :param constraint_penalty: penalty added to the optimization value for violating the JSSP's constraints
+    :type constraint_penalty: float
+    :param max_opt_value: maximum value of the optimization term. For a clean separation of valid and invalid
+        states it should be smaller than both the encoding_penalty and the constraint penalty individually
+    :type max_opt_value: float
+    :param opt_all_operations_share: the optimization value mostly consists of a term minimizing the makespan.
+        This only involves the last operations of each job. If it is desired to also optimize the starting times of
+        all other operations, a share of the maximum optimization value can be diverted to that goal. This parameter
+        must be in the range (0,1)
+    :type opt_all_operations_share: float
     """
 
-    def __init__(self, jssp_instance: JobShopSchedulingProblemInstance, time_limit: int, penalty: float):
+    def __init__(
+        self,
+        jssp_instance: JobShopSchedulingProblemInstance,
+        time_limit: int,
+        encoding_penalty: float = 300,
+        constraint_penalty: float = 100,
+        max_opt_value: float = 100,
+        opt_all_operations_share: float = 0.25,
+    ):
         self.jssp_instance: JobShopSchedulingProblemInstance = jssp_instance
         self.time_limit: int = time_limit
         self._encoding_prepared: bool = False
@@ -247,7 +265,10 @@ class JSSPDomainWallHamiltonianEncoder:
         self._operation_start_variables: dict[Operation, DomainWallVariable] = {}
         self._n_qubits: int = 0
         self._local_terms: list[SparsePauliOp] = []
-        self._penalty: float = penalty
+        self._encoding_penalty: float = encoding_penalty
+        self._constraint_penalty: float = constraint_penalty
+        self._max_opt_value: float = max_opt_value
+        self._opt_all_operations_share: float = opt_all_operations_share
 
     @property
     def n_qubits(self) -> int:
@@ -299,22 +320,10 @@ class JSSPDomainWallHamiltonianEncoder:
             for operation in job.operations:
                 domain_wall_variable = self._operation_start_variables[operation]
                 start_time = domain_wall_variable.value_from_bitlist(bit_list=bit_list)
-                if start_time is None:
-                    schedule = None
-                else:
-                    schedule = (start_time, start_time + operation.processing_duration)
-                scheduled_operations.append(ScheduledOperation(operation=operation, schedule=schedule))
+                scheduled_operations.append(ScheduledOperation(operation=operation, start=start_time))
             job_schedules[job] = tuple(scheduled_operations)
 
-        operation_ends = (
-            scheduled_operations[-1].schedule[1]
-            for scheduled_operations in job_schedules.values()
-            if scheduled_operations[-1].schedule is not None
-        )
-
-        return JobShopSchedulingResult(
-            problem_instance=self.jssp_instance, schedule=job_schedules, makespan=max(operation_ends)
-        )
+        return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules)
 
     def _prepare_encoding(self) -> None:
         """Counts the needed qubits to encode the problem" and assigns the necessary domain wall variables"""
@@ -350,13 +359,13 @@ class JSSPDomainWallHamiltonianEncoder:
         for job in self.jssp_instance.jobs:
             for operation in job.operations:
                 variable_viability_term = self._operation_start_variables[operation].viability_term(
-                    penalty=10 * self._penalty, quantum_circuit_n_qubits=self._n_qubits
+                    penalty=self._encoding_penalty, quantum_circuit_n_qubits=self._n_qubits
                 )
                 self._local_terms.append(variable_viability_term)
 
             for i in range(0, len(job.operations) - 1):
                 precedence_term = self._operation_precedence_term(
-                    job.operations[i], job.operations[i + 1], self._penalty
+                    job.operations[i], job.operations[i + 1], self._constraint_penalty
                 )
                 self._local_terms.extend(precedence_term)
 
@@ -365,12 +374,14 @@ class JSSPDomainWallHamiltonianEncoder:
                 continue
             for operation_1, operation_2 in combinations(operations, 2):
                 overlap_term = self._operation_overlap_term(
-                    operation_1=operation_1, operation_2=operation_2, penalty=self._penalty
+                    operation_1=operation_1, operation_2=operation_2, penalty=self._constraint_penalty
                 )
                 self._local_terms.append(overlap_term)
 
-        self._local_terms.append(self._makespan_optimization_term(max_value=(self._penalty - 1) / 2))
-        self._local_terms.append(self._early_start_term(max_value=(self._penalty - 1) / 2))
+        self._local_terms.append(
+            self._makespan_optimization_term(max_value=self._max_opt_value * (1 - self._opt_all_operations_share))
+        )
+        self._local_terms.append(self._early_start_term(max_value=self._max_opt_value * self._opt_all_operations_share))
         self._hamiltonian_prepared = True
 
     def _operation_overlap_term(self, operation_1: Operation, operation_2: Operation, penalty: float) -> SparsePauliOp:

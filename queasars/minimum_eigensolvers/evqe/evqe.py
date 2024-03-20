@@ -76,20 +76,21 @@ class EVQEMinimumEigensolverConfiguration:
     :param speciation_genetic_distance_threshold: Genetic distance (amount of circuit layers not shared
         between two individuals) at which an individual belongs to a new species
     :type speciation_genetic_distance_threshold: int
-    :param selection_alpha_penalty: Absolute penalty added to the individuals fitness for length of the quantum circuit
-        in terms of circuit layers
+    :param selection_alpha_penalty: Penalty added to the individuals fitness for each circuit layer. This can
+        be thought of as the minimum gain in expectation value needed for an additional circuit layer to pay off
     :type selection_alpha_penalty: float
-    :param selection_beta_penalty: Absolute penalty added to the individuals fitness for the amount of
-        controlled rotation gates in the quantum circuit
+    :param selection_beta_penalty: Penalty added to the individuals fitness for each controlled rotation gate
+        in the quantum circuit represented by the individual. This can be thought of as the minimum gain in
+        expectation value needed for an additional controlled rotation gate to pay off
     :type selection_beta_penalty: float
     :param parameter_search_probability: probability with which the parameter search mutation is applied to an
-        individual during one generation. Must be in the range (0, 1)
+        individual during one generation. Must be in the range [0, 1]
     :type parameter_search_probability: float
     :param topological_search_probability: probability with which the topological search mutation is applied to an
-        individual during one generation. Must be in the range (0, 1)
+        individual during one generation. Must be in the range [0, 1]
     :type topological_search_probability: float
     :param layer_removal_probability: probability with which the layer removal mutation is applied to an individual
-        during one generation. Must be in the range (0, 1)
+        during one generation. Must be in the range [0, 1]
     :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
         a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
         by dask, otherwise the computation will fail. If no parallel_executor is provided a ThreadPoolExecutor

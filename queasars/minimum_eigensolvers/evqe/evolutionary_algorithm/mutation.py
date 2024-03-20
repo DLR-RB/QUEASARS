@@ -331,17 +331,9 @@ class EVQEParameterSearch(BaseEVQEMutationOperator):
     def get_n_expected_circuit_evaluations(
         self, population: EVQEPopulation, operator_context: OperatorContext
     ) -> Optional[int]:
-        average_n_layers: float = sum(len(individual.layers) for individual in population.individuals) / len(
-            population.individuals
-        )
         if self.optimizer_n_circuit_evaluations is not None:
-            expectation_value: float = (
-                self.mutation_probability
-                * len(population.individuals)
-                * average_n_layers
-                * self.optimizer_n_circuit_evaluations
-            )
-            return ceil(expectation_value)
+            sum_layers: int = sum(len(individual.layers) for individual in population.individuals)
+            return ceil(self.mutation_probability * sum_layers * self.optimizer_n_circuit_evaluations)
         return None
 
 
