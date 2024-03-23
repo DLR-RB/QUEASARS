@@ -13,7 +13,9 @@ from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividu
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolver, EVQEMinimumEigensolverConfiguration
 
 
-def create_sample_solver(client: Optional[Client] = None, mutually_exclusive_primitives: bool = True) -> EVQEMinimumEigensolver:
+def create_sample_solver(
+    client: Optional[Client] = None, mutually_exclusive_primitives: bool = True
+) -> EVQEMinimumEigensolver:
     estimator = Estimator(approximation=True)
     sampler = Sampler()
     optimizer = NFT(maxiter=40)
