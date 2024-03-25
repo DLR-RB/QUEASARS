@@ -1,6 +1,6 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-from threading import Condition
+from threading import Lock, Condition
 from time import sleep
 from typing import Callable, Optional, Generic, TypeVar, Any, Sequence
 
@@ -46,12 +46,10 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
         self.batch_waiting_duration: Optional[float] = batch_waiting_duration
         self.n_args: int = f_n_args
 
-        self._entry_lock: SerializableLock = SerializableLock()
-        self._variable_lock: SerializableLock = SerializableLock()
-        # According to dask's documentation SerializableLock satisfies the same interface as Lock.
-        # Due to this fact the type error here is ignored.
-        self._internal_wait_condition: Condition = Condition(lock=SerializableLock())  # type: ignore[arg-type]
-        self._external_wait_condition: Condition = Condition(lock=SerializableLock())  # type: ignore[arg-type]
+        self._entry_lock: Lock = Lock()
+        self._variable_lock: Lock = Lock()
+        self._internal_wait_condition: Condition = Condition()
+        self._external_wait_condition: Condition = Condition()
         self._thread_counter: int = 0
         self._entry_counter: int = 0
         self._batched_args: tuple[tuple[Any, ...], ...] = tuple()
@@ -206,6 +204,28 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
         return result, batch_index
 
 
+class MutexSampler(BaseSampler[PrimitiveJob[SamplerResult]]):
+    """
+    Wrapper class for qiskit Sampler primitives which makes them threadsafe by realizing a simple mutually
+    exclusive access on the Sampler. Due to the use of a dask SerializableLock, this mutually exclusive access
+    holds over different dask worker threads in the same process.
+
+    :param sampler: sampler primitive which shall be wrapped for mutually exclusive access
+    :type sampler: BaseSampler
+    """
+
+    def __init__(self, sampler: BaseSampler):
+        super().__init__()
+        self._sampler: BaseSampler = sampler
+        self._lock: SerializableLock = SerializableLock()
+
+    def _run(
+        self, circuits: tuple[QuantumCircuit, ...], parameter_values: tuple[tuple[float, ...], ...], **run_options
+    ) -> PrimitiveJob[SamplerResult]:
+        with self._lock:
+            return self._sampler.run(circuits, parameter_values, **run_options)
+
+
 class BatchingMutexSampler(BaseSampler[PrimitiveJob[SamplerResult]]):
     """
     Wrapper class for qiskit Sampler primitives which makes them threadsafe by batching concurrent requests and
@@ -248,6 +268,32 @@ class BatchingMutexSampler(BaseSampler[PrimitiveJob[SamplerResult]]):
         job = PrimitiveJob(self._call, circuits, parameter_values)
         job._submit()
         return job
+
+
+class MutexEstimator(BaseEstimator[PrimitiveJob[EstimatorResult]]):
+    """
+    Wrapper class for qiskit Sampler primitives which makes them threadsafe by realizing a simple mutually
+    exclusive access on the sampler. Due to the use of a dask SerializableLock, this mutually exclusive access
+    holds over different dask worker threads in the same process.
+
+    :param estimator: estimator primitive which shall be wrapped for mutually exclusive access
+    :type estimator: BaseEstimator
+    """
+
+    def __init__(self, estimator: BaseEstimator):
+        super().__init__()
+        self._estimator: BaseEstimator = estimator
+        self._lock: SerializableLock = SerializableLock()
+
+    def _run(
+        self,
+        circuits: tuple[QuantumCircuit, ...],
+        observables: tuple[SparsePauliOp, ...],
+        parameter_values: tuple[tuple[float, ...], ...],
+        **run_options,
+    ) -> PrimitiveJob[EstimatorResult]:
+        with self._lock:
+            return self._estimator.run(circuits, observables, parameter_values, **run_options)
 
 
 class BatchingMutexEstimator(BaseEstimator[PrimitiveJob[EstimatorResult]]):
