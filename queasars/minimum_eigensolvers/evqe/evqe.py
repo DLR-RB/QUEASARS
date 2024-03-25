@@ -95,7 +95,7 @@ class EVQEMinimumEigensolverConfiguration:
         a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
         by dask, otherwise the computation will fail. If no parallel_executor is provided a ThreadPoolExecutor
         with as many threads as population_size will be launched
-    :type parallel_executor: Optional[Union[Client, ThreadPoolExecutor]]
+    :type parallel_executor: Union[Client, ThreadPoolExecutor, None]
     :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
         Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
         a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
@@ -120,7 +120,7 @@ class EVQEMinimumEigensolverConfiguration:
     parameter_search_probability: float
     topological_search_probability: float
     layer_removal_probability: float
-    parallel_executor: Optional[Union[Client, ThreadPoolExecutor]] = None
+    parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
     mutually_exclusive_primitives: bool = True
 
     def __post_init__(self):
