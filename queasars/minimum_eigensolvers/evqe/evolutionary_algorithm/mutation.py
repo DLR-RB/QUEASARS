@@ -206,10 +206,7 @@ class BaseEVQEMutationOperator(BaseEvolutionaryOperator[EVQEPopulation]):
         for i, individual in enumerate(population.individuals):
             if self.random_generator.random() <= self.mutation_probability:
                 optimizer: Optimizer
-                if uses_dask:
-                    optimizer = self.optimizer
-                else:
-                    optimizer = deepcopy(self.optimizer)
+                optimizer = deepcopy(self.optimizer)
                 mutated_individuals[i] = operator_context.parallel_executor.submit(
                     self.mutation_function,
                     individual,
