@@ -76,7 +76,8 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
         a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
         When using a ThreadPoolExecutor with this option enabled, parallel circuit evaluations are batched.
         To accommodate non-threadsafe primitives this is enabled by default. If the sampler and estimator are threadsafe
-        disabling this option may lead to performance improvements
+        or the dask client is configured with only one thread per process, disabling this option may lead to performance
+        improvements
     :type mutually_exclusive_primitives: bool
     """
 
