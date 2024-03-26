@@ -17,14 +17,14 @@ class BaseIndividual(ABC):
     ansatz eigensolvers such an individual genome represents a parameterized quantum circuit with a defined list
     of rotation angles"""
 
-    @abstractmethod
     def get_quantum_circuit(self) -> QuantumCircuit:
         """
-        Builds the quantum circuit as specified by this genome using the appropriate rotation angles.
+        Builds the quantum circuit as specified by this genome using the appropriate parameter values
 
         :return: A non parameterized quantum circuit
         :rtype: QuantumCircuit
         """
+        return self.get_parameterized_quantum_circuit().assign_parameters(parameters=self.get_parameter_values())
 
     @abstractmethod
     def get_parameterized_quantum_circuit(
@@ -33,7 +33,7 @@ class BaseIndividual(ABC):
         """
         Builds a parameterized quantum circuit as specified in this individual's genome. The returned circuit is only
         an appropriate representation of this individual, if the parameters are manually populated by the angles
-        as returned by `get_rotation_angles()`
+        as returned by `get_parameter_values()`
 
         :return: A parameterized quantum circuit
         :rtype: QuantumCircuit
@@ -44,9 +44,13 @@ class BaseIndividual(ABC):
         """
         Get the parameter values for the parameterized quantum circuit, as specified in this individual's genome
 
-        :return: A list of rotation angles
+        :return: A tuple of parameter values
         :rtype: tuple[float, ...]
         """
+
+    @abstractmethod
+    def __eq__(self, other):
+        pass
 
     @abstractmethod
     def __hash__(self):
@@ -76,7 +80,8 @@ class BasePopulationEvaluationResult(ABC, Generic[IND]):
 
     :param population: Population which was evaluated
     :type population: BasePopulation
-    :param expectation_values: Expectation values for the individuals of the evaluated population
+    :param expectation_values: Expectation values for the individuals of the evaluated population.
+        The indices of the expectation values match the indices of the individuals in population.individuals
     :type expectation_values: tuple[Optional[float], ...]
     :param best_individual: Best individual from within the evaluated population
     :type best_individual: BaseIndividual
@@ -96,7 +101,8 @@ class OperatorContext:
 
     :param circuit_evaluator: CircuitEvaluator used to get the expectation value of the circuits (Individuals)
     :type circuit_evaluator: BaseCircuitEvaluator
-    :param result_callback: Callback function to report results from evaluating a population
+    :param result_callback: Callback function to report results from evaluating a population. Calling this
+        Callback marks the end of the current generation after the current operation has finished
     :type result_callback: Callable[[BasePopulationEvaluationResult], None]
     :param circuit_evaluation_count_callback: Callback functions to report the number of circuit evaluations
         used by an operator.

@@ -46,7 +46,12 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
         self.batch_waiting_duration: Optional[float] = batch_waiting_duration
         self.n_args: int = f_n_args
 
+        # The entry lock restricts whether a thread may add its circuit evaluation requests to the batch.
+        # This is only allowed, if no other thread is adding its circuits currently and the batch
+        # is not currently being processed.
         self._entry_lock: SerializableLock = SerializableLock()
+        # The variable locks is used to protect shared variables which multiple threads may write to.
+        # If a thread wants to write to a shared variable it must first acquire this lock.
         self._variable_lock: SerializableLock = SerializableLock()
         # According to dask's documentation SerializableLock satisfies the same interface as Lock.
         # Due to this fact the type error here is ignored.

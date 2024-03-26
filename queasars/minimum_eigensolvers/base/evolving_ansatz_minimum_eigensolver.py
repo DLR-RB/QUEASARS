@@ -7,16 +7,10 @@ from typing import Callable, TypeVar, Generic, Optional, Union
 
 from dask.distributed import Client
 
-from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
-from qiskit.result import QuasiDistribution
-
 from qiskit_algorithms.list_or_dict import ListOrDict
-from qiskit_algorithms.minimum_eigensolvers import (
-    MinimumEigensolver,
-    MinimumEigensolverResult,
-)
+from qiskit_algorithms.minimum_eigensolvers import MinimumEigensolver
 
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 from queasars.circuit_evaluation.circuit_evaluation import (
@@ -31,6 +25,9 @@ from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
     BasePopulationEvaluationResult,
     BaseEvolutionaryOperator,
     OperatorContext,
+)
+from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver_result import (
+    EvolvingAnsatzMinimumEigensolverResult,
 )
 from queasars.minimum_eigensolvers.base.termination_criteria import (
     EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion,
@@ -54,7 +51,7 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
         needs to be set
     :type estimator: Optional[BaseEstimator]
     :param sampler: Sampler primitive used to measure the circuits QuasiDistribution. If reproducible behaviour is
-        required, the seed option of the estimator needs to be set
+        required, the seed option of the sampler needs to be set
     :type sampler: BaseSampler
     :param max_generations: Maximum amount of generations the evolution may go on for. Either max_generations or
         max_circuit_evaluations or termination_criterion needs to be provided
@@ -191,9 +188,9 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             sampler=self.configuration.sampler, bitstring_evaluator=operator
         )
 
-        aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]]
+        aux_evaluators: ListOrDict[BaseCircuitEvaluator]
         if aux_operators is None:
-            aux_evaluators = None
+            aux_evaluators = []
         if isinstance(aux_operators, list):
             aux_evaluators = [
                 BitstringCircuitEvaluator(sampler=self.configuration.sampler, bitstring_evaluator=aux_operator)
@@ -210,7 +207,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def _solve_by_evolution(
         self,
         circuit_evaluator: BaseCircuitEvaluator,
-        aux_circuit_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]],
+        aux_circuit_evaluators: ListOrDict[BaseCircuitEvaluator],
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         n_circuit_evaluations: int = 0
         n_generations: int = 0
@@ -226,6 +223,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             nonlocal current_best_expectation_value
             nonlocal population_evaluations
             nonlocal terminate
+            nonlocal n_generations
 
             population_evaluations.append(evaluation_result)
 
@@ -237,14 +235,17 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 current_best_individual = evaluation_result.best_individual
                 current_best_expectation_value = evaluation_result.best_expectation_value
 
-            self.logger.info("Expectation value of best individual found so far: %d" % current_best_expectation_value)
+            self.logger.info(f"Results for generation: {n_generations}")
+            self.logger.info("Expectation value of best individual found so far: %f" % current_best_expectation_value)
             filtered_expectations = [
                 expectation for expectation in evaluation_result.expectation_values if expectation is not None
             ]
             self.logger.info(
-                "Average expectation value in the population currently: %d"
+                "Average expectation value in the population currently: %f"
                 % (sum(filtered_expectations) / len(filtered_expectations))
             )
+
+            n_generations += 1
 
             if self.configuration.termination_criterion is not None:
                 if current_best_individual is None or current_best_expectation_value is None:
@@ -268,19 +269,20 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
 
         population: BasePopulation = self.configuration.population_initializer(circuit_evaluator.n_qubits)
 
+        self.logger.info("Starting evolution!")
+
         while not terminate:
-            self.logger.info("Starting generation: %d" % n_generations)
-
-            if self.configuration.max_generations is not None and n_generations >= self.configuration.max_generations:
-                terminate = True
-
-            if (
-                self.configuration.max_circuit_evaluations is not None
-                and n_circuit_evaluations >= self.configuration.max_circuit_evaluations
-            ):
-                terminate = True
 
             for operator in self.configuration.evolutionary_operators:
+
+                # Terminate if the maximum circuit evaluation count has been exceeded
+                if (
+                    self.configuration.max_circuit_evaluations is not None
+                    and n_circuit_evaluations >= self.configuration.max_circuit_evaluations
+                ):
+                    terminate = True
+
+                # Terminate if the next operation is expected to exceed the circuit evaluation count
                 estimated_evaluations: Optional[int] = operator.get_n_expected_circuit_evaluations(
                     population=population, operator_context=operator_context
                 )
@@ -291,12 +293,17 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 ):
                     terminate = True
 
+                # Terminate if the maximum amount of generations have passed
+                if (
+                    self.configuration.max_generations is not None
+                    and n_generations >= self.configuration.max_generations
+                ):
+                    terminate = True
+
                 if terminate:
                     break
 
                 population = operator.apply_operator(population=population, operator_context=operator_context)
-
-            n_generations += 1
 
         if (
             current_best_individual is None
@@ -320,155 +327,21 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         result.generations = n_generations
         result.population_evaluation_results = population_evaluations
 
-        if aux_circuit_evaluators is not None:
-            if isinstance(aux_circuit_evaluators, list):
-                result.aux_operators_evaluated = [
-                    evaluator.evaluate_circuits(
-                        [current_best_individual.get_parameterized_quantum_circuit()],
-                        [list(current_best_individual.get_parameter_values())],
-                    )[0]
-                    for evaluator in aux_circuit_evaluators
-                ]
-            if isinstance(aux_circuit_evaluators, dict):
-                result.aux_operators_evaluated = {
-                    name: evaluator.evaluate_circuits(
-                        [current_best_individual.get_parameterized_quantum_circuit()],
-                        [list(current_best_individual.get_parameter_values())],
-                    )[0]
-                    for name, evaluator in aux_circuit_evaluators.items()
-                }
+        if isinstance(aux_circuit_evaluators, list):
+            result.aux_operators_evaluated = [
+                evaluator.evaluate_circuits(
+                    [current_best_individual.get_parameterized_quantum_circuit()],
+                    [list(current_best_individual.get_parameter_values())],
+                )[0]
+                for evaluator in aux_circuit_evaluators
+            ]
+        if isinstance(aux_circuit_evaluators, dict):
+            result.aux_operators_evaluated = {
+                name: evaluator.evaluate_circuits(
+                    [current_best_individual.get_parameterized_quantum_circuit()],
+                    [list(current_best_individual.get_parameter_values())],
+                )[0]
+                for name, evaluator in aux_circuit_evaluators.items()
+            }
 
         return result
-
-
-class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
-    """Evolving ansatz minimum eigensolver result"""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._eigenstate: Optional[QuasiDistribution] = None
-        self._optimal_parameters: Optional[dict] = None
-        self._optimal_circuit: Optional[QuantumCircuit] = None
-        self._circuit_evaluations: Optional[int] = None
-        self._generations: Optional[int] = None
-        self._population_evaluation_results: Optional[list[BasePopulationEvaluationResult]] = None
-
-    @property
-    def eigenstate(self) -> Optional[QuasiDistribution]:
-        """Return the quasi-distribution sampled from the final state
-
-        :return: Quasi-distribution sampled from the final state
-        :rtype: Optional[QuasiDistribution]
-        """
-        return self._eigenstate
-
-    @eigenstate.setter
-    def eigenstate(self, value: QuasiDistribution):
-        """Set the the quasi-distribution sampled from the final state
-
-        :arg value: Value to set the sampled quasi-distribution to
-        :type value: QuasiDistribution
-        """
-        self._eigenstate = value
-
-    @property
-    def optimal_parameters(self) -> Optional[dict]:
-        """Returns the optimal parameters in a dictionary
-
-        :return: The optimal parameters
-        :rtype: Optional[dict]
-        """
-        return self._optimal_parameters
-
-    @optimal_parameters.setter
-    def optimal_parameters(self, value: dict) -> None:
-        """Sets optimal parameters
-
-        :arg value: Value to set the optimal parameters to
-        :type value: dict
-        """
-        self._optimal_parameters = value
-
-    @property
-    def optimal_circuit(self) -> Optional[QuantumCircuit]:
-        """The optimal circuit. Along with the optimal parameters,
-        this can be used to retrieve the minimum eigenstate.
-
-        :return: The optimal parameterized quantum circuit
-        :rtype: Optional[QuantumCircuit]
-        """
-        return self._optimal_circuit
-
-    @optimal_circuit.setter
-    def optimal_circuit(self, value: QuantumCircuit) -> None:
-        """Sets the optimal circuit
-
-        :arg value: Value to set the optimal circuit to
-        :type value: QuantumCircuit
-        """
-        self._optimal_circuit = value
-
-    @property
-    def circuit_evaluations(self) -> Optional[int]:
-        """Returns the number of circuit evaluations used by the eigensolver
-
-        :return: The number of circuit evaluations
-        :rtype: int
-        """
-        return self._circuit_evaluations
-
-    @circuit_evaluations.setter
-    def circuit_evaluations(self, value: int) -> None:
-        """Sets the number of circuit evaluations used by the eigensolver
-
-        :arg value: Value to set the number of circuit evaluations to
-        :type: int
-        """
-        self._circuit_evaluations = value
-
-    @property
-    def generations(self) -> Optional[int]:
-        """Returns the number of generations the evolutionary algorithm was run for
-
-        :return: The number of generations the algorithm was run for
-        :rtype: Optional[int]
-        """
-        return self._generations
-
-    @generations.setter
-    def generations(self, value: int):
-        """Sets the number of generations the evolutionary algorithm was run for
-
-        :arg value: Value to set the number of generations to
-        :type value: int
-        """
-        self._generations = value
-
-    @property
-    def population_evaluation_results(self) -> Optional[list[BasePopulationEvaluationResult]]:
-        """Returns the list of  all population evaluation results
-
-        :return: The list of all population evaluation results gathered during the optimization
-        :rtype: Optional[list[BasePopulationEvaluationResult]]
-        """
-        return self._population_evaluation_results
-
-    @population_evaluation_results.setter
-    def population_evaluation_results(self, value: list[BasePopulationEvaluationResult]):
-        """Sets the evaluation results gathered during the optimization
-
-        :arg value: Values to set the evaluation results to. Should be in order of their appearance
-        :type value: list[BasePopulationEvaluationResult]
-        """
-        self._population_evaluation_results = value
-
-    @property
-    def final_population_evaluation_result(self) -> Optional[BasePopulationEvaluationResult]:
-        """Returns the final population evaluation result
-
-        :return: The final population evaluation result
-        :rtype: Optional[BasePopulationEvaluationResult]
-        """
-        if self.population_evaluation_results is not None and len(self.population_evaluation_results) != 0:
-            return self.population_evaluation_results[-1]
-        return None

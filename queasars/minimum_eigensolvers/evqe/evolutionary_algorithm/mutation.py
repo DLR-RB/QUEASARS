@@ -206,10 +206,7 @@ class BaseEVQEMutationOperator(BaseEvolutionaryOperator[EVQEPopulation]):
         for i, individual in enumerate(population.individuals):
             if self.random_generator.random() <= self.mutation_probability:
                 optimizer: Optimizer
-                if uses_dask:
-                    optimizer = self.optimizer
-                else:
-                    optimizer = deepcopy(self.optimizer)
+                optimizer = deepcopy(self.optimizer)
                 mutated_individuals[i] = operator_context.parallel_executor.submit(
                     self.mutation_function,
                     individual,
@@ -331,17 +328,9 @@ class EVQEParameterSearch(BaseEVQEMutationOperator):
     def get_n_expected_circuit_evaluations(
         self, population: EVQEPopulation, operator_context: OperatorContext
     ) -> Optional[int]:
-        average_n_layers: float = sum(len(individual.layers) for individual in population.individuals) / len(
-            population.individuals
-        )
         if self.optimizer_n_circuit_evaluations is not None:
-            expectation_value: float = (
-                self.mutation_probability
-                * len(population.individuals)
-                * average_n_layers
-                * self.optimizer_n_circuit_evaluations
-            )
-            return ceil(expectation_value)
+            sum_layers: int = sum(len(individual.layers) for individual in population.individuals)
+            return ceil(self.mutation_probability * sum_layers * self.optimizer_n_circuit_evaluations)
         return None
 
 
