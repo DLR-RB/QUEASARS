@@ -173,8 +173,8 @@ class JobShopSchedulingProblemInstance:
         for job in self.jobs:
             if not job.is_consistent_with_machines(machines=self.machines):
                 raise JobShopSchedulingProblemException(
-                    "The Jobs in a JobShopSchedulingProblemInstance must not access "
-                    + "other Machines than specified in its machines attribute!"
+                    f"The Job {job.name} accesses machines which are not"
+                    + "specified in this problem instance's machines attribute!"
                 )
 
     def __repr__(self):
