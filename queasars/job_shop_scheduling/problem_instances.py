@@ -286,7 +286,8 @@ class JobShopSchedulingResult:
         for job in problem_instance.jobs:
             if job.operations != tuple(map(lambda x: x.operation, schedule[job])):
                 raise JobShopSchedulingProblemException(
-                    "The schedule for a Job must contain the same operations as the Job itself!"
+                    f"The schedule for the Job {job.name} does not contain "
+                    + "exactly the same operations as the Job itself!"
                 )
 
         self._problem_instance: JobShopSchedulingProblemInstance = problem_instance
