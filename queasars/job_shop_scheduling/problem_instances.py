@@ -97,7 +97,7 @@ class Job:
         :rtype: bool
         """
         for operation in self.operations:
-            if machines is not None and operation.machine not in machines:
+            if operation.machine not in machines:
                 return False
         return True
 
