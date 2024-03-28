@@ -1,7 +1,6 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 from abc import ABC, abstractmethod
-from math import ceil
 from typing import Callable, Optional
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseIndividual, BasePopulationEvaluationResult
@@ -112,7 +111,14 @@ class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBase
         return True
 
 
-class BestIndividualAbsoluteExpectationValueTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+class BestIndividualAbsoluteExpectationValueThreshold(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+    """
+    Termination criterion which terminates, if the expectation value of the best individual of a population
+    falls below a certain threshold value
+
+    :param expectation_threshold: expectation value below which the optimization terminates
+    :type expectation_threshold: float
+    """
 
     def __init__(self, expectation_threshold: float):
         self._expectation_threshold: float = expectation_threshold
@@ -126,40 +132,55 @@ class BestIndividualAbsoluteExpectationValueTolerance(EvolvingAnsatzMinimumEigen
         best_individual: BaseIndividual,
         best_expectation_value: float,
     ) -> bool:
-        if best_expectation_value < self._expectation_threshold:
+        if population_evaluation.best_expectation_value < self._expectation_threshold:
             return True
         return False
 
 
-class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+def _get_filtered_individual_expectation_tuples(
+    result: BasePopulationEvaluationResult,
+) -> tuple[tuple[BaseIndividual, float], ...]:
+    return tuple(
+        (individual, expectation)
+        for individual, expectation in zip(result.population.individuals, result.expectation_values)
+        if expectation is not None
+    )
+
+
+def average_hausdorff_distance_by_expectation_value(
+    result_1: BasePopulationEvaluationResult, result_2: BasePopulationEvaluationResult
+) -> float:
+
+    def distance(
+        from_tuples: tuple[tuple[BaseIndividual, float], ...], to_tuples: tuple[tuple[BaseIndividual, float], ...]
+    ) -> float:
+        distances: list[float] = []
+        for _, from_expectation in from_tuples:
+            distances.append(min(abs(from_expectation - to_expectation) for _, to_expectation in to_tuples))
+        return sum(distances) / len(distances)
+
+    tuples_1: tuple[tuple[BaseIndividual, float], ...] = _get_filtered_individual_expectation_tuples(result_1)
+    tuples_2: tuple[tuple[BaseIndividual, float], ...] = _get_filtered_individual_expectation_tuples(result_2)
+    return max(distance(tuples_1, tuples_2), distance(tuples_2, tuples_1))
+
+
+class PopulationDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
 
     def __init__(
         self,
-        distance_measure: Callable[[tuple[BaseIndividual, float], tuple[BaseIndividual, float]], float],
         distance_threshold: float,
-        quantile: float,
+        distance_measure: Callable[
+            [BasePopulationEvaluationResult, BasePopulationEvaluationResult], float
+        ] = average_hausdorff_distance_by_expectation_value,
     ):
-        self._distance_measure: Callable[[tuple[BaseIndividual, float], tuple[BaseIndividual, float]], float] = (
+        self._distance_measure: Callable[[BasePopulationEvaluationResult, BasePopulationEvaluationResult], float] = (
             distance_measure
         )
         self._distance_threshold: float = distance_threshold
-        self._quantile: float = quantile
-        self._last_individuals: Optional[tuple[tuple[BaseIndividual, float], ...]] = None
-
-    def _generational_distance(
-        self,
-        from_population: tuple[tuple[BaseIndividual, float], ...],
-        to_population: tuple[tuple[BaseIndividual, float], ...],
-    ) -> float:
-        distance_sum: float = 0
-        for from_individual in from_population:
-            distance_sum += min(
-                self._distance_measure(from_individual, to_individual) for to_individual in to_population
-            )
-        return distance_sum / len(from_population)
+        self._last_result: Optional[BasePopulationEvaluationResult] = None
 
     def reset_state(self) -> None:
-        pass
+        self._last_result = None
 
     def check_termination(
         self,
@@ -168,28 +189,51 @@ class AverageHausdorffDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
         best_expectation_value: float,
     ) -> bool:
 
-        results: tuple[tuple[BaseIndividual, Optional[float]], ...] = tuple(
-            zip(population_evaluation.population.individuals, population_evaluation.expectation_values)
-        )
-        filtered_results: tuple[tuple[BaseIndividual, float], ...] = tuple(
-            (ind, fit) for ind, fit in results if fit is not None
-        )
-        filtered_results = tuple(sorted(filtered_results, key=lambda x: x[1]))
-        quantile_index: int = ceil(len(filtered_results) * self._quantile)
-        individuals: tuple[tuple[BaseIndividual, float], ...] = tuple(
-            individual for individual in filtered_results[:quantile_index]
-        )
-
-        if self._last_individuals is not None:
-            average_hausdorff_distance = max(
-                self._generational_distance(self._last_individuals, individuals),
-                self._generational_distance(individuals, self._last_individuals),
-            )
-
-            print("distance:", average_hausdorff_distance)
-
-            if average_hausdorff_distance < self._distance_threshold:
+        if self._last_result is not None:
+            distance = self._distance_measure(self._last_result, population_evaluation)
+            print("distance:", distance)
+            if distance < self._distance_threshold:
                 return True
 
-        self._last_individuals = individuals
+        self._last_result = population_evaluation
+        return False
+
+
+class PopulationDistanceRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+
+    def __init__(
+        self,
+        relative_distance_threshold: float,
+        distance_measure: Callable[
+            [BasePopulationEvaluationResult, BasePopulationEvaluationResult], float
+        ] = average_hausdorff_distance_by_expectation_value,
+    ):
+        self._distance_measure: Callable[[BasePopulationEvaluationResult, BasePopulationEvaluationResult], float] = (
+            distance_measure
+        )
+        self._relative_distance_threshold: float = relative_distance_threshold
+        self._last_result: Optional[BasePopulationEvaluationResult] = None
+        self._last_best_expectation: Optional[float] = None
+
+    def reset_state(self) -> None:
+        self._last_result = None
+        self._last_best_expectation = None
+
+    def check_termination(
+        self,
+        population_evaluation: BasePopulationEvaluationResult,
+        best_individual: BaseIndividual,
+        best_expectation_value: float,
+    ) -> bool:
+
+        if self._last_result is not None and self._last_best_expectation is not None:
+            distance = self._distance_measure(self._last_result, population_evaluation)
+            relative_distance = abs(distance / self._last_best_expectation)
+
+            print("relative distance:", relative_distance)
+            if relative_distance < self._relative_distance_threshold:
+                return True
+
+        self._last_result = population_evaluation
+        self._last_best_expectation = population_evaluation.best_expectation_value
         return False
