@@ -1,7 +1,8 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Optional
+from numpy import median, real
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseIndividual, BasePopulationEvaluationResult
 
@@ -137,50 +138,61 @@ class BestIndividualAbsoluteExpectationValueThreshold(EvolvingAnsatzMinimumEigen
         return False
 
 
-def _get_filtered_individual_expectation_tuples(
-    result: BasePopulationEvaluationResult,
-) -> tuple[tuple[BaseIndividual, float], ...]:
-    return tuple(
-        (individual, expectation)
-        for individual, expectation in zip(result.population.individuals, result.expectation_values)
-        if expectation is not None
-    )
-
-
-def average_hausdorff_distance_by_expectation_value(
+def _median_hausdorff_distance_by_expectation_value(
     result_1: BasePopulationEvaluationResult, result_2: BasePopulationEvaluationResult
 ) -> float:
+    """
+    Calculates the median Hausdorff distance between the expectation values in two population evaluation results
 
-    def distance(
-        from_tuples: tuple[tuple[BaseIndividual, float], ...], to_tuples: tuple[tuple[BaseIndividual, float], ...]
-    ) -> float:
+    :arg result_1: first evaluation result to calculate the distance on
+    :type result_1: BasePopulationEvaluationResult
+    :arg result_2: second evaluation result to calculate the distance on
+    :type result_2: BasePopulationEvaluationResult
+    :return: the median Hausdorff distance between the expectation values in two population evaluation results
+    """
+
+    def distance(from_expectations: list[float], to_expectations: list[float]) -> float:
         distances: list[float] = []
-        for _, from_expectation in from_tuples:
-            distances.append(min(abs(from_expectation - to_expectation) for _, to_expectation in to_tuples))
-        return sum(distances) / len(distances)
+        for from_expectation in from_expectations:
+            distances.append(min(abs(from_expectation - to_expectation) for to_expectation in to_expectations))
+        return real(median(distances))
 
-    tuples_1: tuple[tuple[BaseIndividual, float], ...] = _get_filtered_individual_expectation_tuples(result_1)
-    tuples_2: tuple[tuple[BaseIndividual, float], ...] = _get_filtered_individual_expectation_tuples(result_2)
-    return max(distance(tuples_1, tuples_2), distance(tuples_2, tuples_1))
+    expectations_1: list[float] = [exp for exp in result_1.expectation_values if exp is not None]
+    expectations_2: list[float] = [exp for exp in result_2.expectation_values if exp is not None]
+    return max(distance(expectations_1, expectations_2), distance(expectations_2, expectations_1))
 
 
-class PopulationDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+class PopulationChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+    """
+    Termination criterion which terminates, if the current generation has not changed sufficiently from
+    the last generation. This change is taken as the maximum of the absolute change of the expectation value of
+    the best individual from the last and current generation and the median Hausdorff distance between the
+    expectation values of the last and current generation. This means this criterion terminates if the best individual
+    and the population as a whole do not change sufficiently. This termination criterion can be configured to only
+    terminate if the change falls below the threshold value multiple times consecutively
 
-    def __init__(
-        self,
-        distance_threshold: float,
-        distance_measure: Callable[
-            [BasePopulationEvaluationResult, BasePopulationEvaluationResult], float
-        ] = average_hausdorff_distance_by_expectation_value,
-    ):
-        self._distance_measure: Callable[[BasePopulationEvaluationResult, BasePopulationEvaluationResult], float] = (
-            distance_measure
-        )
-        self._distance_threshold: float = distance_threshold
-        self._last_result: Optional[BasePopulationEvaluationResult] = None
+    :param minimum_change: threshold value for the absolute change in expectation value, below which this criterion
+        chooses to terminate the optimization
+    :type minimum_change: float
+    :param allowed_consecutive_violations: determines how often the threshold value can be violated consecutively
+        before this criterion chooses to terminate. If set to 0, this terminates the first time the change falls
+        below the threshold value. If set to 2 for example, this terminates the first time the change falls below
+        the threshold three consecutive times. Must be at least 0.
+    :type allowed_consecutive_violations: int
+    """
+
+    def __init__(self, minimum_change: float, allowed_consecutive_violations: int):
+        super().__init__()
+        self._minimum_change: float = minimum_change
+        self._allowed_consecutive_violations: int = allowed_consecutive_violations
+        self._change_history: list[float] = [
+            10 * self._minimum_change for _ in range(0, self._allowed_consecutive_violations + 1)
+        ]
+        self._last_population_evaluation: Optional[BasePopulationEvaluationResult] = None
 
     def reset_state(self) -> None:
-        self._last_result = None
+        self._change_history = [10 * self._minimum_change for _ in range(0, self._allowed_consecutive_violations + 1)]
+        self._last_population_evaluation = None
 
     def check_termination(
         self,
@@ -189,35 +201,58 @@ class PopulationDistanceTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminatio
         best_expectation_value: float,
     ) -> bool:
 
-        if self._last_result is not None:
-            distance = self._distance_measure(self._last_result, population_evaluation)
-            print("distance:", distance)
-            if distance < self._distance_threshold:
-                return True
+        if self._last_population_evaluation is not None:
+            hausdorff_distance: float = _median_hausdorff_distance_by_expectation_value(
+                self._last_population_evaluation, population_evaluation
+            )
+            best_individual_distance: float = abs(
+                self._last_population_evaluation.best_expectation_value - population_evaluation.best_expectation_value
+            )
 
-        self._last_result = population_evaluation
+            self._change_history.append(max(hausdorff_distance, best_individual_distance))
+
+        self._last_population_evaluation = population_evaluation
+
+        if max(self._change_history[-(self._allowed_consecutive_violations + 1) :]) < self._minimum_change:
+            return True
+
         return False
 
 
-class PopulationDistanceRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+    """
+    Termination criterion which terminates, if the current generation has not changed sufficiently from
+    the last generation. The change is taken as the maximum of the absolute change of the expectation value of
+    the best individual from the last and current generation and the median Hausdorff distance between the
+    expectation values of the last and current generation. It is then set in relation to the median expectation
+    value of the last generation. This means this criterion terminates if the best individual
+    and the population as a whole do not change sufficiently. This termination criterion can be configured to only
+    terminate if the change falls below the threshold value multiple times consecutively
 
-    def __init__(
-        self,
-        relative_distance_threshold: float,
-        distance_measure: Callable[
-            [BasePopulationEvaluationResult, BasePopulationEvaluationResult], float
-        ] = average_hausdorff_distance_by_expectation_value,
-    ):
-        self._distance_measure: Callable[[BasePopulationEvaluationResult, BasePopulationEvaluationResult], float] = (
-            distance_measure
-        )
-        self._relative_distance_threshold: float = relative_distance_threshold
-        self._last_result: Optional[BasePopulationEvaluationResult] = None
-        self._last_best_expectation: Optional[float] = None
+    :param minimum_relative_change: threshold value for the change in expectation value relative to the last
+        generation's median expectation value, below which this criterion chooses to terminate the optimization
+    :type minimum_relative_change: float
+    :param allowed_consecutive_violations: determines how often the threshold value can be violated consecutively
+        before this criterion chooses to terminate. If set to 0, this terminates the first time the change falls
+        below the threshold value. If set to 2 for example, this terminates the first time the change falls below
+        the threshold three consecutive times. Must be at least 0.
+    :type allowed_consecutive_violations: int
+    """
+
+    def __init__(self, minimum_relative_change: float, allowed_consecutive_violations: int):
+        super().__init__()
+        self._minimum_relative_change: float = minimum_relative_change
+        self._allowed_consecutive_violations: int = allowed_consecutive_violations
+        self._relative_change_history: list[float] = [
+            10 * self._minimum_relative_change for _ in range(0, self._allowed_consecutive_violations + 1)
+        ]
+        self._last_population_evaluation: Optional[BasePopulationEvaluationResult] = None
 
     def reset_state(self) -> None:
-        self._last_result = None
-        self._last_best_expectation = None
+        self._relative_change_history = [
+            10 * self._minimum_relative_change for _ in range(0, self._allowed_consecutive_violations + 1)
+        ]
+        self._last_population_evaluation = None
 
     def check_termination(
         self,
@@ -226,14 +261,32 @@ class PopulationDistanceRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTe
         best_expectation_value: float,
     ) -> bool:
 
-        if self._last_result is not None and self._last_best_expectation is not None:
-            distance = self._distance_measure(self._last_result, population_evaluation)
-            relative_distance = abs(distance / self._last_best_expectation)
+        if self._last_population_evaluation is not None:
+            hausdorff_distance: float = _median_hausdorff_distance_by_expectation_value(
+                self._last_population_evaluation, population_evaluation
+            )
+            best_individual_distance: float = abs(
+                self._last_population_evaluation.best_expectation_value - population_evaluation.best_expectation_value
+            )
+            distance: float = max(hausdorff_distance, best_individual_distance)
+            last_population_median_expectation: float = real(
+                median(
+                    [
+                        expectation
+                        for expectation in self._last_population_evaluation.expectation_values
+                        if expectation is not None
+                    ]
+                )
+            )
 
-            print("relative distance:", relative_distance)
-            if relative_distance < self._relative_distance_threshold:
-                return True
+            self._relative_change_history.append(distance / last_population_median_expectation)
 
-        self._last_result = population_evaluation
-        self._last_best_expectation = population_evaluation.best_expectation_value
+        self._last_population_evaluation = population_evaluation
+
+        if (
+            max(self._relative_change_history[-(self._allowed_consecutive_violations + 1) :])
+            < self._minimum_relative_change
+        ):
+            return True
+
         return False
