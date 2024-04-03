@@ -33,7 +33,7 @@ class JSSPJSONEncoder(JSONEncoder):
             return {"tuple": [self.default(entry) for entry in o]}
 
         if isinstance(o, list):
-            return {"list": [self.default(entry) for entry in o]}
+            return [self.default(entry) for entry in o]
 
         if isinstance(o, dict):
             return {"dict": self.default(list(o.items()))}
@@ -94,9 +94,6 @@ class JSSPJSONDecoder(JSONDecoder):
 
         if "tuple" in object_dict:
             return self.parse_tuple(object_dict=object_dict)
-
-        if "list" in object_dict:
-            return self.parse_list(object_dict=object_dict)
 
         if "dict" in object_dict:
             return self.parse_dict(object_dict=object_dict)
