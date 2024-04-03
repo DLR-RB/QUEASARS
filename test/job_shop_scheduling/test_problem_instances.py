@@ -16,18 +16,12 @@ from queasars.job_shop_scheduling.problem_instances import (
 
 class TestMachines:
 
-    def test_machine_initialization(self):
-        Machine("test")
-
     def test_empty_name_forbidden(self):
         with raises(JobShopSchedulingProblemException):
             Machine("")
 
 
 class TestOperation:
-
-    def test_operation_initialization(self):
-        Operation(name="test", job_name="test", machine=Machine("test"), processing_duration=1)
 
     def test_empty_name_forbidden(self):
         with raises(JobShopSchedulingProblemException):
@@ -73,15 +67,6 @@ class TestOperation:
 
 
 class TestJob:
-
-    def test_job_initialization(self):
-        m1 = Machine("m1")
-        m2 = Machine("m2")
-
-        op1 = Operation(name="op1", job_name="j1", machine=m1, processing_duration=1)
-        op2 = Operation(name="op2", job_name="j1", machine=m2, processing_duration=2)
-
-        Job(name="j1", operations=(op1, op2))
 
     def test_empty_name_forbidden(self):
         m1 = Machine("m1")
@@ -145,15 +130,6 @@ class TestJobShopSchedulingProblemInstance:
     def make_single_op_job(job_name: str, machine: Machine) -> Job:
         op = Operation(name="op1", job_name=job_name, machine=machine, processing_duration=1)
         return Job(name=job_name, operations=(op,))
-
-    def test_jssp_instance_job_initialization(self):
-        m1 = Machine("m1")
-        m2 = Machine("m2")
-
-        j1 = self.make_single_op_job(job_name="j1", machine=m1)
-        j2 = self.make_single_op_job(job_name="j2", machine=m2)
-
-        JobShopSchedulingProblemInstance(name="instance", machines=(m1, m2), jobs=(j1, j2))
 
     def test_empty_name_forbidden(self):
         m1 = Machine("m1")
