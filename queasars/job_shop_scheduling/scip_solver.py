@@ -94,17 +94,15 @@ class JSSPSCIPModelEncoder:
             return
 
         # create auxiliary variable to hold the makespan as an optimization goal
-        self._optimization_var = self._model.addVar("optimization_var", vtype="INTEGER")
+        self._optimization_var = self._model.addVar("optimization_var", vtype="INTEGER", lb=0)
         self._model.setObjective(self._optimization_var)
-        self._model.addCons(self._optimization_var >= 0)
 
         for job in self._jssp_instance.jobs:
             for operation in job.operations:
                 # Create an integer variable for the start time of each operation
                 # Constrain it to be at least 0
-                var = self._model.addVar(operation.identifier, vtype="INTEGER")
+                var = self._model.addVar(operation.identifier, vtype="INTEGER", lb=0)
                 self._operation_start_variables[operation] = var
-                self._model.addCons(var >= 0)
 
         self._variables_prepared = True
 
@@ -128,17 +126,21 @@ class JSSPSCIPModelEncoder:
             for i in range(0, n_operations - 1):
                 self._model.addCons(
                     self._operation_start_variables[job.operations[i]] + job.operations[i].processing_duration
-                    <= self._operation_start_variables[job.operations[i + 1]]
+                    <= self._operation_start_variables[job.operations[i + 1]],
+                    name=f"Ensure operation {job.operations[i].identifier} precedes {job.operations[i + 1].identifier}"
+                    + f" in job {job.name}.",
                 )
             # For each job the makespan must be larger than the end time of its last operation
             self._model.addCons(
                 self._operation_start_variables[job.operations[n_operations - 1]]
                 + job.operations[n_operations - 1].processing_duration
-                <= self._optimization_var
+                <= self._optimization_var,
+                name=f"Ensure that the makespan is larger than {job.operations[n_operations - 1].identifier} end time"
+                + f" in job {job.name}.",
             )
 
         # Ensure for each machine, that no operation may overlap
-        for operations in self._machine_operations.values():
+        for machine, operations in self._machine_operations.items():
 
             # For a machine look at all possible combination of two operations
             for operation_1, operation_2 in combinations(operations, 2):
@@ -150,11 +152,15 @@ class JSSPSCIPModelEncoder:
                 # one has finished
                 self._model.addCons(
                     order_var * (self._operation_start_variables[operation_1] + operation_1.processing_duration)
-                    <= self._operation_start_variables[operation_2]
+                    <= self._operation_start_variables[operation_2],
+                    name=f"Ensure operation {operation_1.identifier} precedes "
+                    + f"{operation_2.identifier} on machine {machine.name}.",
                 )
                 self._model.addCons(
                     (1 - order_var) * (self._operation_start_variables[operation_2] + operation_2.processing_duration)
-                    <= self._operation_start_variables[operation_1]
+                    <= self._operation_start_variables[operation_1],
+                    name=f"Ensure operation {operation_2.identifier} precedes "
+                    + f"{operation_1.identifier} on machine {machine.name}.",
                 )
 
         self._constraints_prepared = True
