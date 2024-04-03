@@ -21,7 +21,11 @@ class JSSPSCIPModelEncoder:
     """
     Encoding class used to encode a JobShopSchedulingProblemInstance as a pyscipopt SCIP solver model.
     Needs queasars to be installed with the pyscipopt extra: pip install queasars[pyscipopt].
-    It also needs SCIP to be installed separately in the version 8.*.
+    It also needs SCIP to be installed in the version 8.*. In some cases, this
+    should happen automatically with the pip install, others might need a manual installation.
+    For details see https://github.com/scipopt/PySCIPOpt/blob/master/INSTALL.md .
+    A manual installation of scip can for instance be done with conda:
+    ``conda install conda-forge::scip``
 
     :param jssp_instance: job shop scheduling problem instance to encode as a scip model
     :type jssp_instance: JobShopSchedulingProblemInstance
