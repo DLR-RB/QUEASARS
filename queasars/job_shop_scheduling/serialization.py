@@ -92,10 +92,10 @@ class JSSPJSONDecoder(JSONDecoder):
 
     def object_hook(self, object_dict):
 
-        if "tuple" in object_dict:
+        if "tuple" in object_dict and len(object_dict) == 1:
             return self.parse_tuple(object_dict=object_dict)
 
-        if "dict" in object_dict:
+        if "dict" in object_dict and len(object_dict) == 1:
             return self.parse_dict(object_dict=object_dict)
 
         if "machine_name" in object_dict:
