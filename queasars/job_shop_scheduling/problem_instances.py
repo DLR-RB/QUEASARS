@@ -1,8 +1,9 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypeGuard, cast
 from textwrap import indent
 
 
@@ -199,55 +200,89 @@ class JobShopSchedulingProblemInstance:
 
 
 @dataclass(frozen=True)
-class ScheduledOperation:
+class PotentiallyScheduledOperation(ABC):
+    """
+    Abstract dataclass whose subclasses shall represent the scheduling status of an operation
+
+    :param operation: operation whose scheduling status this object represents
+    :type operation: Operation
+    """
+
+    operation: Operation
+
+    @property
+    @abstractmethod
+    def is_scheduled(self) -> bool:
+        """
+        :return: whether the operation was successfully scheduled
+        :rtype: bool
+        """
+
+
+@dataclass(frozen=True)
+class UnscheduledOperation(PotentiallyScheduledOperation):
+    """
+    Dataclass which represents the fact that an operation was not successfully scheduled
+
+    :param operation: operation which has not been scheduled
+    :type operation: Operation
+    """
+
+    @property
+    def is_scheduled(self) -> bool:
+        return False
+
+    def __repr__(self):
+        return f"{str(self.operation)} was not scheduled."
+
+
+@dataclass(frozen=True)
+class ScheduledOperation(PotentiallyScheduledOperation):
     """
     Dataclass representing the fact that an Operation has been scheduled to start
     at a certain time
 
     :param operation: which has been scheduled
     :type operation: Operation
-    :param start: time at which the operation has been scheduled to start. Can be None if the operation
-        was not scheduled
-    :type start: Optional[int]
+    :param start_time: time at which the operation has been scheduled to start
+    :type start_time: int
     """
 
-    operation: Operation
-    start: Optional[int]
+    start_time: int
 
     @property
     def is_scheduled(self) -> bool:
-        """
-        :return: whether the operation was successfully scheduled
-        :rtype: bool
-        """
-        return self.start is not None
-
-    @property
-    def start_time(self) -> int:
-        """
-        :return: the start time of the operation, according to the schedule
-        :rtype: int
-        :raise: JobShopSchedulingProblemException, if the operation was not successfully scheduled
-        """
-        if self.start is None:
-            raise JobShopSchedulingProblemException("Can't retrieve the start time if the operation was not scheduled!")
-        return self.start
+        return True
 
     @property
     def end_time(self) -> int:
         """
         :return: the end time of the operation, according to the schedule
         :rtype: int
-        :raise: JobShopSchedulingProblemException, if the operation was not successfully scheduled
         """
-        if self.start is None:
-            raise JobShopSchedulingProblemException("Can't retrieve the end time if the operation was not scheduled!")
-        return self.start + self.operation.processing_duration
+        return self.start_time + self.operation.processing_duration
 
     def __repr__(self):
-        if self.start is None:
-            return f"{str(self.operation)} was not or invalidly scheduled."
         return f"{str(self.operation)} starts at: {self.start_time} and ends at: {self.end_time}"
+
+
+def ensure_all_operations_are_scheduled(
+    schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]]
+) -> TypeGuard[dict[Job, tuple[ScheduledOperation, ...]]]:
+    """Typeguard which checks that all operations in a schedule are actually scheduled
+
+    :arg schedule: schedule to check
+    :type schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]]
+    :return: true if all operations are scheduled, false otherwise
+    :rtype: bool
+    """
+    for _, job_schedule in schedule.items():
+        if any(
+            isinstance(potentially_scheduled_operation, UnscheduledOperation)
+            for potentially_scheduled_operation in job_schedule
+        ):
+            return False
+    return True
 
 
 class JobShopSchedulingResult:
@@ -257,11 +292,13 @@ class JobShopSchedulingResult:
     :param problem_instance: for which this schedule represents an attempted solution
     :type problem_instance: JobShopSchedulingProblemInstance
     :param schedule: which attempts to solve the given problem instance
-    :type schedule: dict[Job, tuple[ScheduledOperation, ...]]
+    :type schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]]
     """
 
     def __init__(
-        self, problem_instance: JobShopSchedulingProblemInstance, schedule: dict[Job, tuple[ScheduledOperation, ...]]
+        self,
+        problem_instance: JobShopSchedulingProblemInstance,
+        schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]],
     ):
 
         if set(problem_instance.jobs) != set(schedule.keys()):
@@ -277,7 +314,7 @@ class JobShopSchedulingResult:
                 )
 
         self._problem_instance: JobShopSchedulingProblemInstance = problem_instance
-        self._schedule: dict[Job, tuple[ScheduledOperation, ...]] = schedule
+        self._schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]] = schedule
         self._is_valid: Optional[bool] = None
         self._makespan: Optional[int] = None
 
@@ -290,12 +327,25 @@ class JobShopSchedulingResult:
         return self._problem_instance
 
     @property
-    def schedule(self) -> dict[Job, tuple[ScheduledOperation, ...]]:
+    def schedule(self) -> dict[Job, tuple[PotentiallyScheduledOperation, ...]]:
         """
         :return: schedule which attempts to solve the given problem instance
-        :rtype: dict[Job, tuple[ScheduledOperation, ...]]
+        :rtype: dict[Job, tuple[PotentiallyScheduledOperation, ...]]
         """
         return self._schedule
+
+    @property
+    def valid_schedule(self) -> dict[Job, tuple[ScheduledOperation, ...]]:
+        """
+        :return: a schedule which is a valid solution to the given problem instance
+        :rtype: dict[Job, tuple[ScheduledOperation, ...]]
+        :raises: JobShopSchedulingProblemException if the result itself is not valid
+        """
+        if self.is_valid:
+            # The typeguard in self._is_valid_solution called in self.is_valid ensures that all
+            # PotentiallyScheduledOperations are ScheduledOperations
+            return cast(dict[Job, tuple[ScheduledOperation, ...]], self._schedule)
+        raise JobShopSchedulingProblemException("Cannot access a valid schedule for an invalid result!")
 
     @property
     def is_valid(self) -> bool:
@@ -319,7 +369,9 @@ class JobShopSchedulingResult:
             return None
         if self._makespan is not None:
             return self._makespan
-        makespan: int = max((scheduled_operations[-1].end_time for scheduled_operations in self.schedule.values()))
+        makespan: int = max(
+            (scheduled_operations[-1].end_time for scheduled_operations in self.valid_schedule.values())
+        )
         self._makespan = makespan
         return makespan
 
@@ -332,6 +384,10 @@ class JobShopSchedulingResult:
         :return: true if the solution is valid and false otherwise
         :rtype: bool
         """
+
+        if not ensure_all_operations_are_scheduled(self._schedule):
+            return False
+
         machine_operation_mapping: dict[Machine, list[ScheduledOperation]] = {
             machine: [] for machine in self._problem_instance.machines
         }
@@ -341,9 +397,6 @@ class JobShopSchedulingResult:
             previous_scheduled_operation: Optional[ScheduledOperation] = None
             for scheduled_operation in self._schedule[job]:
                 machine_operation_mapping[scheduled_operation.operation.machine].append(scheduled_operation)
-                # All scheduled operations are checked here before they are accessed.
-                if not scheduled_operation.is_scheduled:
-                    return False
                 if previous_scheduled_operation is not None:
                     if scheduled_operation.start_time < previous_scheduled_operation.end_time:
                         return False

@@ -13,6 +13,7 @@ from queasars.job_shop_scheduling.problem_instances import (
     Operation,
     JobShopSchedulingProblemInstance,
     JobShopSchedulingResult,
+    PotentiallyScheduledOperation,
     ScheduledOperation,
 )
 
@@ -72,12 +73,12 @@ class JSSPSCIPModelEncoder:
         :return: a JobShopSchedulingResult parsed from the solution
         :rtype: JobShopSchedulingResult
         """
-        job_schedules: dict[Job, tuple[ScheduledOperation, ...]] = {}
+        job_schedules: dict[Job, tuple[PotentiallyScheduledOperation, ...]] = {}
         for job in self._jssp_instance.jobs:
-            scheduled_operations: list[ScheduledOperation] = []
+            scheduled_operations: list[PotentiallyScheduledOperation] = []
             for operation in job.operations:
                 start_time: int = int(solution[self._operation_start_variables[operation]])
-                scheduled_operations.append(ScheduledOperation(operation=operation, start=start_time))
+                scheduled_operations.append(ScheduledOperation(operation=operation, start_time=start_time))
             job_schedules[job] = tuple(scheduled_operations)
 
         return JobShopSchedulingResult(problem_instance=self._jssp_instance, schedule=job_schedules)

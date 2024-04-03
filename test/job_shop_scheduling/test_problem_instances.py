@@ -8,6 +8,7 @@ from queasars.job_shop_scheduling.problem_instances import (
     Operation,
     Job,
     JobShopSchedulingProblemInstance,
+    UnscheduledOperation,
     ScheduledOperation,
     JobShopSchedulingResult,
     JobShopSchedulingProblemException,
@@ -173,30 +174,21 @@ class TestJobShopSchedulingProblemInstance:
             JobShopSchedulingProblemInstance(name="instance", machines=(m1, m2), jobs=(j1, j2))
 
 
-class TestScheduledOperation:
+class TestPotentiallyScheduledOperation:
 
-    def test_valid_scheduled_operation(self):
+    def test_scheduled_operation(self):
         m = Machine("m")
         op = Operation(name="op", job_name="job", machine=m, processing_duration=2)
-        scheduled_op = ScheduledOperation(operation=op, start=3)
+        scheduled_op = ScheduledOperation(operation=op, start_time=3)
 
-        assert scheduled_op.is_scheduled, "If a start time is set, is_scheduled must be True!"
-        assert (
-            scheduled_op.start_time == 3
-        ), "start_time must match the start specified in the scheduled operations constructor!"
-        assert (
-            scheduled_op.end_time == 5
-        ), "end_time must match the start time plus the operation's processing duration!"
+        assert scheduled_op.is_scheduled, "For a scheduled operation is_scheduled must be True!"
+        assert scheduled_op.end_time == 5, "end_time must match start_time plus the operation's processing duration!"
 
-    def test_time_properties_of_invalid_scheduled_operation(self):
+    def test_unscheduled_operation(self):
         m = Machine("m")
         op = Operation(name="op", job_name="job", machine=m, processing_duration=2)
-        scheduled_op = ScheduledOperation(operation=op, start=None)
-        assert not scheduled_op.is_scheduled, "If no start time is set, is_scheduled must be False!"
-        with raises(JobShopSchedulingProblemException):
-            time = scheduled_op.start_time
-        with raises(JobShopSchedulingProblemException):
-            time = scheduled_op.end_time
+        scheduled_op = UnscheduledOperation(operation=op)
+        assert not scheduled_op.is_scheduled, "For an unscheduled operation is_scheduled must be False!"
 
 
 class TestJobShopSchedulingResult:
@@ -218,10 +210,12 @@ class TestJobShopSchedulingResult:
     def test_correct_result(self, problem_instance):
         schedule = {
             problem_instance.jobs[0]: (
-                ScheduledOperation(operation=problem_instance.jobs[0].operations[0], start=0),
-                ScheduledOperation(operation=problem_instance.jobs[0].operations[1], start=2),
+                ScheduledOperation(operation=problem_instance.jobs[0].operations[0], start_time=0),
+                ScheduledOperation(operation=problem_instance.jobs[0].operations[1], start_time=2),
             ),
-            problem_instance.jobs[1]: (ScheduledOperation(operation=problem_instance.jobs[1].operations[0], start=0),),
+            problem_instance.jobs[1]: (
+                ScheduledOperation(operation=problem_instance.jobs[1].operations[0], start_time=0),
+            ),
         }
         result = JobShopSchedulingResult(problem_instance=problem_instance, schedule=schedule)
 
@@ -231,10 +225,12 @@ class TestJobShopSchedulingResult:
     def test_job_operation_overlap(self, problem_instance):
         schedule = {
             problem_instance.jobs[0]: (
-                ScheduledOperation(operation=problem_instance.jobs[0].operations[0], start=2),
-                ScheduledOperation(operation=problem_instance.jobs[0].operations[1], start=1),
+                ScheduledOperation(operation=problem_instance.jobs[0].operations[0], start_time=2),
+                ScheduledOperation(operation=problem_instance.jobs[0].operations[1], start_time=1),
             ),
-            problem_instance.jobs[1]: (ScheduledOperation(operation=problem_instance.jobs[1].operations[0], start=3),),
+            problem_instance.jobs[1]: (
+                ScheduledOperation(operation=problem_instance.jobs[1].operations[0], start_time=3),
+            ),
         }
         result = JobShopSchedulingResult(problem_instance=problem_instance, schedule=schedule)
 
@@ -244,10 +240,12 @@ class TestJobShopSchedulingResult:
     def test_machine_operation_overlap(self, problem_instance):
         schedule = {
             problem_instance.jobs[0]: (
-                ScheduledOperation(operation=problem_instance.jobs[0].operations[0], start=0),
-                ScheduledOperation(operation=problem_instance.jobs[0].operations[1], start=2),
+                ScheduledOperation(operation=problem_instance.jobs[0].operations[0], start_time=0),
+                ScheduledOperation(operation=problem_instance.jobs[0].operations[1], start_time=2),
             ),
-            problem_instance.jobs[1]: (ScheduledOperation(operation=problem_instance.jobs[1].operations[0], start=1),),
+            problem_instance.jobs[1]: (
+                ScheduledOperation(operation=problem_instance.jobs[1].operations[0], start_time=1),
+            ),
         }
         result = JobShopSchedulingResult(problem_instance=problem_instance, schedule=schedule)
 
@@ -258,7 +256,7 @@ class TestJobShopSchedulingResult:
         m1 = Machine("m1")
         op = Operation(name="op", job_name="j", machine=m1, processing_duration=2)
         j = Job(name="j", operations=(op,))
-        sop = ScheduledOperation(operation=op, start=0)
+        sop = ScheduledOperation(operation=op, start_time=0)
 
         schedule = {j: (sop,)}
         with raises(JobShopSchedulingProblemException):

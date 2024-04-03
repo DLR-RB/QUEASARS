@@ -104,7 +104,7 @@ def plot_jssp_problem_solution_gantt(
     machine_schedule: dict[Machine, list[tuple[ScheduledOperation, Job]]] = {
         machine: [] for machine in result.problem_instance.machines
     }
-    for job, scheduled_operations in result.schedule.items():
+    for job, scheduled_operations in result.valid_schedule.items():
         for scheduled_operation in scheduled_operations:
             machine_schedule[scheduled_operation.operation.machine].append((scheduled_operation, job))
 

@@ -9,6 +9,7 @@ from queasars.job_shop_scheduling.problem_instances import (
     Operation,
     Job,
     JobShopSchedulingProblemInstance,
+    UnscheduledOperation,
     ScheduledOperation,
     JobShopSchedulingResult,
 )
@@ -59,10 +60,13 @@ class JSSPJSONEncoder(JSONEncoder):
                 "jssp_instance_jobs": self.default(o.jobs),
             }
 
+        if isinstance(o, UnscheduledOperation):
+            return {"unscheduled_operation": self.default(o.operation)}
+
         if isinstance(o, ScheduledOperation):
             return {
                 "scheduled_operation": self.default(o.operation),
-                "scheduled_start_time": self.default(o.start),
+                "scheduled_start_time": self.default(o.start_time),
             }
 
         if isinstance(o, JobShopSchedulingResult):
@@ -119,6 +123,9 @@ class JSSPJSONDecoder(JSONDecoder):
         ):
             return self.parse_jssp_instance(object_dict=object_dict)
 
+        if "unscheduled_operation" in object_dict:
+            return self.parse_unscheduled_operation(object_dict=object_dict)
+
         if "scheduled_operation" in object_dict or "scheduled_start_time" in object_dict:
             return self.parse_scheduled_operation(object_dict=object_dict)
 
@@ -166,10 +173,16 @@ class JSSPJSONDecoder(JSONDecoder):
         )
 
     @staticmethod
+    def parse_unscheduled_operation(object_dict) -> UnscheduledOperation:
+        return UnscheduledOperation(
+            operation=object_dict["unscheduled_operation"],
+        )
+
+    @staticmethod
     def parse_scheduled_operation(object_dict) -> ScheduledOperation:
         return ScheduledOperation(
             operation=object_dict["scheduled_operation"],
-            start=object_dict["scheduled_start_time"],
+            start_time=object_dict["scheduled_start_time"],
         )
 
     @staticmethod
