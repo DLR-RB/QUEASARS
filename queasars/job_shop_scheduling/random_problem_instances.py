@@ -1,8 +1,9 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
-from typing import Union, Optional, TypeVar
+from math import isclose
 from random import Random
+from typing import Union, Optional, TypeVar
 
 from queasars.job_shop_scheduling.problem_instances import Machine, Operation, Job, JobShopSchedulingProblemInstance
 
@@ -22,7 +23,7 @@ def _get_random_value_from_distribution(distribution: dict[T, float], random_gen
     :return: a random element from the distribution
     :rtype: T
     """
-    if sum(distribution.values()) != 1:
+    if not isclose(sum(distribution.values()), 1, abs_tol=0.001):
         raise ValueError("The probabilities in the distribution should add up to 1!")
     return random_generator.choices(population=list(distribution.keys()), weights=list(distribution.values()), k=1)[0]
 
