@@ -73,8 +73,8 @@ def random_job_shop_scheduling_instance(
         distribution as dictionary, in which the keys are the processing duration and the values the probability
         with which this processing duration occurs
     :type op_duration: Union[int, dict[int, float]]
-    :arg random_seed: seed value to control randomness
-    :type random_seed: int
+    :arg random_seed: optional seed value to control randomness
+    :type random_seed: Optional[int]
     :return: a random job shop scheduling problem instance
     :rtype: JobShopSchedulingProblemInstance
     """
