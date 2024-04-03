@@ -291,7 +291,9 @@ class JobShopSchedulingResult:
 
     :param problem_instance: for which this schedule represents an attempted solution
     :type problem_instance: JobShopSchedulingProblemInstance
-    :param schedule: which attempts to solve the given problem instance
+    :param schedule: which attempts to solve the given problem instance. The PotentiallyScheduledOperations
+        for each job in the schedule must be ordered in exactly the same way as the corresponding Operations
+        in that job
     :type schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]]
     """
 
