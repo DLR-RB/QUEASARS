@@ -3,7 +3,8 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, TypeGuard, cast
+from typing import Optional, cast
+from typing_extensions import TypeGuard
 from textwrap import indent
 
 
