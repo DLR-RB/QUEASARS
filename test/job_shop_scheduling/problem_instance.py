@@ -6,6 +6,7 @@ from queasars.job_shop_scheduling.problem_instances import (
     Operation,
     Job,
     JobShopSchedulingProblemInstance,
+    UnscheduledOperation,
     ScheduledOperation,
     JobShopSchedulingResult,
 )
@@ -31,12 +32,12 @@ def valid_result() -> JobShopSchedulingResult:
 
     schedule = {
         instance.jobs[0]: (
-            ScheduledOperation(operation=instance.jobs[0].operations[0], start=0),
-            ScheduledOperation(operation=instance.jobs[0].operations[1], start=1),
+            ScheduledOperation(operation=instance.jobs[0].operations[0], start_time=0),
+            ScheduledOperation(operation=instance.jobs[0].operations[1], start_time=1),
         ),
         instance.jobs[1]: (
-            ScheduledOperation(operation=instance.jobs[1].operations[0], start=0),
-            ScheduledOperation(operation=instance.jobs[1].operations[1], start=1),
+            ScheduledOperation(operation=instance.jobs[1].operations[0], start_time=0),
+            ScheduledOperation(operation=instance.jobs[1].operations[1], start_time=1),
         ),
     }
 
@@ -48,12 +49,12 @@ def invalid_result() -> JobShopSchedulingResult:
 
     schedule = {
         instance.jobs[0]: (
-            ScheduledOperation(operation=instance.jobs[0].operations[0], start=0),
-            ScheduledOperation(operation=instance.jobs[0].operations[1], start=1),
+            ScheduledOperation(operation=instance.jobs[0].operations[0], start_time=0),
+            ScheduledOperation(operation=instance.jobs[0].operations[1], start_time=1),
         ),
         instance.jobs[1]: (
-            ScheduledOperation(operation=instance.jobs[1].operations[0], start=1),
-            ScheduledOperation(operation=instance.jobs[1].operations[1], start=None),
+            ScheduledOperation(operation=instance.jobs[1].operations[0], start_time=1),
+            UnscheduledOperation(operation=instance.jobs[1].operations[1]),
         ),
     }
 

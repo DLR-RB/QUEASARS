@@ -12,6 +12,8 @@ from queasars.job_shop_scheduling.problem_instances import (
     Machine,
     Operation,
     Job,
+    PotentiallyScheduledOperation,
+    UnscheduledOperation,
     ScheduledOperation,
     JobShopSchedulingResult,
 )
@@ -314,13 +316,16 @@ class JSSPDomainWallHamiltonianEncoder:
 
         bit_list = [translate(char) for char in bitstring]
 
-        job_schedules: dict[Job, tuple[ScheduledOperation, ...]] = {}
+        job_schedules: dict[Job, tuple[PotentiallyScheduledOperation, ...]] = {}
         for job in self.jssp_instance.jobs:
-            scheduled_operations: list[ScheduledOperation] = []
+            scheduled_operations: list[PotentiallyScheduledOperation] = []
             for operation in job.operations:
                 domain_wall_variable = self._operation_start_variables[operation]
                 start_time = domain_wall_variable.value_from_bitlist(bit_list=bit_list)
-                scheduled_operations.append(ScheduledOperation(operation=operation, start=start_time))
+                if start_time is not None:
+                    scheduled_operations.append(ScheduledOperation(operation=operation, start_time=start_time))
+                else:
+                    scheduled_operations.append(UnscheduledOperation(operation=operation))
             job_schedules[job] = tuple(scheduled_operations)
 
         return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules)
