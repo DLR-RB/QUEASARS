@@ -45,6 +45,7 @@ black = {version=">=23.10.1", extras=["d"]}
 notebook = ">= 7.0.6"
 matplotlib = ">= 3.8.2"
 qiskit-aer=">=0.13.1"
+smac=">=2.0.2"
 
 [tool.poetry.group.docs]
 optional = true
