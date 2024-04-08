@@ -174,7 +174,7 @@ class JSSPDomainWallHamiltonianEncoder:
                 )
                 self._local_terms.append(precedence_term)
 
-        for operations in self._machine_operations.values():
+        for _, operations in self._machine_operations.items():
             if len(operations) < 2:
                 continue
             for operation_1, operation_2 in combinations(operations, 2):
