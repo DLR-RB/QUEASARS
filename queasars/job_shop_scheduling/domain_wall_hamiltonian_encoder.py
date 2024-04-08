@@ -99,6 +99,9 @@ class JSSPDomainWallHamiltonianEncoder:
         if len(bitstring) != self.n_qubits:
             raise ValueError("The bitstring length does not match the problem size!")
 
+        if not self._encoding_prepared:
+            self._prepare_encoding()
+
         def translate(string: str) -> int:
             if string == "1":
                 return 1
