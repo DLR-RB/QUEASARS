@@ -206,7 +206,7 @@ class DomainWallVariable(Generic[T]):
         """
 
         bit_list = bit_list[self._qubit_start_index : self._qubit_start_index + self.n_qubits]
-        domain_wall_index = len(bit_list)
+        domain_wall_index = self.n_qubits
         for i, value in enumerate(bit_list):
             if value == 0:
                 domain_wall_index = i
