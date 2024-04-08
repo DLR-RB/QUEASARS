@@ -126,7 +126,7 @@ class JSSPDomainWallHamiltonianEncoder:
         return JobShopSchedulingResult(problem_instance=self.jssp_instance, schedule=job_schedules)
 
     def _prepare_encoding(self) -> None:
-        """Counts the needed qubits to encode the problem" and assigns the necessary domain wall variables"""
+        """Counts the needed qubits to encode the problem and assigns the necessary domain wall variables"""
         for job in self.jssp_instance.jobs:
             for i, operation in enumerate(job.operations):
                 if operation.machine not in self._machine_operations:
