@@ -139,7 +139,6 @@ class DomainWallVariable(Generic[T]):
         if self._n_qubits == 0:
             return 0 * _identity_term(n_qubits=quantum_circuit_n_qubits)
 
-        penalty = penalty / 2
         local_terms: list[SparsePauliOp] = []
         for i in range(-1, self._n_qubits):
             local_terms.append(
