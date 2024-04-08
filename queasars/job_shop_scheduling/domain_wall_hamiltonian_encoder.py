@@ -139,7 +139,12 @@ class JSSPDomainWallHamiltonianEncoder:
                 n_start_times = self.makespan_limit - (start_offset + end_offset) + 1
 
                 if n_start_times < 1:
-                    raise ValueError("There is no feasible solution for the given makespan_limit!")
+                    all_operations_length = sum(op.processing_duration for op in job.operations)
+                    raise ValueError(
+                        f"There is no feasible solution for the given makespan_limit {self.makespan_limit}!\n"
+                        + f"This is due to the length of all operations in job {job.name} which\n"
+                        + f"is {all_operations_length} and is longer than the makespan_limit!"
+                    )
 
                 self._operation_start_variables[operation] = DomainWallVariable(
                     qubit_start_index=self._n_qubits,
