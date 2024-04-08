@@ -89,9 +89,16 @@ class DomainWallVariable(Generic[T]):
 
     def _z_dash_term(self, i: int, quantum_circuit_n_qubits: int) -> SparsePauliOp:
         """
-        Returns a SparsePauliOp, which represents the pauli z operator for the qubits of this variable
-        and -1 for the virtual qubit before and 1 for the virtual qubit after the variable's qubits.
+        Returns a SparsePauliOp observable, for the ith qubit of this variable.
+        For a qubit of this variable (0 <= i < self.n_qubits) this returns the pauli z observable.
+        For the virtual qubit before this variable's qubits (i==-1), this returns the negative identity observable.
+        For the virtual qubit after this variable's qubits (i==self.n_qubits), this is the positive identity observable.
         For the reasoning behind this see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta
+
+        :arg i: relative position within this variable's qubits of the qubit for which to return the _z_dash_term
+        :type i: int
+        :arg quantum_circuit_n_qubits: the amount of qubits in the quantum circuit in which this variable is part of
+        :type quantum_circuit_n_qubits: int
         """
         if i < -1 or i > self.n_qubits:
             raise ValueError("The index is out of the bounds of the domain wall variable!")
