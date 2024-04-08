@@ -125,9 +125,9 @@ class DomainWallVariable(Generic[T]):
 
     def viability_term(self, penalty: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
         """
-        Returns a SparsepauliOp which penalizes invalid variable states (states with more than one domain
-        wall). Within a hamiltonian this term evaluates to 0 only if the variable is in a valid state and to
-        (n-1)*penalty at maximum for the n values this variable can represent
+        Returns a SparsepauliOp observable which penalizes invalid variable states (states with more than one domain
+        wall). Its eigenvalues are 0 only for eigenstates which are valid variable states (contain only one
+        domain wall) and (n-1)*penalty for eigenstates which contain n domain walls
 
         :arg penalty: size of the applied penalty for each violation
         :type penalty: float
@@ -163,9 +163,10 @@ class DomainWallVariable(Generic[T]):
         return SparsePauliOp.sum(ops=local_terms)
 
     def value_term(self, value: T, quantum_circuit_n_qubits: int) -> SparsePauliOp:
-        """Returns a SparsePauliOp which checks the variable for a given value. Within a hamiltonian
-        this term evaluates to one only if the variable is in a state which represents the given value and 0
-        otherwise. If the given value is not within the possible values of this variable, this raises a ValueError
+        """Returns a SparsePauliOp observable which has an eigenvalue of 0 for all eigenstates in which
+        this variable does not choose the given value and 1 for all eigenstates in which this variable
+        chooses the given value. If the given value is not within the possible values of this variable,
+        this raises a ValueError
 
         :arg value: Value to check the variable for
         :type value: T
