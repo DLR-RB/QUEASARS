@@ -26,8 +26,8 @@ class JSSPDomainWallHamiltonianEncoder:
 
     :param jssp_instance: job shop scheduling problem instance to encode as a hamiltonian
     :type jssp_instance: JobShopSchedulingProblemInstance
-    :param time_limit: maximum allowed makespan for possible solutions
-    :type time_limit: int
+    :param makespan_limit: maximum allowed makespan for possible solutions
+    :type makespan_limit: int
     :param encoding_penalty: penalty added to the optimization value for violating the encoding constraint
     :type encoding_penalty: float
     :param constraint_penalty: penalty added to the optimization value for violating the JSSP's constraints
@@ -45,14 +45,14 @@ class JSSPDomainWallHamiltonianEncoder:
     def __init__(
         self,
         jssp_instance: JobShopSchedulingProblemInstance,
-        time_limit: int,
+        makespan_limit: int,
         encoding_penalty: float = 300,
         constraint_penalty: float = 100,
         max_opt_value: float = 100,
         opt_all_operations_share: float = 0.25,
     ):
         self.jssp_instance: JobShopSchedulingProblemInstance = jssp_instance
-        self.time_limit: int = time_limit
+        self.makespan_limit: int = makespan_limit
         self._encoding_prepared: bool = False
         self._hamiltonian_prepared: bool = False
         self._machine_operations: dict[Machine, list[Operation]] = {}
@@ -133,10 +133,10 @@ class JSSPDomainWallHamiltonianEncoder:
                 start_offset = sum(operation.processing_duration for j, operation in enumerate(job.operations) if j < i)
                 end_offset = sum(operation.processing_duration for j, operation in enumerate(job.operations) if j >= i)
 
-                n_start_times = self.time_limit - (start_offset + end_offset) + 1
+                n_start_times = self.makespan_limit - (start_offset + end_offset) + 1
 
                 if n_start_times < 1:
-                    raise ValueError("There is no feasible solution for the given time_limit!")
+                    raise ValueError("There is no feasible solution for the given makespan_limit!")
 
                 self._operation_start_variables[operation] = DomainWallVariable(
                     qubit_start_index=self._n_qubits,
@@ -274,7 +274,7 @@ class JSSPDomainWallHamiltonianEncoder:
         :rtype: SparsePauliOp
         """
         n_jobs = len(self.jssp_instance.jobs)
-        max_optimization_value = n_jobs * (n_jobs + 1) ** self.time_limit
+        max_optimization_value = n_jobs * (n_jobs + 1) ** self.makespan_limit
 
         local_terms = []
         for job in self.jssp_instance.jobs:
