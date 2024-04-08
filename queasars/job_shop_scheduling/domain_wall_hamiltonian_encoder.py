@@ -2,7 +2,6 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from itertools import combinations
-from typing import Optional, Generic, TypeVar, Hashable
 
 from qiskit.quantum_info.operators import SparsePauliOp
 
@@ -16,208 +15,8 @@ from queasars.job_shop_scheduling.problem_instances import (
     ScheduledOperation,
     JobShopSchedulingResult,
 )
-
-
-def _identity_term(n_qubits: int) -> SparsePauliOp:
-    """
-    Returns a SparsePauliOp observable consisting only of identities. Its expectation value with respect to
-    any quantum state is always 1
-
-    :arg n_qubits: number of qubits in the quantum circuit
-    :type n_qubits: int
-    :return: a SparsePauliOp consisting only of identities
-    """
-    if n_qubits < 1:
-        raise ValueError("n_qubits must be at least one!")
-    return SparsePauliOp("I" * n_qubits)
-
-
-def _pauli_z_term(qubit_index: int, n_qubits: int) -> SparsePauliOp:
-    """
-    Returns a SparsePauliOp observable consisting of identities and one pauli z at the qubit_index. Its eigenvalues are
-    -1 for all eigenstates in which the qubit at the qubit_index is in state |1> and +1 for all eigenstates in which
-    the qubit at the qubit_index is in state |0>.
-
-    :arg qubit_index: index of the qubit to which the pauli z term shall apply
-    :type qubit_index: int
-    :arg n_qubits: number of qubits in the quantum circuit
-    :type n_qubits: int
-    """
-    if n_qubits < 1:
-        raise ValueError("n_qubits must be at least one!")
-
-    if not 0 <= qubit_index < n_qubits:
-        raise ValueError("The qubit index is invalid!")
-
-    pauli_list: list[str] = ["I"] * n_qubits
-    pauli_list[qubit_index] = "Z"
-    pauli_string: str = "".join(pauli_list)
-    return SparsePauliOp(pauli_string)
-
-
-T = TypeVar("T", bound=Hashable)
-
-
-class DomainWallVariable(Generic[T]):
-    """
-    Class representing a variable encoded in the domain wall encoding. For more details on the domain wall
-    encoding see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta .
-    This class specifically models a choice between n+1 unique values on n qubits. These values must be
-    hashable
-
-    :param qubit_start_index: qubit index in the quantum circuit from which this variable starts.
-        If values contains n+1 entries, the variable occupies the n qubits in the range
-        [qubit_index, ..., qubit_index+n-1]
-    :type qubit_start_index: int
-    :param values: values between which this variable chooses
-    :type values: tuple[T, ...]
-    """
-
-    def __init__(self, qubit_start_index: int, values: tuple[T, ...]):
-        """Constructor Method"""
-        self._qubit_start_index: int = qubit_start_index
-        self._values: tuple[T, ...] = values
-
-        if len(self._values) < 1:
-            raise ValueError("The domain wall variable must at least have one value!")
-        self._value_indices: dict[T, int] = {value: i for i, value in enumerate(self._values)}
-
-        if len(self._values) != len(self._value_indices):
-            raise ValueError("All values of a domain wall variable must be unique!")
-
-        self._n_qubits: int = len(values) - 1
-
-    def _z_dash_term(self, i: int, quantum_circuit_n_qubits: int) -> SparsePauliOp:
-        """
-        Returns a SparsePauliOp observable, for the ith qubit of this variable.
-        For a qubit of this variable (0 <= i < self.n_qubits) this returns the pauli z observable.
-        For the virtual qubit before this variable's qubits (i==-1), this returns the negative identity observable.
-        For the virtual qubit after this variable's qubits (i==self.n_qubits), this is the positive identity observable.
-        For the reasoning behind this see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta
-
-        :arg i: relative position within this variable's qubits of the qubit for which to return the _z_dash_term
-        :type i: int
-        :arg quantum_circuit_n_qubits: the amount of qubits in the quantum circuit in which this variable is part of
-        :type quantum_circuit_n_qubits: int
-        """
-        if i < -1 or i > self.n_qubits:
-            raise ValueError("The index is out of the bounds of the domain wall variable!")
-        if i == -1:
-            return -1 * _identity_term(n_qubits=quantum_circuit_n_qubits)
-        if i == self.n_qubits:
-            return _identity_term(n_qubits=quantum_circuit_n_qubits)
-        return _pauli_z_term(qubit_index=self._qubit_start_index + i, n_qubits=quantum_circuit_n_qubits)
-
-    @property
-    def values(self) -> tuple[T, ...]:
-        """
-        :return: the values between which this domain wall variable chooses
-        :rtype: tuple[T, ...]
-        """
-        return self._values
-
-    @property
-    def n_qubits(self) -> int:
-        """
-        :return: the amount of qubits needed by this variable
-        """
-        return self._n_qubits
-
-    def viability_term(self, penalty: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
-        """
-        Returns a SparsepauliOp observable which penalizes invalid variable states (states with more than one domain
-        wall). Its eigenvalues are 0 only for eigenstates which are valid variable states (contain only one
-        domain wall) and (n-1)*penalty for eigenstates which contain n domain walls
-
-        :arg penalty: size of the applied penalty for each violation
-        :type penalty: float
-        :arg quantum_circuit_n_qubits: the amount of qubits in the quantum circuit in which this variable is part of
-        :type quantum_circuit_n_qubits: int
-        :return: a SparsePauliOp which penalizes invalid variable states
-        :rtype: SparsePauliOp
-        """
-        if self._n_qubits == 0:
-            return 0 * _identity_term(n_qubits=quantum_circuit_n_qubits)
-
-        local_terms: list[SparsePauliOp] = []
-        for i in range(-1, self._n_qubits):
-            local_terms.append(
-                1
-                / 2
-                * penalty
-                * (
-                    _identity_term(n_qubits=quantum_circuit_n_qubits)
-                    - self._z_dash_term(
-                        i=i,
-                        quantum_circuit_n_qubits=quantum_circuit_n_qubits,
-                    ).compose(
-                        self._z_dash_term(
-                            i=i + 1,
-                            quantum_circuit_n_qubits=quantum_circuit_n_qubits,
-                        )
-                    )
-                )
-            )
-        local_terms.append(-1 * penalty * _identity_term(n_qubits=quantum_circuit_n_qubits))
-
-        return SparsePauliOp.sum(ops=local_terms)
-
-    def value_term(self, value: T, quantum_circuit_n_qubits: int) -> SparsePauliOp:
-        """Returns a SparsePauliOp observable which has an eigenvalue of 0 for all eigenstates in which
-        this variable does not choose the given value and 1 for all eigenstates in which this variable
-        chooses the given value. If the given value is not within the possible values of this variable,
-        this raises a ValueError
-
-        :arg value: Value to check the variable for
-        :type value: T
-        :arg quantum_circuit_n_qubits: amount of qubits in the quantum circuit this variable is part of
-        :type quantum_circuit_n_qubits: int
-        :return: a SparsePauliOp checking the variable for the given value
-        :rtype: SparsePauliOp
-        """
-        if value not in self._value_indices:
-            raise ValueError("The domain wall variable can never assume this value!")
-        if self._n_qubits == 0:
-            return _identity_term(n_qubits=quantum_circuit_n_qubits)
-
-        i = self._value_indices[value]
-        return (1 / 2) * (
-            self._z_dash_term(
-                i=i,
-                quantum_circuit_n_qubits=quantum_circuit_n_qubits,
-            )
-            - self._z_dash_term(
-                i=i - 1,
-                quantum_circuit_n_qubits=quantum_circuit_n_qubits,
-            )
-        )
-
-    def value_from_bitlist(self, bit_list: list[int]) -> Optional[T]:
-        """
-        Calculates the value held in this domain wall variable for an
-        assignment of bit values to the qubits given as a bit_list for the
-        whole quantum circuit
-
-        :arg bit_list: representing a value assignment to the quantum circuit's qubits. All list entries must
-            be zero or one
-        :type bit_list: list[int]
-        :return: the value held in this variable
-        :rtype: Optional[T]
-        """
-
-        bit_list = bit_list[self._qubit_start_index : self._qubit_start_index + self.n_qubits]
-        domain_wall_index = self.n_qubits
-        for i, value in enumerate(bit_list):
-            if value == 0:
-                domain_wall_index = i
-                break
-            if value != 1:
-                raise ValueError("The bit_list must only contain 0 or 1 values!")
-
-        if not sum(bit_list[domain_wall_index:]) == 0:
-            return None
-
-        return self.values[domain_wall_index]
+from queasars.utility.domain_wall_variables import DomainWallVariable
+from queasars.utility.pauli_strings import pauli_identity_string
 
 
 class JSSPDomainWallHamiltonianEncoder:
@@ -401,10 +200,10 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_2 = self._operation_start_variables[operation_2]
 
         if max(start_variable_1.values) + operation_1.processing_duration <= min(start_variable_2.values):
-            return 0 * _identity_term(n_qubits=self._n_qubits)
+            return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
         if max(start_variable_2.values) + operation_2.processing_duration <= min(start_variable_1.values):
-            return 0 * _identity_term(n_qubits=self._n_qubits)
+            return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
         local_terms = []
         for start_time_1 in start_variable_1.values:
@@ -444,7 +243,7 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_2 = self._operation_start_variables[operation_2]
 
         if max(start_variable_1.values) + operation_1.processing_duration <= min(start_variable_2.values):
-            return 0 * _identity_term(n_qubits=self._n_qubits)
+            return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
         local_terms = []
         for start_time_1 in start_variable_1.values:
