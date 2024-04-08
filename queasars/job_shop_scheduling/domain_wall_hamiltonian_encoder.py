@@ -59,10 +59,11 @@ class DomainWallVariable:
     """
     Class representing a variable encoded in the domain wall encoding. For more details on the domain wall
     encoding see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta
-    This class specifically models a choice between n+1 floating point values for n qubits.
+    This class specifically models a choice between n+1 unique integer values on n qubits.
 
     :param qubit_start_index: qubit index in the quantum circuit from which this variable starts.
-        The variable occupies the qubits in the range [qubit_index, ..., qubit_index+len(values)-1[
+        If values contains n+1 entries, the variable occupies the n qubits in the range
+        [qubit_index, ..., qubit_index+n-1]
     :type qubit_start_index: int
     :param values: values between which this variable chooses
     :type values: tuple[int, ...]
@@ -72,7 +73,7 @@ class DomainWallVariable:
         """Constructor Method"""
         self._qubit_start_index: int = qubit_start_index
 
-        self._values: tuple[int, ...] = tuple(sorted(values))
+        self._values: tuple[int, ...] = values
         if len(self._values) < 1:
             raise ValueError("The domain wall variable must at least have one value!")
         self._value_indices: dict[int, int] = {value: i for i, value in enumerate(self._values)}
