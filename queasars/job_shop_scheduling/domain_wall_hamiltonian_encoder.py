@@ -172,7 +172,7 @@ class JSSPDomainWallHamiltonianEncoder:
                 precedence_term = self._operation_precedence_term(
                     job.operations[i], job.operations[i + 1], self._constraint_penalty
                 )
-                self._local_terms.extend(precedence_term)
+                self._local_terms.append(precedence_term)
 
         for operations in self._machine_operations.values():
             if len(operations) < 2:
