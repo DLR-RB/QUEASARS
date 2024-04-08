@@ -1,7 +1,6 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
-from functools import reduce
 from itertools import combinations
 from typing import Optional
 
@@ -19,10 +18,10 @@ from queasars.job_shop_scheduling.problem_instances import (
 )
 
 
-def _constant_one_term(n_qubits: int) -> SparsePauliOp:
+def _identity_term(n_qubits: int) -> SparsePauliOp:
     """
-    Returns a SparsePauliOp consisting only of identities. Within a hamiltonian this term
-    always evaluates to an eigenvalue of 1
+    Returns a SparsePauliOp observable consisting only of identities. Its expectation value with respect to
+    any quantum state is always 1
 
     :arg n_qubits: number of qubits in the quantum circuit
     :type n_qubits: int
@@ -35,9 +34,9 @@ def _constant_one_term(n_qubits: int) -> SparsePauliOp:
 
 def _pauli_z_term(qubit_index: int, n_qubits: int) -> SparsePauliOp:
     """
-    Returns a SparsePauliOp consisting of identities and one pauli z at the qubit_index. Within a hamiltonian
-    this term evaluates to an eigenvalue of -1, if the qubit at the qubit_index is one and 1 if the qubit at the
-    qubit index is zero
+    Returns a SparsePauliOp observable consisting of identities and one pauli z at the qubit_index. Its eigenvalues are
+    -1 for all eigenstates in which the qubit at the qubit_index is in state |1> and +1 for all eigenstates in which
+    the qubit at the qubit_index is in state |0>.
 
     :arg qubit_index: index of the qubit to which the pauli z term shall apply
     :type qubit_index: int
@@ -50,9 +49,9 @@ def _pauli_z_term(qubit_index: int, n_qubits: int) -> SparsePauliOp:
     if not 0 <= qubit_index < n_qubits:
         raise ValueError("The qubit index is invalid!")
 
-    pauli_list = ["I"] * n_qubits
+    pauli_list: list[str] = ["I"] * n_qubits
     pauli_list[qubit_index] = "Z"
-    pauli_string = reduce(lambda x, y: x + y, pauli_list)
+    pauli_string: str = "".join(pauli_list)
     return SparsePauliOp(pauli_string)
 
 
@@ -94,9 +93,9 @@ class DomainWallVariable:
         if i < -1 or i > self.n_qubits:
             raise ValueError("The index is out of the bounds of the domain wall variable!")
         if i == -1:
-            return -1 * _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+            return -1 * _identity_term(n_qubits=quantum_circuit_n_qubits)
         if i == self.n_qubits:
-            return _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+            return _identity_term(n_qubits=quantum_circuit_n_qubits)
         return _pauli_z_term(qubit_index=self._qubit_start_index + i, n_qubits=quantum_circuit_n_qubits)
 
     @property
@@ -144,7 +143,7 @@ class DomainWallVariable:
         :rtype: SparsePauliOp
         """
         if self._n_qubits == 0:
-            return 0 * _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+            return 0 * _identity_term(n_qubits=quantum_circuit_n_qubits)
 
         penalty = penalty / 2
         local_terms: list[SparsePauliOp] = []
@@ -154,7 +153,7 @@ class DomainWallVariable:
                 / 2
                 * penalty
                 * (
-                    _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+                    _identity_term(n_qubits=quantum_circuit_n_qubits)
                     - self._z_dash_term(
                         i=i,
                         quantum_circuit_n_qubits=quantum_circuit_n_qubits,
@@ -166,7 +165,7 @@ class DomainWallVariable:
                     )
                 )
             )
-        local_terms.append(-1 * penalty * _constant_one_term(n_qubits=quantum_circuit_n_qubits))
+        local_terms.append(-1 * penalty * _identity_term(n_qubits=quantum_circuit_n_qubits))
 
         return SparsePauliOp.sum(ops=local_terms)
 
@@ -185,7 +184,7 @@ class DomainWallVariable:
         if value not in self._value_indices:
             raise ValueError("The domain wall variable can never assume this value!")
         if self._n_qubits == 0:
-            return _constant_one_term(n_qubits=quantum_circuit_n_qubits)
+            return _identity_term(n_qubits=quantum_circuit_n_qubits)
 
         i = self._value_indices[value]
         return (1 / 2) * (
@@ -408,10 +407,10 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_2 = self._operation_start_variables[operation_2]
 
         if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
-            return 0 * _constant_one_term(n_qubits=self._n_qubits)
+            return 0 * _identity_term(n_qubits=self._n_qubits)
 
         if start_variable_2.max_value + operation_2.processing_duration <= start_variable_1.min_value:
-            return 0 * _constant_one_term(n_qubits=self._n_qubits)
+            return 0 * _identity_term(n_qubits=self._n_qubits)
 
         local_terms = []
         for start_time_1 in start_variable_1.values:
@@ -451,7 +450,7 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_2 = self._operation_start_variables[operation_2]
 
         if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
-            return 0 * _constant_one_term(n_qubits=self._n_qubits)
+            return 0 * _identity_term(n_qubits=self._n_qubits)
 
         local_terms = []
         for start_time_1 in start_variable_1.values:
