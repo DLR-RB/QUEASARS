@@ -2,7 +2,7 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from itertools import combinations
-from typing import Optional
+from typing import Optional, Generic, TypeVar, Hashable
 
 from qiskit.quantum_info.operators import SparsePauliOp
 
@@ -55,30 +55,32 @@ def _pauli_z_term(qubit_index: int, n_qubits: int) -> SparsePauliOp:
     return SparsePauliOp(pauli_string)
 
 
-class DomainWallVariable:
+T = TypeVar("T", bound=Hashable)
+
+
+class DomainWallVariable(Generic[T]):
     """
     Class representing a variable encoded in the domain wall encoding. For more details on the domain wall
-    encoding see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta
-    This class specifically models a choice between n+1 unique integer values on n qubits.
+    encoding see: https://iopscience.iop.org/article/10.1088/2058-9565/ab33c2/meta .
+    This class specifically models a choice between n+1 unique values on n qubits. These values must be
+    hashable
 
     :param qubit_start_index: qubit index in the quantum circuit from which this variable starts.
         If values contains n+1 entries, the variable occupies the n qubits in the range
         [qubit_index, ..., qubit_index+n-1]
     :type qubit_start_index: int
     :param values: values between which this variable chooses
-    :type values: tuple[int, ...]
+    :type values: tuple[T, ...]
     """
 
-    def __init__(self, qubit_start_index: int, values: tuple[int, ...]):
+    def __init__(self, qubit_start_index: int, values: tuple[T, ...]):
         """Constructor Method"""
         self._qubit_start_index: int = qubit_start_index
+        self._values: tuple[T, ...] = values
 
-        self._values: tuple[int, ...] = values
         if len(self._values) < 1:
             raise ValueError("The domain wall variable must at least have one value!")
-        self._value_indices: dict[int, int] = {value: i for i, value in enumerate(self._values)}
-        self._max_value = max(self._values)
-        self._min_value = min(self._values)
+        self._value_indices: dict[T, int] = {value: i for i, value in enumerate(self._values)}
 
         if len(self._values) != len(self._value_indices):
             raise ValueError("All values of a domain wall variable must be unique!")
@@ -100,28 +102,12 @@ class DomainWallVariable:
         return _pauli_z_term(qubit_index=self._qubit_start_index + i, n_qubits=quantum_circuit_n_qubits)
 
     @property
-    def values(self) -> tuple[int, ...]:
+    def values(self) -> tuple[T, ...]:
         """
         :return: the values between which this domain wall variable chooses
-        :rtype: tuple[int, ...]
+        :rtype: tuple[T, ...]
         """
         return self._values
-
-    @property
-    def max_value(self) -> float:
-        """
-        :return: the maximum value contained in the domain wall variable's values
-        :rtype: int
-        """
-        return self._max_value
-
-    @property
-    def min_value(self) -> float:
-        """
-        :return: the minimum value contained in the domain wall variable's values
-        :rtype: int
-        """
-        return self._min_value
 
     @property
     def n_qubits(self) -> int:
@@ -170,13 +156,13 @@ class DomainWallVariable:
 
         return SparsePauliOp.sum(ops=local_terms)
 
-    def value_term(self, value: int, quantum_circuit_n_qubits: int) -> SparsePauliOp:
+    def value_term(self, value: T, quantum_circuit_n_qubits: int) -> SparsePauliOp:
         """Returns a SparsePauliOp which checks the variable for a given value. Within a hamiltonian
         this term evaluates to one only if the variable is in a state which represents the given value and 0
         otherwise. If the given value is not within the possible values of this variable, this raises a ValueError
 
         :arg value: Value to check the variable for
-        :type value: int
+        :type value: T
         :arg quantum_circuit_n_qubits: amount of qubits in the quantum circuit this variable is part of
         :type quantum_circuit_n_qubits: int
         :return: a SparsePauliOp checking the variable for the given value
@@ -199,7 +185,7 @@ class DomainWallVariable:
             )
         )
 
-    def value_from_bitlist(self, bit_list: list[int]) -> Optional[int]:
+    def value_from_bitlist(self, bit_list: list[int]) -> Optional[T]:
         """
         Calculates the value held in this domain wall variable for an
         assignment of bit values to the qubits given as a bit_list for the
@@ -209,7 +195,7 @@ class DomainWallVariable:
             be zero or one
         :type bit_list: list[int]
         :return: the value held in this variable
-        :rtype: int
+        :rtype: Optional[T]
         """
 
         bit_list = bit_list[self._qubit_start_index : self._qubit_start_index + self.n_qubits]
@@ -264,7 +250,7 @@ class JSSPDomainWallHamiltonianEncoder:
         self._encoding_prepared: bool = False
         self._hamiltonian_prepared: bool = False
         self._machine_operations: dict[Machine, list[Operation]] = {}
-        self._operation_start_variables: dict[Operation, DomainWallVariable] = {}
+        self._operation_start_variables: dict[Operation, DomainWallVariable[int]] = {}
         self._n_qubits: int = 0
         self._local_terms: list[SparsePauliOp] = []
         self._encoding_penalty: float = encoding_penalty
@@ -407,10 +393,10 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_1 = self._operation_start_variables[operation_1]
         start_variable_2 = self._operation_start_variables[operation_2]
 
-        if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
+        if max(start_variable_1.values) + operation_1.processing_duration <= min(start_variable_2.values):
             return 0 * _identity_term(n_qubits=self._n_qubits)
 
-        if start_variable_2.max_value + operation_2.processing_duration <= start_variable_1.min_value:
+        if max(start_variable_2.values) + operation_2.processing_duration <= min(start_variable_1.values):
             return 0 * _identity_term(n_qubits=self._n_qubits)
 
         local_terms = []
@@ -450,7 +436,7 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_1 = self._operation_start_variables[operation_1]
         start_variable_2 = self._operation_start_variables[operation_2]
 
-        if start_variable_1.max_value + operation_1.processing_duration <= start_variable_2.min_value:
+        if max(start_variable_1.values) + operation_1.processing_duration <= min(start_variable_2.values):
             return 0 * _identity_term(n_qubits=self._n_qubits)
 
         local_terms = []
