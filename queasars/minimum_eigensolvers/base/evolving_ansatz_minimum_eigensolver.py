@@ -5,9 +5,8 @@ from dataclasses import dataclass
 import logging
 from typing import Callable, TypeVar, Generic, Optional, Union
 
-from numpy import median
-
 from dask.distributed import Client
+from numpy import median
 
 from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
@@ -20,7 +19,12 @@ from queasars.circuit_evaluation.circuit_evaluation import (
     OperatorCircuitEvaluator,
     BitstringCircuitEvaluator,
 )
-from queasars.circuit_evaluation.mutex_primitives import BatchingMutexSampler, BatchingMutexEstimator
+from queasars.circuit_evaluation.mutex_primitives import (
+    BatchingMutexSampler,
+    BatchingMutexEstimator,
+    MutexSampler,
+    MutexEstimator,
+)
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
     BaseIndividual,
     BasePopulation,
@@ -71,8 +75,10 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
         Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
         a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
+        When using a ThreadPoolExecutor with this option enabled, parallel circuit evaluations are batched.
         To accommodate non-threadsafe primitives this is enabled by default. If the sampler and estimator are threadsafe
-        disabling this option may lead to performance improvements
+        or the dask client is configured with only one thread per process, disabling this option may lead to performance
+        improvements
     :type mutually_exclusive_primitives: bool
     """
 
@@ -110,7 +116,9 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         super().__init__()
         self.configuration = configuration
 
-        if self.configuration.mutually_exclusive_primitives:
+        if self.configuration.mutually_exclusive_primitives and isinstance(
+            self.configuration.parallel_executor, ThreadPoolExecutor
+        ):
             if self.configuration.estimator is not None:
                 self.configuration.estimator = BatchingMutexEstimator(
                     estimator=self.configuration.estimator, waiting_duration=0.1
@@ -119,6 +127,14 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 self.configuration.sampler = BatchingMutexSampler(
                     sampler=self.configuration.sampler, waiting_duration=0.1
                 )
+
+        if self.configuration.mutually_exclusive_primitives and isinstance(
+            self.configuration.parallel_executor, Client
+        ):
+            if self.configuration.estimator is not None:
+                self.configuration.estimator = MutexEstimator(estimator=self.configuration.estimator)
+            if self.configuration.sampler is not None:
+                self.configuration.sampler = MutexSampler(sampler=self.configuration.sampler)
 
         self.logger = logging.getLogger(__name__)
 

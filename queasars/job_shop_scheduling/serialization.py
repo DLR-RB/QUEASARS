@@ -9,6 +9,7 @@ from queasars.job_shop_scheduling.problem_instances import (
     Operation,
     Job,
     JobShopSchedulingProblemInstance,
+    UnscheduledOperation,
     ScheduledOperation,
     JobShopSchedulingResult,
 )
@@ -33,7 +34,7 @@ class JSSPJSONEncoder(JSONEncoder):
             return {"tuple": [self.default(entry) for entry in o]}
 
         if isinstance(o, list):
-            return {"list": [self.default(entry) for entry in o]}
+            return [self.default(entry) for entry in o]
 
         if isinstance(o, dict):
             return {"dict": self.default(list(o.items()))}
@@ -59,10 +60,13 @@ class JSSPJSONEncoder(JSONEncoder):
                 "jssp_instance_jobs": self.default(o.jobs),
             }
 
+        if isinstance(o, UnscheduledOperation):
+            return {"unscheduled_operation": self.default(o.operation)}
+
         if isinstance(o, ScheduledOperation):
             return {
                 "scheduled_operation": self.default(o.operation),
-                "scheduled_start_time": self.default(o.start),
+                "scheduled_start_time": self.default(o.start_time),
             }
 
         if isinstance(o, JobShopSchedulingResult):
@@ -92,13 +96,10 @@ class JSSPJSONDecoder(JSONDecoder):
 
     def object_hook(self, object_dict):
 
-        if "tuple" in object_dict:
+        if "tuple" in object_dict and len(object_dict) == 1:
             return self.parse_tuple(object_dict=object_dict)
 
-        if "list" in object_dict:
-            return self.parse_list(object_dict=object_dict)
-
-        if "dict" in object_dict:
+        if "dict" in object_dict and len(object_dict) == 1:
             return self.parse_dict(object_dict=object_dict)
 
         if "machine_name" in object_dict:
@@ -121,6 +122,9 @@ class JSSPJSONDecoder(JSONDecoder):
             or "jssp_instance_jobs" in object_dict
         ):
             return self.parse_jssp_instance(object_dict=object_dict)
+
+        if "unscheduled_operation" in object_dict:
+            return self.parse_unscheduled_operation(object_dict=object_dict)
 
         if "scheduled_operation" in object_dict or "scheduled_start_time" in object_dict:
             return self.parse_scheduled_operation(object_dict=object_dict)
@@ -169,10 +173,16 @@ class JSSPJSONDecoder(JSONDecoder):
         )
 
     @staticmethod
+    def parse_unscheduled_operation(object_dict) -> UnscheduledOperation:
+        return UnscheduledOperation(
+            operation=object_dict["unscheduled_operation"],
+        )
+
+    @staticmethod
     def parse_scheduled_operation(object_dict) -> ScheduledOperation:
         return ScheduledOperation(
             operation=object_dict["scheduled_operation"],
-            start=object_dict["scheduled_start_time"],
+            start_time=object_dict["scheduled_start_time"],
         )
 
     @staticmethod
