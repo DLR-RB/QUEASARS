@@ -60,7 +60,11 @@ def plot_jssp_problem_instance_gantt(
     ax.set_ylabel("Jobs")
     ax.set_xticks(range(0, max_end + 1))
     ax.set_xlabel("Time")
-    _create_color_legend(fig=fig, color_labels={color: machine.name for machine, color in machine_color_map.items()})
+    _create_color_legend(
+        fig=fig,
+        legend_name="Machines",
+        color_labels={color: machine.name for machine, color in machine_color_map.items()},
+    )
 
     if save_path is not None:
         fig.savefig(save_path, bbox_inches="tight")
@@ -100,7 +104,7 @@ def plot_jssp_problem_solution_gantt(
     machine_schedule: dict[Machine, list[tuple[ScheduledOperation, Job]]] = {
         machine: [] for machine in result.problem_instance.machines
     }
-    for job, scheduled_operations in result.schedule.items():
+    for job, scheduled_operations in result.valid_schedule.items():
         for scheduled_operation in scheduled_operations:
             machine_schedule[scheduled_operation.operation.machine].append((scheduled_operation, job))
 
@@ -123,7 +127,9 @@ def plot_jssp_problem_solution_gantt(
         ax.set_xticks(range(0, result.makespan + 1))
         ax.set_xlabel("Time")
 
-    _create_color_legend(fig=fig, color_labels={color: job.name for job, color in job_color_map.items()})
+    _create_color_legend(
+        fig=fig, legend_name="Jobs", color_labels={color: job.name for job, color in job_color_map.items()}
+    )
 
     if save_path is not None:
         fig.savefig(save_path, bbox_inches="tight")
@@ -133,8 +139,8 @@ def plot_jssp_problem_solution_gantt(
     return fig
 
 
-def _create_color_legend(fig: Figure, color_labels: dict[Any, str]) -> None:
+def _create_color_legend(fig: Figure, legend_name: str, color_labels: dict[Any, str]) -> None:
     patch_list: list = []
     for color, label in color_labels.items():
         patch_list.append(patches.Patch(color=color, label=label))
-    fig.legend(handles=patch_list, title="Machines", loc="center left", bbox_to_anchor=(0.9, 0.5))
+    fig.legend(handles=patch_list, title=legend_name, loc="center left", bbox_to_anchor=(0.9, 0.5))
