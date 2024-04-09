@@ -128,30 +128,38 @@ class JSSPDomainWallHamiltonianEncoder:
     def _prepare_encoding(self) -> None:
         """Counts the needed qubits to encode the problem and assigns the necessary domain wall variables"""
         for job in self.jssp_instance.jobs:
-            for i, operation in enumerate(job.operations):
+            # keep track of the start and end bounds for an operation given by the length of the preceding
+            # subsequent operations of a job
+            start_offset: int = 0
+            end_offset: int = sum(operation.processing_duration for operation in job.operations)
+
+            if end_offset > self.makespan_limit:
+                raise ValueError(
+                    f"There is no feasible solution for the given makespan_limit {self.makespan_limit}!\n"
+                    + f"This is due to the length of all operations in job {job.name} which\n"
+                    + f"is {end_offset} and is longer than the makespan_limit!"
+                )
+
+            for operation in job.operations:
+                # cache the operations for each machine
                 if operation.machine not in self._machine_operations:
                     self._machine_operations[operation.machine] = []
                 self._machine_operations[operation.machine].append(operation)
 
-                start_offset = sum(operation.processing_duration for j, operation in enumerate(job.operations) if j < i)
-                end_offset = sum(operation.processing_duration for j, operation in enumerate(job.operations) if j >= i)
-
+                # determine all possible start times for the operation and assign a
+                # domain wall variable to represent the choice between these start times
                 n_start_times = self.makespan_limit - (start_offset + end_offset) + 1
-
-                if n_start_times < 1:
-                    all_operations_length = sum(op.processing_duration for op in job.operations)
-                    raise ValueError(
-                        f"There is no feasible solution for the given makespan_limit {self.makespan_limit}!\n"
-                        + f"This is due to the length of all operations in job {job.name} which\n"
-                        + f"is {all_operations_length} and is longer than the makespan_limit!"
-                    )
-
                 self._operation_start_variables[operation] = DomainWallVariable(
                     qubit_start_index=self._n_qubits,
                     values=tuple(range(start_offset, start_offset + n_start_times)),
                 )
 
+                # keep track of the needed qubits
                 self._n_qubits += self._operation_start_variables[operation].n_qubits
+
+                # update the bounds for the next operation
+                start_offset += operation.processing_duration
+                end_offset -= operation.processing_duration
 
         self._encoding_prepared = True
 
