@@ -38,7 +38,7 @@ class JSSPDomainWallHamiltonianEncoder:
     :param opt_all_operations_share: the optimization value mostly consists of a term minimizing the makespan.
         This only involves the last operations of each job. If it is desired to also optimize the starting times of
         all other operations, a share of the maximum optimization value can be diverted to that goal. This parameter
-        must be in the range (0,1)
+        must be in the range [0,1]
     :type opt_all_operations_share: float
     """
 
@@ -49,7 +49,7 @@ class JSSPDomainWallHamiltonianEncoder:
         encoding_penalty: float = 300,
         constraint_penalty: float = 100,
         max_opt_value: float = 100,
-        opt_all_operations_share: float = 0.25,
+        opt_all_operations_share: float = 0,
     ):
         self.jssp_instance: JobShopSchedulingProblemInstance = jssp_instance
         self.makespan_limit: int = makespan_limit
