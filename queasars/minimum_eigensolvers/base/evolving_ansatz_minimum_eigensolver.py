@@ -1,21 +1,24 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import logging
 from typing import Callable, TypeVar, Generic, Optional, Union
 
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client
+
 from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
 from qiskit_algorithms.minimum_eigensolvers import MinimumEigensolver
 
+from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 from queasars.circuit_evaluation.circuit_evaluation import (
     BaseCircuitEvaluator,
     OperatorCircuitEvaluator,
     BitstringCircuitEvaluator,
 )
-from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
+from queasars.circuit_evaluation.mutex_primitives import BatchingMutexSampler, BatchingMutexEstimator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
     BaseIndividual,
     BasePopulation,
@@ -60,9 +63,15 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :param termination_criterion: criterion which defines how to determine whether the solver has converged.
         Either max_generations or max_circuit_evaluations or termination_criterion needs to be provided
     :type termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
-    :param dask_client: optional dask client to facilitate parallelization, if None is given, a dask local cluster using
-        multiprocessing is spun up for that purpose
-    :type dask_client: Optional[Client]
+    :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
+        a python ThreadPool executor. If reproducible behaviour is desired only one worker thread should be used
+    :type parallel_executor: Union[Client, ThreadPoolExecutor]
+    :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
+        Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
+        a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
+        To accommodate non-threadsafe primitives this is enabled by default. If the sampler and estimator are threadsafe
+        disabling this option may lead to performance improvements
+    :type mutually_exclusive_primitives: bool
     """
 
     population_initializer: Callable[[int], POP]
@@ -72,7 +81,8 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     max_generations: Optional[int]
     max_circuit_evaluations: Optional[int]
     termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
-    dask_client: Optional[Client]
+    parallel_executor: Union[Client, ThreadPoolExecutor]
+    mutually_exclusive_primitives: bool = True
 
     def __post_init__(self):
         if self.max_generations is None and self.max_circuit_evaluations is None and self.termination_criterion is None:
@@ -97,6 +107,17 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         """Constructor method"""
         super().__init__()
         self.configuration = configuration
+
+        if self.configuration.mutually_exclusive_primitives:
+            if self.configuration.estimator is not None:
+                self.configuration.estimator = BatchingMutexEstimator(
+                    estimator=self.configuration.estimator, waiting_duration=0.1
+                )
+            if self.configuration.sampler is not None:
+                self.configuration.sampler = BatchingMutexSampler(
+                    sampler=self.configuration.sampler, waiting_duration=0.1
+                )
+
         self.logger = logging.getLogger(__name__)
 
     def compute_minimum_eigenvalue(
@@ -239,19 +260,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             nonlocal n_circuit_evaluations
             n_circuit_evaluations += evaluations
 
-        client: Client
-        if self.configuration.dask_client is not None:
-            client = self.configuration.dask_client
-        else:
-            cluster = LocalCluster(processes=True)
-            client = cluster.get_client()
-            self.configuration.dask_client = client
-
         operator_context: OperatorContext = OperatorContext(
             circuit_evaluator=circuit_evaluator,
             result_callback=result_callback,
             circuit_evaluation_count_callback=circuit_evaluation_callback,
-            dask_client=client,
+            parallel_executor=self.configuration.parallel_executor,
         )
 
         population: BasePopulation = self.configuration.population_initializer(circuit_evaluator.n_qubits)

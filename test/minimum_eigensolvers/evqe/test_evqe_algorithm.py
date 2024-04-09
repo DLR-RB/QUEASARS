@@ -24,7 +24,7 @@ class TestEVQEAlgorithm:
         model = create_sample_model()
         hamiltonian, integer_converter = translate_model_to_hamiltonian(model)
 
-        solver = create_sample_solver(dask_client)
+        solver = create_sample_solver(dask_client, False)
         result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
         bitstring = get_likeliest_bitstrings_from_result(result=result)[0]
