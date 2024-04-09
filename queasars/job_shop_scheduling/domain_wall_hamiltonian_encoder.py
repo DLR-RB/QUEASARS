@@ -165,9 +165,9 @@ class JSSPDomainWallHamiltonianEncoder:
 
     def _prepare_hamiltonian(self):
         """
-        Gathers the terms making up the hamiltonian. These include penalties for invalid variable states,
-        penalties for invalid ordering and overlapping of operations and an optimization term to minimize the
-        makespan of the problem
+        Gathers the constituting observables making up the hamiltonian. These include penalties for
+        invalid variable states, penalties for invalid ordering and overlapping of operations and an
+        optimization term to minimize the makespan of the problem
         """
         for job in self.jssp_instance.jobs:
             for operation in job.operations:
@@ -199,13 +199,13 @@ class JSSPDomainWallHamiltonianEncoder:
 
     def _operation_overlap_term(self, operation_1: Operation, operation_2: Operation, penalty: float) -> SparsePauliOp:
         """
-        Return a SparsePauliOp which penalizes variable states which make operation_1 and operation_2 overlap.
-        Within a hamiltonian this term evaluates to zero if the two operations do not overlap and to penalty if they
-        overlap
+        Return a SparsePauliOp observable which penalizes states in which make operation_1 and operation_2 overlap.
+        Its eigenvalues are the penalty value for all eigenstates in which operation_1 and operation_2 overlap,
+        and 0 for all other eigenstates
 
-        :arg operation_1: operation which must not overlap operation_2
+        :arg operation_1: operation which should not overlap operation_2
         :type operation_1: Operation
-        :arg operation_2: operation which must not overlap operation_1
+        :arg operation_2: operation which should not overlap operation_1
         :type operation_2: Operation
         :arg penalty: penalty value which is applied if the operations overlap
         :type penalty: float
@@ -249,13 +249,13 @@ class JSSPDomainWallHamiltonianEncoder:
         self, operation_1: Operation, operation_2: Operation, penalty: float
     ) -> SparsePauliOp:
         """
-        Returns a SparsePauliOp which penalizes variable states in which operation_2 start before operation_1 ends.
-        Within a hamiltonian this term evaluates to zero only if operation_2 starts after (or at the same time) the
-        operation_1 has ended. Otherwise, it evaluates to penalty
+        Returns a SparsePauliOp which penalizes states in which operation_2 starts before operation_1 ends.
+        Its eigenvalues are the penalty value for all eigenstates in which operation_2 starts before operation_1 has
+        finished, and 0 for all other eigenstates
 
-        :arg operation_1: operation which must precede operation_2
+        :arg operation_1: operation which should precede operation_2
         :type operation_1: Operation
-        :arg operation_2: operation which must start after (or at the same time) operation_1 has finished
+        :arg operation_2: operation which should start after (or at the same time) operation_1 has finished
         :type operation_2: Operation
         :arg penalty: penalty value which is applied if the operation precedence is violated
         :type penalty: float
@@ -294,11 +294,11 @@ class JSSPDomainWallHamiltonianEncoder:
 
     def _makespan_optimization_term(self, max_value: float) -> SparsePauliOp:
         """
-        Returns a SparsePauliOp which increasingly penalizes the last operation of a job,
+        Returns a SparsePauliOp observable which increasingly penalizes the last operation of a job,
         for increasing start times in accordance with the optimization term proposed in
         https://www.sciencedirect.com/science/article/pii/S0377221723002072 .
-        Optimizing this term should amount to optimizing the makespan of the JSSP.
-        The optimization term is scaled to always be smaller than max_value
+        Optimizing the expectation value of this observable should amount to optimizing the makespan of the JSSP.
+        The eigenvalues of this observable are scaled so that its expectation value is always smaller than max_value
 
         :arg max_value: maximum value of the optimization term
         :type max_value: float
@@ -325,8 +325,9 @@ class JSSPDomainWallHamiltonianEncoder:
 
     def _early_start_term(self, max_value: float) -> SparsePauliOp:
         """
-        Returns a SparsePauliOp which penalizes all operations of all jobs linearly for starting later than
-        the earliest possible start time. The optimization term is scaled to always be smaller than max_value
+        Returns a SparsePauliOp observable which penalizes all operations of all jobs linearly for starting later than
+        the earliest possible start time. The eigenvalues of this observable are scaled so that its
+        expectation value is always smaller than max_value
 
         :arg max_value: maximum value of the optimization term
         :type max_value: float
