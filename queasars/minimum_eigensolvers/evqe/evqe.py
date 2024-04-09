@@ -99,6 +99,7 @@ class EVQEMinimumEigensolverConfiguration:
     :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
         Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
         a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
+        When using a ThreadPoolExecutor with this option enabled, parallel circuit evaluations are batched.
         For safety reasons this is enabled by default. If the sampler and estimator are threadsafe or the dask client
         is configured with only one thread per process, disabling this option may lead to performance improvements
     :type mutually_exclusive_primitives: bool
