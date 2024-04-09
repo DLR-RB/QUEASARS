@@ -215,10 +215,12 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_1 = self._operation_start_variables[operation_1]
         start_variable_2 = self._operation_start_variables[operation_2]
 
-        if max(start_variable_1.values) + operation_1.processing_duration <= min(start_variable_2.values):
+        # Since the domain wall variables are initialized with their values in ascending order,
+        # .values[0] refers to its minimum contained value and .values[-1] refers to its maximum value
+        if start_variable_1.values[-1] + operation_1.processing_duration <= start_variable_2.values[0]:
             return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
-        if max(start_variable_2.values) + operation_2.processing_duration <= min(start_variable_1.values):
+        if start_variable_2.values[-1] + operation_2.processing_duration <= start_variable_1.values[0]:
             return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
         local_terms = []
@@ -258,7 +260,10 @@ class JSSPDomainWallHamiltonianEncoder:
         start_variable_1 = self._operation_start_variables[operation_1]
         start_variable_2 = self._operation_start_variables[operation_2]
 
-        if max(start_variable_1.values) + operation_1.processing_duration <= min(start_variable_2.values):
+        # Since the domain wall variables are initialized with their values in ascending order,
+        # .values[0] refers to its minimum contained value and .values[-1] refers to its maximum value
+
+        if start_variable_1.values[-1] + operation_1.processing_duration <= start_variable_2.values[0]:
             return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
         local_terms = []
