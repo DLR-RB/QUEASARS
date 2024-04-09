@@ -217,27 +217,32 @@ class JSSPDomainWallHamiltonianEncoder:
 
         # Since the domain wall variables are initialized with their values in ascending order,
         # .values[0] refers to its minimum contained value and .values[-1] refers to its maximum value
+
+        # Check if the operations may never overlap. No penalty is needed then
         if start_variable_1.values[-1] + operation_1.processing_duration <= start_variable_2.values[0]:
             return 0 * pauli_identity_string(n_qubits=self._n_qubits)
-
         if start_variable_2.values[-1] + operation_2.processing_duration <= start_variable_1.values[0]:
             return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
+        # Find all start time combinations for which operation_1 and operation_2 overlap
+        overlaps: list[tuple[int, int]] = [
+            (start_1, start_2)
+            for start_1 in start_variable_1.values
+            for start_2 in start_variable_2.values
+            if start_1 < start_2 + operation_2.processing_duration
+            and start_2 < start_1 + operation_1.processing_duration
+        ]
+
+        # Penalize the states in which operations overlap
         local_terms = []
-        for start_time_1 in start_variable_1.values:
-            for start_time_2 in start_variable_2.values:
-                if (
-                    start_time_1 <= start_time_2 < start_time_1 + operation_1.processing_duration
-                    or start_time_2 <= start_time_1 < start_time_2 + operation_2.processing_duration
-                ):
-                    local_terms.append(
-                        penalty
-                        * start_variable_1.value_term(
-                            value=start_time_1, quantum_circuit_n_qubits=self._n_qubits
-                        ).compose(
-                            start_variable_2.value_term(value=start_time_2, quantum_circuit_n_qubits=self._n_qubits)
-                        )
-                    )
+        for overlap in overlaps:
+            local_terms.append(
+                penalty
+                * start_variable_1.value_term(value=overlap[0], quantum_circuit_n_qubits=self._n_qubits).compose(
+                    start_variable_2.value_term(value=overlap[1], quantum_circuit_n_qubits=self._n_qubits)
+                )
+            )
+
         return SparsePauliOp.sum(local_terms)
 
     def _operation_precedence_term(
@@ -263,21 +268,27 @@ class JSSPDomainWallHamiltonianEncoder:
         # Since the domain wall variables are initialized with their values in ascending order,
         # .values[0] refers to its minimum contained value and .values[-1] refers to its maximum value
 
+        # Check if operation 2 may never precede operation 1. No penalty is needed then
         if start_variable_1.values[-1] + operation_1.processing_duration <= start_variable_2.values[0]:
             return 0 * pauli_identity_string(n_qubits=self._n_qubits)
 
+        # Find all start time combinations for which operation 1 does not precede operation 2
+        precedence_violations: list[tuple[int, int]] = [
+            (start_1, start_2)
+            for start_1 in start_variable_1.values
+            for start_2 in start_variable_2.values
+            if not start_1 + operation_1.processing_duration <= start_2
+        ]
+
+        # Penalize the states in which operation 1 does not precede operation 2
         local_terms = []
-        for start_time_1 in start_variable_1.values:
-            for start_time_2 in start_variable_2.values:
-                if start_time_2 < start_time_1 + operation_1.processing_duration:
-                    local_terms.append(
-                        penalty
-                        * start_variable_1.value_term(
-                            value=start_time_1, quantum_circuit_n_qubits=self._n_qubits
-                        ).compose(
-                            start_variable_2.value_term(value=start_time_2, quantum_circuit_n_qubits=self._n_qubits)
-                        )
-                    )
+        for violation in precedence_violations:
+            local_terms.append(
+                penalty
+                * start_variable_1.value_term(value=violation[0], quantum_circuit_n_qubits=self._n_qubits).compose(
+                    start_variable_2.value_term(value=violation[1], quantum_circuit_n_qubits=self._n_qubits)
+                )
+            )
 
         return SparsePauliOp.sum(local_terms)
 
