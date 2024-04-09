@@ -13,6 +13,7 @@ from queasars.job_shop_scheduling.problem_instances import (
     Operation,
     JobShopSchedulingProblemInstance,
     JobShopSchedulingResult,
+    PotentiallyScheduledOperation,
     ScheduledOperation,
 )
 
@@ -21,32 +22,46 @@ class JSSPSCIPModelEncoder:
     """
     Encoding class used to encode a JobShopSchedulingProblemInstance as a pyscipopt SCIP solver model.
     Needs queasars to be installed with the pyscipopt extra: pip install queasars[pyscipopt].
-    It also needs SCIP to be installed separately in the version 8.*.
+    It also needs SCIP to be installed in the version 8.*. In some cases, this
+    should happen automatically with the pip install, others might need a manual installation.
+    For details see https://github.com/scipopt/PySCIPOpt/blob/master/INSTALL.md .
+    A manual installation of scip can for instance be done with conda:
+    ``conda install conda-forge::scip``
 
     :param jssp_instance: job shop scheduling problem instance to encode as a scip model
     :type jssp_instance: JobShopSchedulingProblemInstance
     """
 
     def __init__(self, jssp_instance: JobShopSchedulingProblemInstance):
+
         self._jssp_instance: JobShopSchedulingProblemInstance = jssp_instance
-        self._model_prepared: bool = False
-        self._model: Optional[Model] = None
+
+        self._machine_operations: dict[Machine, list[Operation]] = {
+            machine: [] for machine in self._jssp_instance.machines
+        }
+        for job in self._jssp_instance.jobs:
+            for operation in job.operations:
+                self._machine_operations[operation.machine].append(operation)
+
+        self._model: Model = Model()
+        self._variables_prepared: bool = False
         self._optimization_var: Optional[Variable] = None
         self._operation_start_variables: dict[Operation, Variable] = {}
-        self._machine_operations: dict[Machine, list[Operation]] = {}
+        self._constraints_prepared: bool = False
 
     def get_model(self) -> Model:
         """
-        Creates and returns a pyscipopt SCIP optimization model. Subsequent calls return the cached model
+        Sets up a pyscipopt SCIP optimization model. Subsequent calls return the cached model
 
         :return: a pyscipopt SCIP optimization model
         :rtype: Model
         """
-        if not self._model_prepared:
-            self._model = Model()
+        if not self._variables_prepared:
             self._prepare_variables()
+
+        if not self._constraints_prepared:
             self._prepare_constraints()
-            self._model_prepared = True
+
         return self._model
 
     def parse_solution(self, solution: Solution) -> JobShopSchedulingResult:
@@ -58,12 +73,12 @@ class JSSPSCIPModelEncoder:
         :return: a JobShopSchedulingResult parsed from the solution
         :rtype: JobShopSchedulingResult
         """
-        job_schedules: dict[Job, tuple[ScheduledOperation, ...]] = {}
+        job_schedules: dict[Job, tuple[PotentiallyScheduledOperation, ...]] = {}
         for job in self._jssp_instance.jobs:
-            scheduled_operations: list[ScheduledOperation] = []
+            scheduled_operations: list[PotentiallyScheduledOperation] = []
             for operation in job.operations:
                 start_time: int = int(solution[self._operation_start_variables[operation]])
-                scheduled_operations.append(ScheduledOperation(operation=operation, start=start_time))
+                scheduled_operations.append(ScheduledOperation(operation=operation, start_time=start_time))
             job_schedules[job] = tuple(scheduled_operations)
 
         return JobShopSchedulingResult(problem_instance=self._jssp_instance, schedule=job_schedules)
@@ -71,34 +86,40 @@ class JSSPSCIPModelEncoder:
     def _prepare_variables(self):
         """
         Creates the integer variables for the starting times of each operation and constrains them to be at least 0.
-        Also creates a integer variable to hold the makespan, which is constrained to be larger than the end times
-        of the last operations. Sets the optimization goal to minimize the makespan variable
+        Also creates an integer variable to hold the makespan, which is constrained to be larger than the end times
+        of the last operations. Sets the optimization goal to minimize the makespan variable. Does nothing
+        if the variables have already been prepared
         """
+
+        if self._variables_prepared:
+            return
+
         # create auxiliary variable to hold the makespan as an optimization goal
-        self._optimization_var = self._model.addVar("optimization_var", vtype="INTEGER")
+        self._optimization_var = self._model.addVar("optimization_var", vtype="INTEGER", lb=0)
         self._model.setObjective(self._optimization_var)
-        self._model.addCons(self._optimization_var >= 0)
 
         for job in self._jssp_instance.jobs:
             for operation in job.operations:
-                # Cache the operations per machine
-                # This is needed for the additional constraints
-                if operation.machine not in self._machine_operations:
-                    self._machine_operations[operation.machine] = []
-                self._machine_operations[operation.machine].append(operation)
-
                 # Create an integer variable for the start time of each operation
                 # Constrain it to be at least 0
-                var = self._model.addVar(operation.identifier, vtype="INTEGER")
+                var = self._model.addVar(operation.identifier, vtype="INTEGER", lb=0)
                 self._operation_start_variables[operation] = var
-                self._model.addCons(var >= 0)
+
+        self._variables_prepared = True
 
     def _prepare_constraints(self):
         """
         Constrains all operations within each job to start in order and not overlap.
         Constrains all operations for each machine to not overlap. To this end auxiliary binary variables
-        are created to enable ordering decisions.
+        are created to enable ordering decisions. Does nothing, if the constraints have already been prepared
         """
+
+        if self._constraints_prepared:
+            return
+
+        if not self._variables_prepared:
+            self._prepare_variables()
+
         for job in self._jssp_instance.jobs:
             n_operations = len(job.operations)
 
@@ -106,17 +127,21 @@ class JSSPSCIPModelEncoder:
             for i in range(0, n_operations - 1):
                 self._model.addCons(
                     self._operation_start_variables[job.operations[i]] + job.operations[i].processing_duration
-                    <= self._operation_start_variables[job.operations[i + 1]]
+                    <= self._operation_start_variables[job.operations[i + 1]],
+                    name=f"Ensure operation {job.operations[i].identifier} precedes {job.operations[i + 1].identifier}"
+                    + f" in job {job.name}.",
                 )
             # For each job the makespan must be larger than the end time of its last operation
             self._model.addCons(
                 self._operation_start_variables[job.operations[n_operations - 1]]
                 + job.operations[n_operations - 1].processing_duration
-                <= self._optimization_var
+                <= self._optimization_var,
+                name=f"Ensure that the makespan is larger than {job.operations[n_operations - 1].identifier} end time"
+                + f" in job {job.name}.",
             )
 
         # Ensure for each machine, that no operation may overlap
-        for operations in self._machine_operations.values():
+        for machine, operations in self._machine_operations.items():
 
             # For a machine look at all possible combination of two operations
             for operation_1, operation_2 in combinations(operations, 2):
@@ -128,9 +153,15 @@ class JSSPSCIPModelEncoder:
                 # one has finished
                 self._model.addCons(
                     order_var * (self._operation_start_variables[operation_1] + operation_1.processing_duration)
-                    <= self._operation_start_variables[operation_2]
+                    <= self._operation_start_variables[operation_2],
+                    name=f"Ensure operation {operation_1.identifier} precedes "
+                    + f"{operation_2.identifier} on machine {machine.name}.",
                 )
                 self._model.addCons(
                     (1 - order_var) * (self._operation_start_variables[operation_2] + operation_2.processing_duration)
-                    <= self._operation_start_variables[operation_1]
+                    <= self._operation_start_variables[operation_1],
+                    name=f"Ensure operation {operation_2.identifier} precedes "
+                    + f"{operation_1.identifier} on machine {machine.name}.",
                 )
+
+        self._constraints_prepared = True
