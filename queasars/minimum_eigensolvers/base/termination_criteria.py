@@ -277,7 +277,7 @@ class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
                         for expectation in self._last_population_evaluation.expectation_values
                         if expectation is not None
                     ]
-                )
+                ),
             )
 
             self._relative_change_history.append(distance / last_population_median_expectation)
