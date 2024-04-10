@@ -141,7 +141,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def compute_minimum_eigenvalue(
         self,
         operator: BaseOperator,
-        aux_operators: ListOrDict[BaseOperator] | None = None,
+        aux_operators: Optional[ListOrDict[BaseOperator]] = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
