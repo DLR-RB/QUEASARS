@@ -7,6 +7,7 @@ from typing import Callable, TypeVar, Generic, Optional, Union
 
 from dask.distributed import Client
 
+from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
@@ -140,7 +141,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
     def compute_minimum_eigenvalue(
         self,
         operator: BaseOperator,
-        aux_operators: Optional[ListOrDict[BaseOperator]] = None,
+        aux_operators: ListOrDict[BaseOperator] | None = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
@@ -156,6 +157,34 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Returns:
             An evolving ansatz minimum eigensolver result
         """
+        return self.compute_minimum_eigenvalue_with_initial_state(
+            operator=operator, aux_operators=aux_operators, initial_state_circuit=None
+        )
+
+    def compute_minimum_eigenvalue_with_initial_state(
+        self,
+        operator: BaseOperator,
+        aux_operators: Optional[ListOrDict[BaseOperator]] = None,
+        initial_state_circuit: Optional[QuantumCircuit] = None,
+    ) -> "EvolvingAnsatzMinimumEigensolverResult":
+        """
+        Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
+        While an ``operator`` is required by algorithms, ``aux_operators`` are optional
+
+        :arg operator: Qubit operator of the observable
+        :type operator: BaseOperator
+        :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
+            parameters of the minimum eigenvalue main result and their expectation values
+            returned.
+        :type aux_operators: Optional[ListOrDict[BaseOperator]]
+        :arg initial_state_circuit: state in which to initialize the qubits before the ansatz is applied,
+            given as a quantum circuit. The quantum circuit must operate on exactly as many qubits
+            as the given operator
+        :type initial_state_circuit: Optional[QuantumCircuit]
+
+        Returns:
+            An evolving ansatz minimum eigensolver result
+        """
         evaluation_primitive: Union[BaseEstimator, BaseSampler]
         if self.configuration.estimator is not None:
             evaluation_primitive = self.configuration.estimator
@@ -163,19 +192,29 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             evaluation_primitive = self.configuration.sampler
 
         evaluator: BaseCircuitEvaluator
-        evaluator = OperatorCircuitEvaluator(qiskit_primitive=evaluation_primitive, operator=operator)
+        evaluator = OperatorCircuitEvaluator(
+            qiskit_primitive=evaluation_primitive, operator=operator, initial_state_circuit=initial_state_circuit
+        )
 
         aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]]
         if aux_operators is None:
             aux_evaluators = None
         if isinstance(aux_operators, list):
             aux_evaluators = [
-                OperatorCircuitEvaluator(qiskit_primitive=evaluation_primitive, operator=aux_operator)
+                OperatorCircuitEvaluator(
+                    qiskit_primitive=evaluation_primitive,
+                    operator=aux_operator,
+                    initial_state_circuit=initial_state_circuit,
+                )
                 for aux_operator in aux_operators
             ]
         if isinstance(aux_operators, dict):
             aux_evaluators = {
-                key: OperatorCircuitEvaluator(qiskit_primitive=evaluation_primitive, operator=aux_operator)
+                key: OperatorCircuitEvaluator(
+                    qiskit_primitive=evaluation_primitive,
+                    operator=aux_operator,
+                    initial_state_circuit=initial_state_circuit,
+                )
                 for key, aux_operator in aux_operators.items()
             }
 
@@ -185,6 +224,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         self,
         operator: BitstringEvaluator,
         aux_operators: Optional[ListOrDict[BitstringEvaluator]] = None,
+        initial_state_circuit: Optional[QuantumCircuit] = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         """
         Computes the minimum function value of a function mapping bitstrings to real valued numbers.
@@ -197,12 +237,18 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             parameters of the minimum eigenvalue main result and their expectation values
             returned.
         :type aux_operators: Optional[ListOrDict[BaseOperator]]
+        :arg initial_state_circuit: state in which to initialize the qubits before the ansatz is applied,
+            given as a quantum circuit. The quantum circuit must operate on exactly as many qubits
+            as the input length specified by the BitstringEvaluator
+        :type initial_state_circuit:  Optional[QuantumCircuit]
 
         Returns:
             An evolving ansatz minimum eigensolver result
         """
         evaluator: BaseCircuitEvaluator = BitstringCircuitEvaluator(
-            sampler=self.configuration.sampler, bitstring_evaluator=operator
+            sampler=self.configuration.sampler,
+            bitstring_evaluator=operator,
+            initial_state_circuit=initial_state_circuit,
         )
 
         aux_evaluators: ListOrDict[BaseCircuitEvaluator]
@@ -210,12 +256,20 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             aux_evaluators = []
         if isinstance(aux_operators, list):
             aux_evaluators = [
-                BitstringCircuitEvaluator(sampler=self.configuration.sampler, bitstring_evaluator=aux_operator)
+                BitstringCircuitEvaluator(
+                    sampler=self.configuration.sampler,
+                    bitstring_evaluator=aux_operator,
+                    initial_state_circuit=initial_state_circuit,
+                )
                 for aux_operator in aux_operators
             ]
         if isinstance(aux_operators, dict):
             aux_evaluators = {
-                key: BitstringCircuitEvaluator(sampler=self.configuration.sampler, bitstring_evaluator=aux_operator)
+                key: BitstringCircuitEvaluator(
+                    sampler=self.configuration.sampler,
+                    bitstring_evaluator=aux_operator,
+                    initial_state_circuit=initial_state_circuit,
+                )
                 for key, aux_operator in aux_operators.items()
             }
 

@@ -298,7 +298,6 @@ class EVQEIndividual(BaseIndividual):
         """
         n_qubits: int = self.layers[0].n_qubits
         circuit: QuantumCircuit = QuantumCircuit(n_qubits)
-        circuit.h(range(0, n_qubits))
 
         # loop indices to allow negative numbers to refer to the last layers of the individual
         parameterized_layers = {layer_id % len(self.layers) for layer_id in parameterized_layers}
