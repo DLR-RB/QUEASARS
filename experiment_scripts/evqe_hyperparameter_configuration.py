@@ -1,5 +1,5 @@
+import time
 from pathlib import Path
-import os
 from json import load
 
 from dask.distributed import LocalCluster, Client
@@ -192,11 +192,11 @@ def main():
 
     with (
         LocalCluster(n_workers=2, processes=True, threads_per_worker=1) as smac_cluster,
-        smac_cluster.get_client() as smac_client,
+        Client(smac_cluster) as smac_client,
     ):
         with (
             LocalCluster(n_workers=20, processes=True, threads_per_worker=1) as calculation_cluster,
-            calculation_cluster.get_client() as calculation_client,
+            Client(calculation_cluster) as calculation_client,
         ):
             calculation_client.write_scheduler_file("scheduler.json")
 
@@ -210,6 +210,8 @@ def main():
             )
 
             incumbent = facade.optimize()
+
+    time.sleep(5)
 
 
 if __name__ == "__main__":
