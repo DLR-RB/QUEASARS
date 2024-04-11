@@ -99,7 +99,7 @@ def main():
         # This can be a dask Client or a python ThreadPoolExecutor. If None is
         # specified a ThreadPoolExecutor with population_size many threads will
         # be used
-        parallel_executor = Client("127.0.0.1:8790")
+        parallel_executor = Client(scheduler_file="scheduler.json")
 
         # Discerns whether to only allow mutually exclusive access to the Sampler and
         # Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
@@ -163,10 +163,12 @@ def main():
     }
     instance_features = {"instance_" + str(i): [i] for i in range(0, 5)}
 
-    smac_cluster = LocalCluster(n_workers=2, processes=True, threads_per_worker=1, scheduler_port=8780)
+    smac_cluster = LocalCluster(n_workers=2, processes=True, threads_per_worker=1)
     smac_client = smac_cluster.get_client()
 
-    LocalCluster(n_workers=20, processes=True, threads_per_worker=1, scheduler_port=8790)
+    calculation_cluster = LocalCluster(n_workers=20, processes=True, threads_per_worker=1)
+    calculation_client = calculation_cluster.get_client()
+    calculation_client.write_scheduler_file("scheduler.json")
 
     params = [
         Integer("maxiter", (1, 50), default=10, q=1),
