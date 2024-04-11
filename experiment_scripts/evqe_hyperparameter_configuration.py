@@ -258,9 +258,9 @@ def main():
                 incumbent_dict = dict(incumbent)
                 serializables.append([incumbent.config_id, labeled_cost, incumbent_dict])
 
-            with open(
-                Path(Path(__file__).parent, "smac_results", f"evqe_smac_result_{args.trial_name}.json"), "w"
-            ) as file:
+            file_path = Path(Path(__file__).parent, "smac_results", f"evqe_smac_result_{args.trial_name}.json")
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(file_path, "w") as file:
                 dump(obj=serializables, fp=file)
 
     time.sleep(5)
