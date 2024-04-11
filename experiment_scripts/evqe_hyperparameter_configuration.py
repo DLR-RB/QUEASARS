@@ -1,6 +1,8 @@
 import time
 from pathlib import Path
-from json import load
+from json import load, dump
+from argparse import ArgumentParser
+from datetime import datetime
 
 from dask.distributed import LocalCluster, Client
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer
@@ -8,6 +10,8 @@ from qiskit_aer.primitives import Sampler, Estimator
 from qiskit_algorithms.optimizers import SPSA
 from smac import Scenario, AlgorithmConfigurationFacade
 from smac.multi_objective import ParEGO
+from smac.main.config_selector import ConfigSelector
+from smac.random_design.probability_design import ProbabilityRandomDesign
 
 from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
@@ -16,9 +20,47 @@ from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfig
 
 
 def main():
+
+    parser = ArgumentParser()
+    parser.add_argument("--trial_name", type=str, default=f"{datetime.now().isoformat()}", required=False)
+    parser.add_argument("--n_trials", type=int, required=True)
+    parser.add_argument(
+        "--n_instances",
+        type=int,
+        default=5,
+        required=False,
+    )
+    parser.add_argument(
+        "--min_budget",
+        type=int,
+        default=3,
+        required=False,
+    )
+    parser.add_argument(
+        "--max_budget",
+        type=int,
+        default=20,
+        required=True,
+    )
+    parser.add_argument("--n_parallel_executions", type=int, default=1, required=False)
+    parser.add_argument("--n_workers", type=int, default=10, required=False)
+    parser.add_argument("--overwrite", type=bool, default=False, required=False)
+    args = parser.parse_args()
+
     problem_instances_file = "six_operations_problem_instances.json"
     with open(Path(Path(__file__).parent, problem_instances_file), mode="r") as file:
         all_problem_instances = load(fp=file, cls=JSSPJSONDecoder)
+
+    problem_instances = all_problem_instances[12][: args.n_instances]
+    labeled_instances = {
+        "instance_"
+        + str(i): (
+            JSSPDomainWallHamiltonianEncoder(jssp_instance=instance[0], makespan_limit=instance[1] + 1),
+            instance[1],
+        )
+        for i, instance in enumerate(problem_instances)
+    }
+    instance_features = {label: [i] for i, label in enumerate(labeled_instances.keys())}
 
     def target_function(config: Configuration, instance: str, seed: int):
 
@@ -59,7 +101,7 @@ def main():
         )
 
         # A random seed can be provided to control the randomness of the evolutionary process.
-        random_seed = None
+        random_seed = seed
 
         # The population size determines how many individuals are evaluated each generation.
         # With a higher population size, fewer generations might be needed, but this also
@@ -78,8 +120,8 @@ def main():
         # The alpha and beta penalties penalize quantum circuits of increasing depth (alpha) and
         # increasing amount of controlled rotations (beta). increase them if the quantum circuits get to
         # deep or complicated. For now we will use values of 0.1 for both penalties.
-        selection_alpha_penalty = 2
-        selection_beta_penalty = 0.2
+        selection_alpha_penalty = 1
+        selection_beta_penalty = 0.1
 
         # The parameter search probability determines how likely an individual is mutated by optimizing
         # all it's parameter values. This should not be too large as this is costly. Here we will use
@@ -153,17 +195,6 @@ def main():
                 "circuit_depth": result.optimal_circuit.depth(),
             }
 
-    problem_instances = all_problem_instances[12][:5]
-    labeled_instances = {
-        "instance_"
-        + str(i): (
-            JSSPDomainWallHamiltonianEncoder(jssp_instance=instance[0], makespan_limit=instance[1] + 1),
-            instance[1],
-        )
-        for i, instance in enumerate(problem_instances)
-    }
-    instance_features = {"instance_" + str(i): [i] for i in range(0, 5)}
-
     params = [
         Integer("maxiter", (1, 50), default=10, q=1),
         Integer("blocking", (0, 1), default=0, q=1),
@@ -182,21 +213,24 @@ def main():
 
     scenario = Scenario(
         space,
+        name="evqe_smac_run_" + args.trial_name,
         objectives=["result_value", "circuit_evaluations", "circuit_depth"],
         deterministic=False,
-        n_trials=5,
-        min_budget=2,
-        max_budget=10,
+        n_trials=args.n_trials,
+        min_budget=args.min_budget,
+        max_budget=args.max_budget,
         instances=list(labeled_instances.keys()),
         instance_features=instance_features,
     )
+    selector = ConfigSelector(scenario=scenario, retrain_after=1)
+    random_design = ProbabilityRandomDesign(probability=0.33)
 
     with (
-        LocalCluster(n_workers=2, processes=True, threads_per_worker=1) as smac_cluster,
+        LocalCluster(n_workers=args.n_parallel_executions, processes=True, threads_per_worker=1) as smac_cluster,
         Client(smac_cluster) as smac_client,
     ):
         with (
-            LocalCluster(n_workers=20, processes=True, threads_per_worker=1) as calculation_cluster,
+            LocalCluster(n_workers=args.n_workers, processes=True, threads_per_worker=1) as calculation_cluster,
             Client(calculation_cluster) as calculation_client,
         ):
             calculation_client.write_scheduler_file("scheduler.json")
@@ -204,13 +238,18 @@ def main():
             facade = AlgorithmConfigurationFacade(
                 scenario,
                 target_function=target_function,
+                config_selector=selector,
+                random_design=random_design,
                 multi_objective_algorithm=ParEGO(scenario),
-                overwrite=True,
+                overwrite=args.overwrite,
                 logging_level=10,
                 dask_client=smac_client,
             )
 
-            incumbent = facade.optimize()
+            incumbents = facade.optimize()
+
+            with open(Path(Path(__file__).parent, f"evqe_smac_result_{args.trial_name}.json"), "w") as file:
+                dump(obj=incumbents, fp=file)
 
     time.sleep(5)
 
