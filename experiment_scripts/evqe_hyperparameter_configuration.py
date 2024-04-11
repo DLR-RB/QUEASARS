@@ -226,7 +226,7 @@ def main():
     scenario = Scenario(
         space,
         name="evqe_smac_run_" + args.trial_name,
-        objectives=["result_value", "circuit_evaluations", "circuit_depth"],
+        objectives=["result_value", "circuit_evaluations", "circuit_depth", "cx_count"],
         deterministic=False,
         n_trials=args.n_trials,
         min_budget=args.min_budget,
