@@ -191,22 +191,21 @@ def main():
     )
 
     with LocalCluster(n_workers=2, processes=True, threads_per_worker=1) as smac_cluster:
-        smac_client = smac_cluster.get_client()
+        with smac_cluster.get_client() as smac_client:
+            with LocalCluster(n_workers=20, processes=True, threads_per_worker=1) as calculation_cluster:
+                with calculation_cluster.get_client() as calculation_client:
+                    calculation_client.write_scheduler_file("scheduler.json")
 
-        with LocalCluster(n_workers=20, processes=True, threads_per_worker=1) as calculation_cluster:
-            calculation_client = calculation_cluster.get_client()
-            calculation_client.write_scheduler_file("scheduler.json")
+                    facade = AlgorithmConfigurationFacade(
+                        scenario,
+                        target_function=target_function,
+                        multi_objective_algorithm=ParEGO(scenario),
+                        overwrite=True,
+                        logging_level=10,
+                        dask_client=smac_client,
+                    )
 
-            facade = AlgorithmConfigurationFacade(
-                scenario,
-                target_function=target_function,
-                multi_objective_algorithm=ParEGO(scenario),
-                overwrite=True,
-                logging_level=10,
-                dask_client=smac_client,
-            )
-
-            incumbent = facade.optimize()
+                    incumbent = facade.optimize()
 
 
 if __name__ == "__main__":
