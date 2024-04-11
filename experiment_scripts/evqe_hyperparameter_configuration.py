@@ -163,13 +163,6 @@ def main():
     }
     instance_features = {"instance_" + str(i): [i] for i in range(0, 5)}
 
-    smac_cluster = LocalCluster(n_workers=2, processes=True, threads_per_worker=1)
-    smac_client = smac_cluster.get_client()
-
-    calculation_cluster = LocalCluster(n_workers=20, processes=True, threads_per_worker=1)
-    calculation_client = calculation_cluster.get_client()
-    calculation_client.write_scheduler_file("scheduler.json")
-
     params = [
         Integer("maxiter", (1, 50), default=10, q=1),
         Integer("blocking", (0, 1), default=0, q=1),
@@ -197,16 +190,23 @@ def main():
         instance_features=instance_features,
     )
 
-    facade = AlgorithmConfigurationFacade(
-        scenario,
-        target_function=target_function,
-        multi_objective_algorithm=ParEGO(scenario),
-        overwrite=True,
-        logging_level=10,
-        dask_client=smac_client,
-    )
+    with LocalCluster(n_workers=2, processes=True, threads_per_worker=1) as smac_cluster:
+        smac_client = smac_cluster.get_client()
 
-    incubent = facade.optimize()
+        with LocalCluster(n_workers=20, processes=True, threads_per_worker=1) as calculation_cluster:
+            calculation_client = calculation_cluster.get_client()
+            calculation_client.write_scheduler_file("scheduler.json")
+
+            facade = AlgorithmConfigurationFacade(
+                scenario,
+                target_function=target_function,
+                multi_objective_algorithm=ParEGO(scenario),
+                overwrite=True,
+                logging_level=10,
+                dask_client=smac_client,
+            )
+
+            incumbent = facade.optimize()
 
 
 if __name__ == "__main__":
