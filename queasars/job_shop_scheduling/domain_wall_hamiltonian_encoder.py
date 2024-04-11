@@ -2,7 +2,9 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from itertools import combinations
+from math import asin, sqrt, pi
 
+from qiskit.circuit import QuantumCircuit
 from qiskit.quantum_info.operators import SparsePauliOp
 
 from queasars.job_shop_scheduling.problem_instances import (
@@ -87,6 +89,30 @@ class JSSPDomainWallHamiltonianEncoder:
 
         return SparsePauliOp.sum(self._local_terms)
 
+    def get_valid_encoding_superposition(self) -> QuantumCircuit:
+        if not self._encoding_prepared:
+            self._prepare_encoding()
+
+        circuit = QuantumCircuit(self.n_qubits)
+
+        for _, variable in self._operation_start_variables.items():
+            angles: list[float] = [0.0] * variable.n_qubits
+
+            for i in reversed(range(0, variable.n_qubits)):
+                needed_probability = 1 / (i + 2)
+                angle = 2 * asin(sqrt(needed_probability))
+                angles[i] = angle
+                circuit.rx(theta=angle, qubit=variable.qubit_start_index + i)
+
+            for i in reversed(range(0, variable.n_qubits - 1)):
+                circuit.crx(
+                    theta=-angles[i] + pi,
+                    control_qubit=variable.qubit_start_index + i + 1,
+                    target_qubit=variable.qubit_start_index + i,
+                )
+
+        return circuit
+
     def translate_result_bitstring(self, bitstring: str) -> JobShopSchedulingResult:
         """
         Translates a bitstring as measured on a quantum circuit to it's corresponding job shop scheduling result.
@@ -98,6 +124,8 @@ class JSSPDomainWallHamiltonianEncoder:
         """
         if len(bitstring) != self.n_qubits:
             raise ValueError("The bitstring length does not match the problem size!")
+
+        bitstring = str(reversed(bitstring))
 
         if not self._encoding_prepared:
             self._prepare_encoding()
