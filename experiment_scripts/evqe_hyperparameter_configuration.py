@@ -13,7 +13,7 @@ from smac.multi_objective import ParEGO
 from smac.main.config_selector import ConfigSelector
 from smac.random_design.probability_design import ProbabilityRandomDesign
 
-from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
+from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder, JSSPJSONEncoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
 from queasars.minimum_eigensolvers.base.termination_criteria import PopulationChangeRelativeTolerance
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfiguration, EVQEMinimumEigensolver
@@ -248,8 +248,13 @@ def main():
 
             incumbents = facade.optimize()
 
+            if not isinstance(incumbents, list):
+                incumbents = [incumbents]
+
+            incumbents = [incumbent.get_dictionary() for incumbent in incumbents]
+
             with open(Path(Path(__file__).parent, f"evqe_smac_result_{args.trial_name}.json"), "w") as file:
-                dump(obj=incumbents, fp=file)
+                dump(obj=incumbents, fp=file, cls=JSSPJSONEncoder)
 
     time.sleep(5)
 
