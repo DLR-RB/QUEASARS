@@ -184,7 +184,7 @@ def main():
         space,
         objectives=["result_value", "circuit_evaluations", "circuit_depth"],
         deterministic=False,
-        n_trials=10,
+        n_trials=5,
         min_budget=2,
         max_budget=10,
         instances=list(labeled_instances.keys()),
