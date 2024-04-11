@@ -17,7 +17,7 @@ from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfig
 
 def main():
     problem_instances_file = "six_operations_problem_instances.json"
-    with open(Path(Path(__file__).parent, "experiment_scripts", problem_instances_file), mode="r") as file:
+    with open(Path(Path(__file__).parent, problem_instances_file), mode="r") as file:
         all_problem_instances = load(fp=file, cls=JSSPJSONDecoder)
 
     def target_function(config: Configuration, instance: str, seed: int):
