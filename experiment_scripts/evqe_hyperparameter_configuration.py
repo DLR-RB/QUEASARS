@@ -40,7 +40,7 @@ def main():
         "--max_budget",
         type=int,
         default=20,
-        required=True,
+        required=False,
     )
     parser.add_argument("--n_parallel_executions", type=int, default=1, required=False)
     parser.add_argument("--n_workers", type=int, default=10, required=False)
