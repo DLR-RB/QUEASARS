@@ -19,6 +19,15 @@ from queasars.minimum_eigensolvers.base.termination_criteria import PopulationCh
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfiguration, EVQEMinimumEigensolver
 
 
+def count_controlled_gates(circuit):
+    circuit = circuit.decompose()
+    controlled_gate_count = 0
+    for instr, qargs, _ in circuit.data:
+        if instr.name.startswith('c'):
+            controlled_gate_count += 1
+    return controlled_gate_count
+
+
 def main():
 
     parser = ArgumentParser()
@@ -120,8 +129,8 @@ def main():
         # The alpha and beta penalties penalize quantum circuits of increasing depth (alpha) and
         # increasing amount of controlled rotations (beta). increase them if the quantum circuits get to
         # deep or complicated. For now we will use values of 0.1 for both penalties.
-        selection_alpha_penalty = 1
-        selection_beta_penalty = 0.1
+        selection_alpha_penalty = config["alpha_penalty"]
+        selection_beta_penalty = config["beta_penalty"]
 
         # The parameter search probability determines how likely an individual is mutated by optimizing
         # all it's parameter values. This should not be too large as this is costly. Here we will use
@@ -193,6 +202,7 @@ def main():
                 "result_value": result_value,
                 "circuit_evaluations": result.circuit_evaluations,
                 "circuit_depth": result.optimal_circuit.depth(),
+                "cx_count": count_controlled_gates(result.optimal_circuit),
             }
 
     params = [
@@ -204,6 +214,8 @@ def main():
         Integer("last_avg", (1, 4), default=1, q=1),
         Integer("resamplings", (1, 4), default=1, q=1),
         Integer("genetic_distance", (1, 5), default=2, q=1),
+        Float("alpha_penalty", (0, 10), default=1, q=0.1),
+        Float("beta_penalty", (0, 10), default=0.1, q=0.1),
         Float("parameter_search", (0, 1), default=0.25, q=0.05),
         Float("topological_search", (0, 1), default=0.4, q=0.05),
         Float("layer_removal", (0, 1), default=0.05, q=0.05),
@@ -261,7 +273,7 @@ def main():
             file_path = Path(Path(__file__).parent, "smac_results", f"evqe_smac_result_{args.trial_name}.json")
             file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as file:
-                dump(obj=serializables, fp=file)
+                dump(obj=serializables, fp=file, indent=2)
 
     time.sleep(5)
 
