@@ -216,9 +216,9 @@ def main():
         Integer("genetic_distance", (1, 5), default=2, q=1),
         Float("alpha_penalty", (0, 10), default=1, q=0.1),
         Float("beta_penalty", (0, 10), default=0.1, q=0.1),
-        Float("parameter_search", (0, 1), default=0.25, q=0.05),
+        Float("parameter_search", (0, 0.5), default=0.25, q=0.05),
         Float("topological_search", (0, 1), default=0.4, q=0.05),
-        Float("layer_removal", (0, 1), default=0.05, q=0.05),
+        Float("layer_removal", (0, 0.25), default=0.05, q=0.05),
     ]
     space = ConfigurationSpace()
     space.add_hyperparameters(params)
