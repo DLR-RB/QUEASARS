@@ -99,58 +99,59 @@ def main():
         # This can be a dask Client or a python ThreadPoolExecutor. If None is
         # specified a ThreadPoolExecutor with population_size many threads will
         # be used
-        parallel_executor = Client(scheduler_file="scheduler.json")
+        with Client(scheduler_file="scheduler.json") as parallel_executor:
+            parallel_executor = parallel_executor
 
-        # Discerns whether to only allow mutually exclusive access to the Sampler and
-        # Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
-        # a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
-        # For safety reasons this is enabled by default. If the sampler and estimator are threadsafe disabling this
-        # option may lead to performance improvements
-        mutually_exclusive_primitives = False
+            # Discerns whether to only allow mutually exclusive access to the Sampler and
+            # Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
+            # a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
+            # For safety reasons this is enabled by default. If the sampler and estimator are threadsafe disabling this
+            # option may lead to performance improvements
+            mutually_exclusive_primitives = False
 
-        configuration = EVQEMinimumEigensolverConfiguration(
-            sampler=sampler_primitive,
-            estimator=estimator_primitive,
-            optimizer=optimizer,
-            optimizer_n_circuit_evaluations=optimizer_n_circuit_evaluations,
-            max_generations=max_generations,
-            max_circuit_evaluations=max_circuit_evaluations,
-            termination_criterion=termination_criterion,
-            random_seed=random_seed,
-            population_size=population_size,
-            randomize_initial_population_parameters=randomize_initial_population_parameters,
-            speciation_genetic_distance_threshold=speciation_genetic_distance_threshold,
-            selection_alpha_penalty=selection_alpha_penalty,
-            selection_beta_penalty=selection_beta_penalty,
-            parameter_search_probability=parameter_search_probability,
-            topological_search_probability=topological_search_probability,
-            layer_removal_probability=layer_removal_probability,
-            parallel_executor=parallel_executor,
-            mutually_exclusive_primitives=mutually_exclusive_primitives,
-        )
+            configuration = EVQEMinimumEigensolverConfiguration(
+                sampler=sampler_primitive,
+                estimator=estimator_primitive,
+                optimizer=optimizer,
+                optimizer_n_circuit_evaluations=optimizer_n_circuit_evaluations,
+                max_generations=max_generations,
+                max_circuit_evaluations=max_circuit_evaluations,
+                termination_criterion=termination_criterion,
+                random_seed=random_seed,
+                population_size=population_size,
+                randomize_initial_population_parameters=randomize_initial_population_parameters,
+                speciation_genetic_distance_threshold=speciation_genetic_distance_threshold,
+                selection_alpha_penalty=selection_alpha_penalty,
+                selection_beta_penalty=selection_beta_penalty,
+                parameter_search_probability=parameter_search_probability,
+                topological_search_probability=topological_search_probability,
+                layer_removal_probability=layer_removal_probability,
+                parallel_executor=parallel_executor,
+                mutually_exclusive_primitives=mutually_exclusive_primitives,
+            )
 
-        solver = EVQEMinimumEigensolver(configuration=configuration)
+            solver = EVQEMinimumEigensolver(configuration=configuration)
 
-        hamiltonian = labeled_instances[instance][0].get_problem_hamiltonian()
-        result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
+            hamiltonian = labeled_instances[instance][0].get_problem_hamiltonian()
+            result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
-        quasi_distribution = result.eigenstate.binary_probabilities()
+            quasi_distribution = result.eigenstate.binary_probabilities()
 
-        result_value = 0.0
-        for bitstring, probability in quasi_distribution.items():
-            parsed_result = labeled_instances[instance][0].translate_result_bitstring(bitstring=bitstring)
-            if not parsed_result.is_valid:
-                result_value += probability * 100
-            elif not parsed_result.makespan == labeled_instances[instance][1]:
-                result_value += probability * 50
-            else:
-                pass
+            result_value = 0.0
+            for bitstring, probability in quasi_distribution.items():
+                parsed_result = labeled_instances[instance][0].translate_result_bitstring(bitstring=bitstring)
+                if not parsed_result.is_valid:
+                    result_value += probability * 100
+                elif not parsed_result.makespan == labeled_instances[instance][1]:
+                    result_value += probability * 50
+                else:
+                    pass
 
-        return {
-            "result_value": result_value,
-            "circuit_evaluations": result.circuit_evaluations,
-            "circuit_depth": result.optimal_circuit.depth(),
-        }
+            return {
+                "result_value": result_value,
+                "circuit_evaluations": result.circuit_evaluations,
+                "circuit_depth": result.optimal_circuit.depth(),
+            }
 
     problem_instances = all_problem_instances[12][:5]
     labeled_instances = {
