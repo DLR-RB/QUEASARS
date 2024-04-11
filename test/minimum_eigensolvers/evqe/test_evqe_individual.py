@@ -326,16 +326,14 @@ class TestEVQEIndividual:
 
     def test_get_quantum_cirucit(self, individual):
         circuit = individual.get_quantum_circuit()
-        n_prepended_gates = 1
-        assert (
-            circuit.depth() == len(individual.layers) + n_prepended_gates
+        assert circuit.depth() == len(
+            individual.layers
         ), "The quantum circuit depth did not match the amount of circuit layers!"
 
     def test_get_parameterized_quantum_circuit(self, individual):
         circuit = individual.get_parameterized_quantum_circuit()
-        n_prepended_gates = 1
-        assert (
-            circuit.depth() == len(individual.layers) + n_prepended_gates
+        assert circuit.depth() == len(
+            individual.layers
         ), "The quantum circuit depth did not match the amount of circuit layers!"
         assert len(circuit.parameters) == len(
             individual.get_parameter_values()
@@ -344,9 +342,8 @@ class TestEVQEIndividual:
     def test_get_partially_parameterized_quantum_circuit(self, individual):
         layer_ids = {2, 5}
         circuit = individual.get_partially_parameterized_quantum_circuit(layer_ids)
-        n_prepended_gates = 1
-        assert (
-            circuit.depth() == len(individual.layers) + n_prepended_gates
+        assert circuit.depth() == len(
+            individual.layers
         ), "The quantum circuit depth did not match the amount of circuit layers!"
         assert len(circuit.parameters) == individual.layers[2].n_parameters + individual.layers[5].n_parameters, (
             "The amount of parameters of the quantum circuit did not match the "

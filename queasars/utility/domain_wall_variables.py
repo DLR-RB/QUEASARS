@@ -76,6 +76,10 @@ class DomainWallVariable(Generic[T]):
         """
         return self._n_qubits
 
+    @property
+    def qubit_start_index(self) -> int:
+        return self._qubit_start_index
+
     def viability_term(self, penalty: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
         """
         Returns a SparsepauliOp observable which penalizes invalid variable states (states with more than one domain

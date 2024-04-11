@@ -9,15 +9,11 @@ from typing import Callable, Optional, Union
 from dask.distributed import Client
 
 from qiskit.primitives import Estimator, Sampler
-from qiskit.quantum_info.operators.base_operator import BaseOperator
-from qiskit_algorithms.list_or_dict import ListOrDict
 from qiskit_algorithms.optimizers import Optimizer
 
-from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
     EvolvingAnsatzMinimumEigensolver,
-    EvolvingAnsatzMinimumEigensolverResult,
     EvolvingAnsatzMinimumEigensolverConfiguration,
 )
 from queasars.minimum_eigensolvers.base.termination_criteria import (
@@ -206,20 +202,6 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             mutually_exclusive_primitives=configuration.mutually_exclusive_primitives,
         )
         super().__init__(configuration=config)
-
-    def compute_minimum_eigenvalue(
-        self,
-        operator: BaseOperator,
-        aux_operators: Optional[ListOrDict[BaseOperator]] = None,
-    ) -> EvolvingAnsatzMinimumEigensolverResult:
-        return super().compute_minimum_eigenvalue(operator, aux_operators)
-
-    def compute_minimum_function_value(
-        self,
-        operator: BitstringEvaluator,
-        aux_operators: Optional[ListOrDict[BitstringEvaluator]] = None,
-    ) -> EvolvingAnsatzMinimumEigensolverResult:
-        return super().compute_minimum_function_value(operator, aux_operators)
 
     @classmethod
     def supports_aux_operators(cls) -> bool:
