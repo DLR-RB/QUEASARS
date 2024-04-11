@@ -14,12 +14,12 @@ class TestDomainWallHamiltonianEncoder:
     def test_raises_for_too_small_timelimit(self):
         instance = problem_instance()
         with raises(ValueError):
-            encoder = JSSPDomainWallHamiltonianEncoder(jssp_instance=instance, time_limit=1)
+            encoder = JSSPDomainWallHamiltonianEncoder(jssp_instance=instance, makespan_limit=1)
             encoder.get_problem_hamiltonian()
 
     def test_n_qubits(self):
         instance = problem_instance()
-        encoder = JSSPDomainWallHamiltonianEncoder(jssp_instance=instance, time_limit=3)
+        encoder = JSSPDomainWallHamiltonianEncoder(jssp_instance=instance, makespan_limit=3)
         hamiltonian = encoder.get_problem_hamiltonian()
         assert (
             encoder.n_qubits == hamiltonian.num_qubits
@@ -30,7 +30,7 @@ class TestDomainWallHamiltonianEncoder:
         penalty = 100
         encoder = JSSPDomainWallHamiltonianEncoder(
             jssp_instance=instance,
-            time_limit=4,
+            makespan_limit=4,
             encoding_penalty=penalty,
             constraint_penalty=0,
             max_opt_value=0,
@@ -55,7 +55,7 @@ class TestDomainWallHamiltonianEncoder:
         penalty = 100
         encoder = JSSPDomainWallHamiltonianEncoder(
             jssp_instance=instance,
-            time_limit=4,
+            makespan_limit=4,
             encoding_penalty=0,
             constraint_penalty=penalty,
             max_opt_value=0,
@@ -85,7 +85,7 @@ class TestDomainWallHamiltonianEncoder:
         optimization_value = 100
         encoder = JSSPDomainWallHamiltonianEncoder(
             jssp_instance=instance,
-            time_limit=4,
+            makespan_limit=4,
             encoding_penalty=0,
             constraint_penalty=0,
             max_opt_value=optimization_value,
