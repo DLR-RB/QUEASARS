@@ -13,7 +13,7 @@ from smac.multi_objective import ParEGO
 from smac.main.config_selector import ConfigSelector
 from smac.random_design.probability_design import ProbabilityRandomDesign
 
-from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder, JSSPJSONEncoder
+from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
 from queasars.minimum_eigensolvers.base.termination_criteria import PopulationChangeRelativeTolerance
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfiguration, EVQEMinimumEigensolver
@@ -251,10 +251,17 @@ def main():
             if not isinstance(incumbents, list):
                 incumbents = [incumbents]
 
-            incumbents = [incumbent.get_dictionary() for incumbent in incumbents]
+            serializables = []
+            for incumbent in incumbents:
+                average_cost = facade.runhistory.average_cost(incumbent)
+                labeled_cost = list(zip(scenario.objectives, average_cost))
+                incumbent_dict = dict(incumbent)
+                serializables.append([incumbent.config_id, labeled_cost, incumbent_dict])
 
-            with open(Path(Path(__file__).parent, f"evqe_smac_result_{args.trial_name}.json"), "w") as file:
-                dump(obj=incumbents, fp=file, cls=JSSPJSONEncoder)
+            with open(
+                Path(Path(__file__).parent, "smac_results", f"evqe_smac_result_{args.trial_name}.json"), "w"
+            ) as file:
+                dump(obj=serializables, fp=file)
 
     time.sleep(5)
 
