@@ -2,7 +2,7 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Optional
 
 from numpy import real
 
@@ -58,12 +58,17 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         the complex part of the result is dropped. If the qiskit_primitive is a sampler, the operator
         must be diagonal
     :type operator: BaseOperator
+    :param initial_state_circuit: If the qubits of the quantum circuits shall be initialized in a specific
+        state for the circuit evaluation, this initial state can be given as the quantum circuit which initializes
+        it. It must operate on exactly as many qubits as the given operator
+    :type initial_state_circuit: Optional[QuantumCircuit]
     """
 
     def __init__(
         self,
         qiskit_primitive: Union[BaseEstimator[PrimitiveJob[EstimatorResult]], BaseSampler[PrimitiveJob[SamplerResult]]],
         operator: BaseOperator,
+        initial_state_circuit: Optional[QuantumCircuit] = None,
     ):
         """Constructor Method"""
         self._estimator: BaseEstimator[PrimitiveJob[EstimatorResult]]
@@ -75,19 +80,27 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
             # If support for this wrapper is dropped in the future, this should be
             # relatively easy to replicate ourselves.
             self._estimator = _DiagonalEstimator(sampler=qiskit_primitive)
-        self.operator: BaseOperator = operator
+        self._operator: BaseOperator = operator
+        if initial_state_circuit is not None and initial_state_circuit.num_qubits != self._operator.num_qubits:
+            raise ValueError(
+                f"The amount of qubits in the initial state circuit ({initial_state_circuit.num_qubits} "
+                + f"does not match the amount of qubits in the given operator ({self._operator.num_qubits})"
+            )
+        self._initial_state_circuit: Optional[QuantumCircuit] = initial_state_circuit
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
+        if self._initial_state_circuit is not None:
+            circuits = [self._initial_state_circuit.compose(circuit, inplace=False) for circuit in circuits]
         if isinstance(self._estimator, _DiagonalEstimator):
             circuits = [circuit.measure_all(inplace=False) for circuit in circuits]
         evaluation_result: EstimatorResult = self._estimator.run(
-            circuits=circuits, observables=[self.operator] * len(circuits), parameter_values=parameter_values
+            circuits=circuits, observables=[self._operator] * len(circuits), parameter_values=parameter_values
         ).result()
         return list(real(evaluation_result.values))
 
     @property
     def n_qubits(self) -> int:
-        return self.operator.num_qubits
+        return self._operator.num_qubits
 
 
 class BitstringCircuitEvaluator(BaseCircuitEvaluator):
@@ -99,14 +112,35 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
     :type sampler: BaseSampler
     :param bitstring_evaluator: Evaluation function used to evaluate individual measurements
     :type bitstring_evaluator: BitstringEvaluator
+    :param initial_state_circuit: If the qubits of the quantum circuits shall be initialized in a specific
+        state for the circuit evaluation, this initial state can be given as the quantum circuit which initializes
+        it. It must operate on exactly as many qubits as the input length of the bitstring_evaluator specifies
+    :type initial_state_circuit: Optional[QuantumCircuit]
     """
 
-    def __init__(self, sampler: BaseSampler[PrimitiveJob[SamplerResult]], bitstring_evaluator: BitstringEvaluator):
+    def __init__(
+        self,
+        sampler: BaseSampler[PrimitiveJob[SamplerResult]],
+        bitstring_evaluator: BitstringEvaluator,
+        initial_state_circuit: Optional[QuantumCircuit] = None,
+    ):
         """Constructor Method"""
         self._sampler: BaseSampler[PrimitiveJob[SamplerResult]] = sampler
         self._bitstring_evaluator: BitstringEvaluator = bitstring_evaluator
+        if (
+            initial_state_circuit is not None
+            and initial_state_circuit.num_qubits != self._bitstring_evaluator.input_length
+        ):
+            raise ValueError(
+                f"The amount of qubits in the initial state circuit ({initial_state_circuit.num_qubits} "
+                + "does not match the input length of the BitstringEvaluator "
+                + f"({self._bitstring_evaluator.input_length})!"
+            )
+        self._initial_state_circuit: Optional[QuantumCircuit] = initial_state_circuit
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
+        if self._initial_state_circuit is not None:
+            circuits = [self._initial_state_circuit.compose(circuit, inplace=False) for circuit in circuits]
         circuits = [circuit.measure_all(inplace=False) for circuit in circuits]
         evaluation_result: SamplerResult = self._sampler.run(
             circuits=circuits, parameter_values=parameter_values
