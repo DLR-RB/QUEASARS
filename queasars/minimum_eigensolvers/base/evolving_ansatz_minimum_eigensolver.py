@@ -218,7 +218,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 for key, aux_operator in aux_operators.items()
             }
 
-        return self._solve_by_evolution(circuit_evaluator=evaluator, aux_circuit_evaluators=aux_evaluators)
+        return self._solve_by_evolution(
+            circuit_evaluator=evaluator,
+            aux_circuit_evaluators=aux_evaluators,
+            initial_state_circuit=initial_state_circuit,
+        )
 
     def compute_minimum_function_value(
         self,
@@ -273,12 +277,17 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 for key, aux_operator in aux_operators.items()
             }
 
-        return self._solve_by_evolution(circuit_evaluator=evaluator, aux_circuit_evaluators=aux_evaluators)
+        return self._solve_by_evolution(
+            circuit_evaluator=evaluator,
+            aux_circuit_evaluators=aux_evaluators,
+            initial_state_circuit=initial_state_circuit,
+        )
 
     def _solve_by_evolution(
         self,
         circuit_evaluator: BaseCircuitEvaluator,
         aux_circuit_evaluators: ListOrDict[BaseCircuitEvaluator],
+        initial_state_circuit: Optional[QuantumCircuit] = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
         n_circuit_evaluations: int = 0
         n_generations: int = 0
@@ -383,14 +392,21 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         ):
             raise Exception("The algorithm seems to have terminated without having evaluated any population! ")
 
-        sampler_result_best_individual: SamplerResult = self.configuration.sampler.run(
-            current_best_individual.get_quantum_circuit().measure_all(inplace=False)
-        ).result()
+        best_circuit: QuantumCircuit = current_best_individual.get_quantum_circuit()
+        if initial_state_circuit is not None:
+            best_circuit = initial_state_circuit.compose(best_circuit, inplace=False)
+        best_circuit.measure_all()
+        sampler_result_best_individual: SamplerResult = self.configuration.sampler.run(best_circuit).result()
 
         result = EvolvingAnsatzMinimumEigensolverResult()
         result.eigenvalue = current_best_expectation_value
         result.eigenstate = sampler_result_best_individual.quasi_dists[0]
-        result.optimal_circuit = current_best_individual.get_parameterized_quantum_circuit()
+        if initial_state_circuit is None:
+            result.optimal_circuit = current_best_individual.get_parameterized_quantum_circuit()
+        else:
+            result.optimal_circuit = initial_state_circuit.compose(
+                current_best_individual.get_parameterized_quantum_circuit()
+            )
         result.optimal_parameters = dict(
             zip(result.optimal_circuit.parameters, current_best_individual.get_parameter_values())
         )
