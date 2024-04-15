@@ -65,10 +65,6 @@ class EVQEMinimumEigensolverConfiguration:
     :type random_seed: Optional[int]
     :param population_size: amount of individuals within a population
     :type population_size: int
-    :param randomize_initial_population_parameters: Determines whether the parameter values of the individuals in
-        the first population shall be initialized randomly or at 0. If during the optimization process no improvement
-        occurs at all this may be due to the optimizer not being able to detect a gradient at parameter values of 0
-    :type randomize_initial_population_parameters: bool
     :param speciation_genetic_distance_threshold: Genetic distance (amount of circuit layers not shared
         between two individuals) at which an individual belongs to a new species
     :type speciation_genetic_distance_threshold: int
@@ -91,6 +87,10 @@ class EVQEMinimumEigensolverConfiguration:
         a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
         by dask, otherwise the computation will fail. If no parallel_executor is provided a ThreadPoolExecutor
         with as many threads as population_size will be launched
+    :param randomize_initial_population_parameters: Determines whether the parameter values of the individuals in
+        the first population shall be initialized randomly or at 0. By default, the parameter values in the
+        initial population are initialized randomly
+    :type randomize_initial_population_parameters: bool
     :type parallel_executor: Union[Client, ThreadPoolExecutor, None]
     :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
         Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
@@ -110,13 +110,13 @@ class EVQEMinimumEigensolverConfiguration:
     termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
     random_seed: Optional[int]
     population_size: int
-    randomize_initial_population_parameters: bool
     speciation_genetic_distance_threshold: int
     selection_alpha_penalty: float
     selection_beta_penalty: float
     parameter_search_probability: float
     topological_search_probability: float
     layer_removal_probability: float
+    randomize_initial_population_parameters: bool = True
     parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
     mutually_exclusive_primitives: bool = True
 
