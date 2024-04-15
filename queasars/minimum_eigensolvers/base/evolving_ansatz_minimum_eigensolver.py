@@ -6,7 +6,7 @@ import logging
 from typing import Callable, TypeVar, Generic, Optional, Union
 
 from dask.distributed import Client
-from numpy import median
+from numpy import median, mean
 
 from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
 from qiskit.quantum_info.operators.base_operator import BaseOperator
@@ -258,7 +258,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             filtered_expectations = [
                 expectation for expectation in evaluation_result.expectation_values if expectation is not None
             ]
-            self.logger.info("Median expectation value in the population currently: %f" % median(filtered_expectations))
+            self.logger.info("Current median expectation value: %f" % median(filtered_expectations))
+            self.logger.info("Current average expectation value: %f" % mean(filtered_expectations))
 
             n_generations += 1
 

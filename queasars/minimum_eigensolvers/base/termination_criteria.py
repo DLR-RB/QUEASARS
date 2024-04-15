@@ -184,6 +184,8 @@ class PopulationChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationC
     def __init__(self, minimum_change: float, allowed_consecutive_violations: int):
         super().__init__()
         self._minimum_change: float = minimum_change
+        if allowed_consecutive_violations < 0:
+            raise ValueError("allowed_consecutive_violations must be at least 0!")
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
         self._change_history: list[float] = [
             10 * self._minimum_change for _ in range(0, self._allowed_consecutive_violations + 1)
@@ -242,6 +244,8 @@ class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
     def __init__(self, minimum_relative_change: float, allowed_consecutive_violations: int):
         super().__init__()
         self._minimum_relative_change: float = minimum_relative_change
+        if allowed_consecutive_violations < 0:
+            raise ValueError("allowed_consecutive_violations must be at least 0!")
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
         self._relative_change_history: list[float] = [
             10 * self._minimum_relative_change for _ in range(0, self._allowed_consecutive_violations + 1)
