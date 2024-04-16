@@ -1,8 +1,8 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 from abc import ABC, abstractmethod
-from typing import Optional
-from numpy import median, real
+from typing import Optional, cast
+from numpy import median
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseIndividual, BasePopulationEvaluationResult
 
@@ -112,7 +112,7 @@ class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBase
         return True
 
 
-class BestIndividualAbsoluteExpectationValueThreshold(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
+class BestIndividualExpectationValueThreshold(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
     """
     Termination criterion which terminates, if the expectation value of the best individual of a population
     falls below a certain threshold value
@@ -155,7 +155,7 @@ def _median_hausdorff_distance_by_expectation_value(
         distances: list[float] = []
         for from_expectation in from_expectations:
             distances.append(min(abs(from_expectation - to_expectation) for to_expectation in to_expectations))
-        return real(median(distances))
+        return cast(float, median(distances))
 
     expectations_1: list[float] = [exp for exp in result_1.expectation_values if exp is not None]
     expectations_2: list[float] = [exp for exp in result_2.expectation_values if exp is not None]
@@ -168,7 +168,7 @@ class PopulationChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationC
     the last generation. This change is taken as the maximum of the absolute change of the expectation value of
     the best individual from the last and current generation and the median Hausdorff distance between the
     expectation values of the last and current generation. This means this criterion terminates if the best individual
-    and the population as a whole do not change sufficiently. This termination criterion can be configured to only
+    AND the population as a whole do not change sufficiently. This termination criterion can be configured to only
     terminate if the change falls below the threshold value multiple times consecutively
 
     :param minimum_change: threshold value for the absolute change in expectation value, below which this criterion
@@ -184,6 +184,8 @@ class PopulationChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationC
     def __init__(self, minimum_change: float, allowed_consecutive_violations: int):
         super().__init__()
         self._minimum_change: float = minimum_change
+        if allowed_consecutive_violations < 0:
+            raise ValueError("allowed_consecutive_violations must be at least 0!")
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
         self._change_history: list[float] = [
             10 * self._minimum_change for _ in range(0, self._allowed_consecutive_violations + 1)
@@ -226,7 +228,7 @@ class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
     the best individual from the last and current generation and the median Hausdorff distance between the
     expectation values of the last and current generation. It is then set in relation to the median expectation
     value of the last generation. This means this criterion terminates if the best individual
-    and the population as a whole do not change sufficiently. This termination criterion can be configured to only
+    AND the population as a whole do not change sufficiently. This termination criterion can be configured to only
     terminate if the change falls below the threshold value multiple times consecutively
 
     :param minimum_relative_change: threshold value for the change in expectation value relative to the last
@@ -242,6 +244,8 @@ class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
     def __init__(self, minimum_relative_change: float, allowed_consecutive_violations: int):
         super().__init__()
         self._minimum_relative_change: float = minimum_relative_change
+        if allowed_consecutive_violations < 0:
+            raise ValueError("allowed_consecutive_violations must be at least 0!")
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
         self._relative_change_history: list[float] = [
             10 * self._minimum_relative_change for _ in range(0, self._allowed_consecutive_violations + 1)
@@ -269,14 +273,15 @@ class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
                 self._last_population_evaluation.best_expectation_value - population_evaluation.best_expectation_value
             )
             distance: float = max(hausdorff_distance, best_individual_distance)
-            last_population_median_expectation: float = real(
+            last_population_median_expectation: float = cast(
+                float,
                 median(
                     [
                         expectation
                         for expectation in self._last_population_evaluation.expectation_values
                         if expectation is not None
                     ]
-                )
+                ),
             )
 
             self._relative_change_history.append(distance / last_population_median_expectation)
