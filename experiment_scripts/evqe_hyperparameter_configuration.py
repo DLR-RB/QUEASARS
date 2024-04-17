@@ -85,6 +85,7 @@ def main():
         optimizer = SPSA(
             maxiter=config["maxiter"],
             blocking=bool(config["blocking"]),
+            allowed_increase=config["allowed_increase"],
             trust_region=bool(config["trust_region"]),
             perturbation=config["perturbation"],
             learning_rate=config["learning_rate"],
@@ -208,6 +209,7 @@ def main():
     params = [
         Integer("maxiter", (1, 50), default=10, q=1),
         Integer("blocking", (0, 1), default=0, q=1),
+        Integer("allowed_increase", (10, 250), q=10),
         Integer("trust_region", (0, 1), default=0, q=1),
         Float("perturbation", (5e-2, 0.5), default=0.1, q=0.05),
         Float("learning_rate", (5e-2, 0.5), default=0.1, q=0.05),
