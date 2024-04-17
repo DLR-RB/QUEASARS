@@ -46,7 +46,7 @@ class SPSATerminationChecker:
         self.change_history.append(change)
         self.last_function_value = function_value
 
-        if len(self.change_history) < self.allowed_consecutive_violations:
+        if len(self.change_history) < self.allowed_consecutive_violations + 1:
             return False
 
         if max(self.change_history[-self.allowed_consecutive_violations-1:]) < self.relative_change_threshold:
