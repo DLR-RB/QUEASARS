@@ -8,10 +8,10 @@ from dask.distributed import LocalCluster, Client
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer
 from qiskit_aer.primitives import Sampler, Estimator
 from qiskit_algorithms.optimizers import SPSA
+from qiskit_algorithms.minimum_eigensolvers.diagonal_estimator import _DiagonalEstimator
 from smac import Scenario, AlgorithmConfigurationFacade
 from smac.multi_objective import ParEGO
 from smac.main.config_selector import ConfigSelector
-from smac.random_design.probability_design import ProbabilityRandomDesign
 
 from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
@@ -23,7 +23,7 @@ def count_controlled_gates(circuit):
     circuit = circuit.decompose()
     controlled_gate_count = 0
     for instr, qargs, _ in circuit.data:
-        if instr.name.startswith('c'):
+        if instr.name.startswith("c"):
             controlled_gate_count += 1
     return controlled_gate_count
 
@@ -64,7 +64,12 @@ def main():
     labeled_instances = {
         "instance_"
         + str(i): (
-            JSSPDomainWallHamiltonianEncoder(jssp_instance=instance[0], makespan_limit=instance[1] + 1),
+            JSSPDomainWallHamiltonianEncoder(
+                jssp_instance=instance[0],
+                makespan_limit=instance[1] + 1,
+                opt_all_operations_share=0.25,
+                constraint_penalty=150,
+            ),
             instance[1],
         )
         for i, instance in enumerate(problem_instances)
@@ -73,15 +78,9 @@ def main():
 
     def target_function(config: Configuration, instance: str, seed: int):
 
-        # The EVQEMinimumEigensolver needs a sampler and can also use an estimator.
-        # Here we use the sampler and estimator provided by the qiskit_aer simulator.
         sampler_primitive = Sampler()
-        estimator_primitive = Estimator()
+        estimator_primitive = _DiagonalEstimator(sampler=sampler_primitive, aggregation=0.5)
 
-        # The EVQEMinimumEigensolver also needs a qiskit optimizer. It should be
-        # configured to terminate quickly, so that mutations are not overtly expensive.
-        # Here we use the SPSA optimizer with a very limited amount of iterations and a
-        # large step size.
         optimizer = SPSA(
             maxiter=config["maxiter"],
             blocking=bool(config["blocking"]),
@@ -93,72 +92,34 @@ def main():
             resamplings=config["resamplings"],
         )
 
-        # To help the EVQEMinimumEigensolver deal correctly with terminations based
-        # on the amount of circuit evaluations used, an estimate can be given for how
-        # many circuit evaluations the optimizer uses per optimization run.
-        # SPSA makes two measurements per sampling, which means in total it will
-        # need 48 circuit evaluations for 12 iterations with 2 resamplings.
         optimizer_n_circuit_evaluations = config["maxiter"] * 2 * config["resamplings"]
 
-        # To specify when the EVQEMinimumEigensolver should terminate either max_generations,
-        # max_circuit_evaluations or a termination_criterion should be given.
-        # Here we choose to terminate once the best individual changes by less than 5%
-        # in expectation value per generation.
         max_generations = 20
         max_circuit_evaluations = None
         termination_criterion = PopulationChangeRelativeTolerance(
-            minimum_relative_change=0.05, allowed_consecutive_violations=2
+            minimum_relative_change=0.01, allowed_consecutive_violations=2
         )
 
-        # A random seed can be provided to control the randomness of the evolutionary process.
         random_seed = seed
 
-        # The population size determines how many individuals are evaluated each generation.
-        # With a higher population size, fewer generations might be needed, but this also
-        # makes each generation more expensive to evaluate. A reasonable range might be
-        # 10 - 100 individuals per population. Here we use a population size of 10.
         population_size = 10
 
-        # If the optimization algorithm can't deal with parameter values of 0 at the beginning
-        # of the optimization, they can be randomized here. For this example we don't need this.
         randomize_initial_population_parameters = True
 
-        # Determines how many circuit layers apart two individuals need to be, to be considered to
-        # be of a different species. Reasonable values might be in the range 2 - 5. Here we use 3.
         speciation_genetic_distance_threshold = config["genetic_distance"]
 
-        # The alpha and beta penalties penalize quantum circuits of increasing depth (alpha) and
-        # increasing amount of controlled rotations (beta). increase them if the quantum circuits get to
-        # deep or complicated. For now we will use values of 0.1 for both penalties.
         selection_alpha_penalty = config["alpha_penalty"]
         selection_beta_penalty = config["beta_penalty"]
 
-        # The parameter search probability determines how likely an individual is mutated by optimizing
-        # all it's parameter values. This should not be too large as this is costly. Here we will use
-        # a probability of 0.24.
         parameter_search_probability = config["parameter_search"]
 
-        # The topological search probability determines how likely a circuit layer is added to an individual
-        # as a mutation. Here we will use a probability of 0.2
         topological_search_probability = config["topological_search"]
 
-        # The layer removal probability determines how likely circuit layers are removed from an individual
-        # as a mutation. This is a very disruptive mutation and should only be used sparingly to counteract
-        # circuit growth. Here we will use a probability of 0.05
         layer_removal_probability = config["layer_removal"]
 
-        # An executor for launching parallel computation can be specified.
-        # This can be a dask Client or a python ThreadPoolExecutor. If None is
-        # specified a ThreadPoolExecutor with population_size many threads will
-        # be used
         with Client(scheduler_file="scheduler.json") as parallel_executor:
             parallel_executor = parallel_executor
 
-            # Discerns whether to only allow mutually exclusive access to the Sampler and
-            # Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
-            # a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
-            # For safety reasons this is enabled by default. If the sampler and estimator are threadsafe disabling this
-            # option may lead to performance improvements
             mutually_exclusive_primitives = False
 
             configuration = EVQEMinimumEigensolverConfiguration(
@@ -216,8 +177,8 @@ def main():
         Integer("last_avg", (1, 4), default=1, q=1),
         Integer("resamplings", (1, 4), default=1, q=1),
         Integer("genetic_distance", (1, 5), default=2, q=1),
-        Float("alpha_penalty", (0, 10), default=1, q=0.1),
-        Float("beta_penalty", (0, 10), default=0.1, q=0.1),
+        Float("alpha_penalty", (0, 5), default=1, q=0.1),
+        Float("beta_penalty", (0, 5), default=0.1, q=0.1),
         Float("parameter_search", (0, 0.5), default=0.25, q=0.05),
         Float("topological_search", (0, 1), default=0.4, q=0.05),
         Float("layer_removal", (0, 0.25), default=0.05, q=0.05),
@@ -237,7 +198,6 @@ def main():
         instance_features=instance_features,
     )
     selector = ConfigSelector(scenario=scenario, retrain_after=1)
-    random_design = ProbabilityRandomDesign(probability=0.33)
 
     with (
         LocalCluster(n_workers=args.n_parallel_executions, processes=True, threads_per_worker=1) as smac_cluster,
@@ -253,7 +213,6 @@ def main():
                 scenario,
                 target_function=target_function,
                 config_selector=selector,
-                random_design=random_design,
                 multi_objective_algorithm=ParEGO(scenario),
                 overwrite=args.overwrite,
                 logging_level=10,

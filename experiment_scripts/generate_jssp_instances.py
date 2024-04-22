@@ -73,9 +73,7 @@ def generate_problem_instances(problem_sizes):
                 jssp_instance=random_instance, time_limit=result.makespan + 1
             )
             if hamiltonian_encoder.n_qubits <= max_qubit_size:
-                problems[hamiltonian_encoder.n_qubits].append(
-                    (random_instance, result.makespan)
-                )
+                problems[hamiltonian_encoder.n_qubits].append((random_instance, result.makespan))
 
     generator = Random(0)
     for i in range(0, max_qubit_size + 1):

@@ -48,7 +48,7 @@ class SPSATerminationChecker:
         if len(self.change_history) < self.allowed_consecutive_violations + 1:
             return False
 
-        if max(self.change_history[-self.allowed_consecutive_violations-1:]) < self.relative_change_threshold:
+        if max(self.change_history[-self.allowed_consecutive_violations - 1 :]) < self.relative_change_threshold:
             return True
 
 
@@ -87,7 +87,12 @@ def main():
     labeled_instances = {
         "instance_"
         + str(i): (
-            JSSPDomainWallHamiltonianEncoder(jssp_instance=instance[0], makespan_limit=instance[1] + 1),
+            JSSPDomainWallHamiltonianEncoder(
+                jssp_instance=instance[0],
+                makespan_limit=instance[1] + 1,
+                opt_all_operations_share=0.25,
+                constraint_penalty=150,
+            ),
             instance[1],
         )
         for i, instance in enumerate(problem_instances)
@@ -99,10 +104,10 @@ def main():
         QiskitAlgorithmGlobals.random_seed = seed
         sampler_primitive = Sampler(run_options={"seed": seed})
 
-        criterion = SPSATerminationChecker(relative_change_threshold=0.05, allowed_consecutive_violations=2)
+        criterion = SPSATerminationChecker(relative_change_threshold=0.01, allowed_consecutive_violations=4)
 
         optimizer = SPSA(
-            maxiter=2000,
+            maxiter=1000,
             blocking=bool(config["blocking"]),
             allowed_increase=config["allowed_increase"],
             trust_region=bool(config["trust_region"]),
@@ -140,7 +145,6 @@ def main():
         }
 
     params = [
-        Integer("maxiter", (1, 50), default=10, q=1),
         Integer("blocking", (0, 1), default=0, q=1),
         Integer("allowed_increase", (10, 250), q=10),
         Integer("trust_region", (0, 1), default=0, q=1),
