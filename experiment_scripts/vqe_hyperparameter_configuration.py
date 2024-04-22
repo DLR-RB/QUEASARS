@@ -6,10 +6,11 @@ from datetime import datetime
 
 from dask.distributed import LocalCluster, Client
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer
+from qiskit.circuit import QuantumCircuit, Parameter
 from qiskit_aer.primitives import Sampler
 from qiskit_algorithms.optimizers import SPSA
 from qiskit_algorithms.utils.algorithm_globals import QiskitAlgorithmGlobals
-from qiskit_algorithms.minimum_eigensolvers import QAOA
+from qiskit_algorithms.minimum_eigensolvers import SamplingVQE
 from smac import Scenario, AlgorithmConfigurationFacade
 from smac.multi_objective import ParEGO
 from smac.main.config_selector import ConfigSelector
@@ -50,6 +51,39 @@ class SPSATerminationChecker:
 
         if max(self.change_history[-self.allowed_consecutive_violations-1:]) < self.relative_change_threshold:
             return True
+
+
+def ansatz(n_qubits, layers):
+    circuit = QuantumCircuit(n_qubits)
+    name_counter = 0
+
+    for i in range(0, n_qubits):
+        param = Parameter(name=f"\u03B8{name_counter}")
+        name_counter += 1
+        circuit.ry(param, i)
+
+    circuit.barrier()
+
+    for i in range(0, layers):
+
+        for j in range(0, n_qubits - 1):
+            if j % 2 == 0:
+                circuit.cx(control_qubit=j, target_qubit=(j + 1))
+
+        for j in range(0, n_qubits - 1):
+            if (j + 1) % 2 == 0:
+                circuit.cx(control_qubit=j, target_qubit=(j + 1))
+
+        circuit.barrier()
+
+        for j in range(0, n_qubits):
+            param = Parameter(name=f"\u03B8{name_counter}")
+            name_counter += 1
+            circuit.ry(param, j)
+
+        circuit.barrier()
+
+    return circuit
 
 
 def main():
@@ -113,9 +147,9 @@ def main():
             termination_checker=criterion.termination_check,
         )
 
-        solver = QAOA(sampler=sampler_primitive, optimizer=optimizer, aggregation=0.5)
-
         hamiltonian = labeled_instances[instance][0].get_problem_hamiltonian()
+        ansatz_circuit = ansatz(n_qubits=hamiltonian.num_qubits, layers=2)
+        solver = SamplingVQE(sampler=sampler_primitive, optimizer=optimizer, ansatz=ansatz_circuit, aggregation=0.5)
 
         result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
@@ -154,7 +188,7 @@ def main():
 
     scenario = Scenario(
         space,
-        name="qaoa_smac_run_" + args.trial_name,
+        name="vqe_smac_run_" + args.trial_name,
         objectives=["result_value", "circuit_evaluations"],
         deterministic=False,
         n_trials=args.n_trials,
@@ -191,7 +225,7 @@ def main():
             incumbent_dict = dict(incumbent)
             serializables.append([incumbent.config_id, labeled_cost, incumbent_dict])
 
-        file_path = Path(Path(__file__).parent, "smac_results", f"qaoa_smac_result_{args.trial_name}.json")
+        file_path = Path(Path(__file__).parent, "smac_results", f"vqe_smac_result_{args.trial_name}.json")
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "w") as file:
             dump(obj=serializables, fp=file, indent=2)
