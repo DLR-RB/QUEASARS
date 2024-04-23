@@ -168,7 +168,7 @@ def main():
             }
 
     params = [
-        Integer("maxiter", (1, 50), default=10, q=2),
+        Integer("maxiter", (2, 50), default=10, q=2),
         Integer("blocking", (0, 1), default=0, q=1),
         Integer("allowed_increase", (10, 250), q=10),
         Integer("trust_region", (0, 1), default=0, q=1),
