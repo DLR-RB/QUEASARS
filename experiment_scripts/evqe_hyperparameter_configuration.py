@@ -94,8 +94,8 @@ def main():
 
         optimizer_n_circuit_evaluations = config["maxiter"] * 2 * config["resamplings"]
 
-        max_generations = 20
-        max_circuit_evaluations = None
+        max_generations = None
+        max_circuit_evaluations = 30000
         termination_criterion = PopulationChangeRelativeTolerance(
             minimum_relative_change=0.01, allowed_consecutive_violations=2
         )
@@ -168,7 +168,7 @@ def main():
             }
 
     params = [
-        Integer("maxiter", (1, 50), default=10, q=1),
+        Integer("maxiter", (1, 50), default=10, q=2),
         Integer("blocking", (0, 1), default=0, q=1),
         Integer("allowed_increase", (10, 250), q=10),
         Integer("trust_region", (0, 1), default=0, q=1),
@@ -186,6 +186,7 @@ def main():
     space = ConfigurationSpace()
     space.add_hyperparameters(params)
 
+    output_directory = Path(Path(__file__).parent, "smac_runs")
     scenario = Scenario(
         space,
         name="evqe_smac_run_" + args.trial_name,
@@ -196,6 +197,7 @@ def main():
         max_budget=args.max_budget,
         instances=list(labeled_instances.keys()),
         instance_features=instance_features,
+        output_directory=output_directory,
     )
     selector = ConfigSelector(scenario=scenario, retrain_after=1)
 
