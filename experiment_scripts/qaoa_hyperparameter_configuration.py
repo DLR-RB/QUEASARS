@@ -156,6 +156,7 @@ def main():
     space = ConfigurationSpace()
     space.add_hyperparameters(params)
 
+    output_directory = Path(Path(__file__).parent, "smac_runs")
     scenario = Scenario(
         space,
         name="qaoa_smac_run_" + args.trial_name,
@@ -166,6 +167,7 @@ def main():
         max_budget=args.max_budget,
         instances=list(labeled_instances.keys()),
         instance_features=instance_features,
+        output_directory=output_directory,
     )
     selector = ConfigSelector(scenario=scenario, retrain_after=1)
 
