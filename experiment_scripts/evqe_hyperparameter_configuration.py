@@ -7,7 +7,7 @@ from datetime import datetime
 from dask.distributed import LocalCluster, Client
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer
 from qiskit.circuit import QuantumCircuit
-from qiskit_aer.primitives import Sampler, Estimator
+from qiskit_aer.primitives import Sampler
 from qiskit_algorithms.optimizers import SPSA
 from qiskit_algorithms.minimum_eigensolvers.diagonal_estimator import _DiagonalEstimator
 from smac import Scenario, AlgorithmConfigurationFacade
@@ -105,7 +105,7 @@ def main():
 
         population_size = 10
 
-        randomize_initial_population_parameters = True
+        randomize_initial_population_parameters = False
 
         speciation_genetic_distance_threshold = config["genetic_distance"]
 
