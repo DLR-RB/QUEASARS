@@ -156,7 +156,7 @@ def main():
 
             result_value = 0.0
             for bitstring, probability in quasi_distribution.items():
-                parsed_result = labeled_instances[instance][0].translate_result_bitstring(bitstring=bitstring)
+                parsed_result = encoder.translate_result_bitstring(bitstring=bitstring)
                 if not parsed_result.is_valid:
                     result_value += probability * 100
                 elif not parsed_result.makespan == labeled_instances[instance][1]:
