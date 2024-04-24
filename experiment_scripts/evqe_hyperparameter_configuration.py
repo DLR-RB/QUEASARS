@@ -6,6 +6,7 @@ from datetime import datetime
 
 from dask.distributed import LocalCluster, Client
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer
+from qiskit.circuit import QuantumCircuit
 from qiskit_aer.primitives import Sampler, Estimator
 from qiskit_algorithms.optimizers import SPSA
 from qiskit_algorithms.minimum_eigensolvers.diagonal_estimator import _DiagonalEstimator
@@ -78,7 +79,7 @@ def main():
 
     def target_function(config: Configuration, instance: str, seed: int):
 
-        sampler_primitive = Sampler()
+        sampler_primitive = Sampler(run_options={"seed": seed})
         estimator_primitive = _DiagonalEstimator(sampler=sampler_primitive, aggregation=0.5)
 
         optimizer = SPSA(
@@ -146,7 +147,13 @@ def main():
             solver = EVQEMinimumEigensolver(configuration=configuration)
 
             hamiltonian = labeled_instances[instance][0].get_problem_hamiltonian()
-            result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
+
+            initial_state = QuantumCircuit(hamiltonian.num_qubits)
+            initial_state.h(range(0, hamiltonian.num_qubits))
+
+            result = solver.compute_minimum_eigenvalue_with_initial_state(
+                operator=hamiltonian, initial_state_circuit=initial_state
+            )
 
             quasi_distribution = result.eigenstate.binary_probabilities()
 

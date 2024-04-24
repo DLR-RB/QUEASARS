@@ -70,6 +70,8 @@ class SPSATerminationChecker:
             self._done = True
             return True
 
+        return False
+
     @property
     def n_function_evaluations(self) -> int:
         """
