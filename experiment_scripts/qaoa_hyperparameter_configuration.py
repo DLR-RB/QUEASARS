@@ -16,40 +16,7 @@ from smac.main.config_selector import ConfigSelector
 
 from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
-
-
-class SPSATerminationChecker:
-
-    def __init__(self, relative_change_threshold, allowed_consecutive_violations):
-        self.relative_change_threshold = relative_change_threshold
-        self.allowed_consecutive_violations = allowed_consecutive_violations
-        self.last_function_value = None
-        self.change_history = []
-        self.n_function_evaluations = 0
-        self.best_eigenvalue = float("inf")
-        self.best_parameters = None
-
-    def termination_check(self, n_function_evaluations, parameter_values, function_value, step_size, accepted):
-
-        self.n_function_evaluations = n_function_evaluations
-
-        if self.last_function_value is None:
-            self.last_function_value = function_value
-            return
-
-        if function_value < self.best_eigenvalue:
-            self.best_eigenvalue = function_value
-            self.best_parameters = parameter_values
-
-        change = abs(function_value - self.last_function_value) / self.last_function_value
-        self.change_history.append(change)
-        self.last_function_value = function_value
-
-        if len(self.change_history) < self.allowed_consecutive_violations + 1:
-            return False
-
-        if max(self.change_history[-self.allowed_consecutive_violations - 1 :]) < self.relative_change_threshold:
-            return True
+from queasars.utility.spsa_termination import SPSATerminationChecker
 
 
 def main():
@@ -104,7 +71,7 @@ def main():
         QiskitAlgorithmGlobals.random_seed = seed
         sampler_primitive = Sampler(run_options={"seed": seed})
 
-        criterion = SPSATerminationChecker(relative_change_threshold=0.01, allowed_consecutive_violations=4)
+        criterion = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=4)
 
         optimizer = SPSA(
             maxiter=1000,
@@ -125,7 +92,7 @@ def main():
         result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
         circ = result.optimal_circuit
-        circ = circ.assign_parameters(criterion.best_parameters)
+        circ = circ.assign_parameters(criterion.best_parameter_values)
         meas = sampler_primitive.run(circ)
         quasi_distribution = meas.result().quasi_dists[0].binary_probabilities()
 
