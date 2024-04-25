@@ -102,6 +102,8 @@ class JSSPDomainWallHamiltonianEncoder:
         if not self._encoding_prepared:
             self._prepare_encoding()
 
+        bitstring = bitstring[::-1]
+
         def translate(string: str) -> int:
             if string == "1":
                 return 1
