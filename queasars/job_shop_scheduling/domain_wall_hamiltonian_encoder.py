@@ -31,8 +31,14 @@ class JSSPDomainWallHamiltonianEncoder:
     :type makespan_limit: int
     :param encoding_penalty: penalty added to the optimization value for violating the encoding constraint
     :type encoding_penalty: float
-    :param constraint_penalty: penalty added to the optimization value for violating the JSSP's constraints
-    :type constraint_penalty: float
+    :param overlap_constraint_penalty: penalty added to the optimization value for violating the JSSP's constraint,
+        that no machine may at any time execute more than 1 operation concurrently. Must be smaller than
+        encoding_penalty, otherwise the integrity of the domain wall variables cannot be guaranteed
+    :type overlap_constraint_penalty: float
+    :param precedence_constraint_penalty: penalty added to the optimization value for violating the JSSP's constraint,
+        that any two operations of a job must be ordered as specified by the job. Must be smaller than
+        encoding_penalty, otherwise the integrity of the domain wall variables cannot be guaranteed
+    :type precedence_constraint_penalty: float
     :param max_opt_value: maximum value of the optimization term. For a clean separation of valid and invalid
         states it should be smaller than both the encoding_penalty and the constraint penalty individually
     :type max_opt_value: float
@@ -48,7 +54,8 @@ class JSSPDomainWallHamiltonianEncoder:
         jssp_instance: JobShopSchedulingProblemInstance,
         makespan_limit: int,
         encoding_penalty: float = 300,
-        constraint_penalty: float = 100,
+        overlap_constraint_penalty: float = 100,
+        precedence_constraint_penalty: float = 100,
         max_opt_value: float = 100,
         opt_all_operations_share: float = 0,
     ):
@@ -62,7 +69,8 @@ class JSSPDomainWallHamiltonianEncoder:
         self._n_qubits: int = 0
         self._hamiltonian: Optional[SparsePauliOp] = None
         self._encoding_penalty: float = encoding_penalty
-        self._constraint_penalty: float = constraint_penalty
+        self._overlap_constraint_penalty: float = overlap_constraint_penalty
+        self._precedence_constraint_penalty: float = precedence_constraint_penalty
         self._max_opt_value: float = max_opt_value
         self._opt_all_operations_share: float = opt_all_operations_share
 
@@ -164,7 +172,7 @@ class JSSPDomainWallHamiltonianEncoder:
                     values=tuple(range(start_offset, start_offset + n_start_times)),
                 )
 
-                # keep track of how often an operation is involved in constraints
+                # keep track of how often an operation start time bit is involved in constraints
                 # for internal penalty weightings
                 for start_time in self._operation_start_variables[operation].values:
                     self._operation_constraint_counts[(operation, start_time)] = 0
@@ -213,8 +221,8 @@ class JSSPDomainWallHamiltonianEncoder:
         early_start_term = self._early_start_term()
 
         self._hamiltonian = (
-            SparsePauliOp.sum(precedence_terms) * self._constraint_penalty
-            + SparsePauliOp.sum(overlap_terms) * self._constraint_penalty
+            SparsePauliOp.sum(precedence_terms) * self._precedence_constraint_penalty
+            + SparsePauliOp.sum(overlap_terms) * self._overlap_constraint_penalty
             + SparsePauliOp.sum(variable_viability_terms) * self._encoding_penalty
             + makespan_term * (self._max_opt_value * (1 - self._opt_all_operations_share))
             + early_start_term * (self._max_opt_value * self._opt_all_operations_share)
