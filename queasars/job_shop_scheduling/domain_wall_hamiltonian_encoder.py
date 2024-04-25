@@ -2,9 +2,8 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from itertools import combinations
-from math import asin, sqrt, pi
+from typing import Optional
 
-from qiskit.circuit import QuantumCircuit
 from qiskit.quantum_info.operators import SparsePauliOp
 
 from queasars.job_shop_scheduling.problem_instances import (
@@ -32,8 +31,14 @@ class JSSPDomainWallHamiltonianEncoder:
     :type makespan_limit: int
     :param encoding_penalty: penalty added to the optimization value for violating the encoding constraint
     :type encoding_penalty: float
-    :param constraint_penalty: penalty added to the optimization value for violating the JSSP's constraints
-    :type constraint_penalty: float
+    :param overlap_constraint_penalty: penalty added to the optimization value for violating the JSSP's constraint,
+        that no machine may at any time execute more than 1 operation concurrently. Must be smaller than
+        encoding_penalty, otherwise the integrity of the domain wall variables cannot be guaranteed
+    :type overlap_constraint_penalty: float
+    :param precedence_constraint_penalty: penalty added to the optimization value for violating the JSSP's constraint,
+        that any two operations of a job must be ordered as specified by the job. Must be smaller than
+        encoding_penalty, otherwise the integrity of the domain wall variables cannot be guaranteed
+    :type precedence_constraint_penalty: float
     :param max_opt_value: maximum value of the optimization term. For a clean separation of valid and invalid
         states it should be smaller than both the encoding_penalty and the constraint penalty individually
     :type max_opt_value: float
@@ -49,7 +54,8 @@ class JSSPDomainWallHamiltonianEncoder:
         jssp_instance: JobShopSchedulingProblemInstance,
         makespan_limit: int,
         encoding_penalty: float = 300,
-        constraint_penalty: float = 100,
+        overlap_constraint_penalty: float = 100,
+        precedence_constraint_penalty: float = 100,
         max_opt_value: float = 100,
         opt_all_operations_share: float = 0,
     ):
@@ -59,10 +65,12 @@ class JSSPDomainWallHamiltonianEncoder:
         self._hamiltonian_prepared: bool = False
         self._machine_operations: dict[Machine, list[Operation]] = {}
         self._operation_start_variables: dict[Operation, DomainWallVariable[int]] = {}
+        self._operation_constraint_counts: dict[tuple[Operation, int], int] = {}
         self._n_qubits: int = 0
-        self._local_terms: list[SparsePauliOp] = []
+        self._hamiltonian: Optional[SparsePauliOp] = None
         self._encoding_penalty: float = encoding_penalty
-        self._constraint_penalty: float = constraint_penalty
+        self._overlap_constraint_penalty: float = overlap_constraint_penalty
+        self._precedence_constraint_penalty: float = precedence_constraint_penalty
         self._max_opt_value: float = max_opt_value
         self._opt_all_operations_share: float = opt_all_operations_share
 
@@ -87,31 +95,13 @@ class JSSPDomainWallHamiltonianEncoder:
         if not self._hamiltonian_prepared:
             self._prepare_hamiltonian()
 
-        return SparsePauliOp.sum(self._local_terms)
+        if self._hamiltonian is None:
+            raise ValueError(
+                "Hamiltonian was prepared but not cached! This seems to be an internal error "
+                + "and should never occur!"
+            )
 
-    def get_valid_encoding_superposition(self) -> QuantumCircuit:
-        if not self._encoding_prepared:
-            self._prepare_encoding()
-
-        circuit = QuantumCircuit(self.n_qubits)
-
-        for _, variable in self._operation_start_variables.items():
-            angles: list[float] = [0.0] * variable.n_qubits
-
-            for i in reversed(range(0, variable.n_qubits)):
-                needed_probability = 1 / (i + 2)
-                angle = 2 * asin(sqrt(needed_probability))
-                angles[i] = angle
-                circuit.rx(theta=angle, qubit=variable.qubit_start_index + i)
-
-            for i in reversed(range(0, variable.n_qubits - 1)):
-                circuit.crx(
-                    theta=-angles[i] + pi,
-                    control_qubit=variable.qubit_start_index + i + 1,
-                    target_qubit=variable.qubit_start_index + i,
-                )
-
-        return circuit
+        return self._hamiltonian
 
     def translate_result_bitstring(self, bitstring: str) -> JobShopSchedulingResult:
         """
@@ -125,10 +115,10 @@ class JSSPDomainWallHamiltonianEncoder:
         if len(bitstring) != self.n_qubits:
             raise ValueError("The bitstring length does not match the problem size!")
 
-        bitstring = bitstring[::-1]
-
         if not self._encoding_prepared:
             self._prepare_encoding()
+
+        bitstring = bitstring[::-1]
 
         def translate(string: str) -> int:
             if string == "1":
@@ -182,6 +172,11 @@ class JSSPDomainWallHamiltonianEncoder:
                     values=tuple(range(start_offset, start_offset + n_start_times)),
                 )
 
+                # keep track of how often an operation start time bit is involved in constraints
+                # for internal penalty weightings
+                for start_time in self._operation_start_variables[operation].values:
+                    self._operation_constraint_counts[(operation, start_time)] = 0
+
                 # keep track of the needed qubits
                 self._n_qubits += self._operation_start_variables[operation].n_qubits
 
@@ -191,52 +186,59 @@ class JSSPDomainWallHamiltonianEncoder:
 
         self._encoding_prepared = True
 
-    def _prepare_hamiltonian(self):
+    def _prepare_hamiltonian(self) -> None:
         """
-        Gathers the constituting observables making up the hamiltonian. These include penalties for
+        Gathers and combines the constituting observables making up the hamiltonian. These include penalties for
         invalid variable states, penalties for invalid ordering and overlapping of operations and an
         optimization term to minimize the makespan of the problem
         """
+        precedence_terms: list[SparsePauliOp] = []
         for job in self.jssp_instance.jobs:
-            for operation in job.operations:
-                variable_viability_term = self._operation_start_variables[operation].viability_term(
-                    penalty=self._encoding_penalty, quantum_circuit_n_qubits=self._n_qubits
-                )
-                self._local_terms.append(variable_viability_term)
-
             for i in range(0, len(job.operations) - 1):
-                precedence_term = self._operation_precedence_term(
-                    job.operations[i], job.operations[i + 1], self._constraint_penalty
-                )
-                self._local_terms.append(precedence_term)
+                precedence_terms.append(self._operation_precedence_term(job.operations[i], job.operations[i + 1]))
 
+        overlap_terms: list[SparsePauliOp] = []
         for _, operations in self._machine_operations.items():
             if len(operations) < 2:
                 continue
             for operation_1, operation_2 in combinations(operations, 2):
-                overlap_term = self._operation_overlap_term(
-                    operation_1=operation_1, operation_2=operation_2, penalty=self._constraint_penalty
-                )
-                self._local_terms.append(overlap_term)
+                overlap_terms.append(self._operation_overlap_term(operation_1=operation_1, operation_2=operation_2))
 
-        self._local_terms.append(
-            self._makespan_optimization_term(max_value=self._max_opt_value * (1 - self._opt_all_operations_share))
+        variable_viability_terms: list[SparsePauliOp] = []
+        for job in self.jssp_instance.jobs:
+            for operation in job.operations:
+                viability_term = self._operation_start_variables[operation].viability_term(
+                    quantum_circuit_n_qubits=self._n_qubits
+                )
+                max_constraints_per_variable = 0
+                for start_time in self._operation_start_variables[operation].values:
+                    if self._operation_constraint_counts[(operation, start_time)] > max_constraints_per_variable:
+                        max_constraints_per_variable = self._operation_constraint_counts[(operation, start_time)]
+                variable_viability_terms.append((max_constraints_per_variable + 1) * viability_term)
+
+        makespan_term = self._makespan_optimization_term()
+
+        early_start_term = self._early_start_term()
+
+        self._hamiltonian = (
+            SparsePauliOp.sum(precedence_terms) * self._precedence_constraint_penalty
+            + SparsePauliOp.sum(overlap_terms) * self._overlap_constraint_penalty
+            + SparsePauliOp.sum(variable_viability_terms) * self._encoding_penalty
+            + makespan_term * (self._max_opt_value * (1 - self._opt_all_operations_share))
+            + early_start_term * (self._max_opt_value * self._opt_all_operations_share)
         )
-        self._local_terms.append(self._early_start_term(max_value=self._max_opt_value * self._opt_all_operations_share))
         self._hamiltonian_prepared = True
 
-    def _operation_overlap_term(self, operation_1: Operation, operation_2: Operation, penalty: float) -> SparsePauliOp:
+    def _operation_overlap_term(self, operation_1: Operation, operation_2: Operation) -> SparsePauliOp:
         """
         Return a SparsePauliOp observable which penalizes states in which make operation_1 and operation_2 overlap.
-        Its eigenvalues are the penalty value for all eigenstates in which operation_1 and operation_2 overlap,
+        Its eigenvalues are 1 for all eigenstates in which operation_1 and operation_2 overlap,
         and 0 for all other eigenstates
 
         :arg operation_1: operation which should not overlap operation_2
         :type operation_1: Operation
         :arg operation_2: operation which should not overlap operation_1
         :type operation_2: Operation
-        :arg penalty: penalty value which is applied if the operations overlap
-        :type penalty: float
         :return: a SparsePauliOp which penalizes variable states in which the two operations overlap
         :rtype: SparsePauliOp
         """
@@ -264,29 +266,26 @@ class JSSPDomainWallHamiltonianEncoder:
         # Penalize the states in which operations overlap
         local_terms = []
         for overlap in overlaps:
+            self._operation_constraint_counts[(operation_1, overlap[0])] += 1
+            self._operation_constraint_counts[(operation_2, overlap[1])] += 1
             local_terms.append(
-                penalty
-                * start_variable_1.value_term(value=overlap[0], quantum_circuit_n_qubits=self._n_qubits).compose(
+                start_variable_1.value_term(value=overlap[0], quantum_circuit_n_qubits=self._n_qubits).compose(
                     start_variable_2.value_term(value=overlap[1], quantum_circuit_n_qubits=self._n_qubits)
                 )
             )
 
         return SparsePauliOp.sum(local_terms)
 
-    def _operation_precedence_term(
-        self, operation_1: Operation, operation_2: Operation, penalty: float
-    ) -> SparsePauliOp:
+    def _operation_precedence_term(self, operation_1: Operation, operation_2: Operation) -> SparsePauliOp:
         """
         Returns a SparsePauliOp which penalizes states in which operation_2 starts before operation_1 ends.
-        Its eigenvalues are the penalty value for all eigenstates in which operation_2 starts before operation_1 has
+        Its eigenvalues are 1 for all eigenstates in which operation_2 starts before operation_1 has
         finished, and 0 for all other eigenstates
 
         :arg operation_1: operation which should precede operation_2
         :type operation_1: Operation
         :arg operation_2: operation which should start after (or at the same time) operation_1 has finished
         :type operation_2: Operation
-        :arg penalty: penalty value which is applied if the operation precedence is violated
-        :type penalty: float
         :return: a SparsePauliOp which penalizes variable states which violate the operation precedence
         :rtype: SparsePauliOp
         """
@@ -311,25 +310,24 @@ class JSSPDomainWallHamiltonianEncoder:
         # Penalize the states in which operation 1 does not precede operation 2
         local_terms = []
         for violation in precedence_violations:
+            self._operation_constraint_counts[(operation_1, violation[0])] += 1
+            self._operation_constraint_counts[(operation_2, violation[1])] += 1
             local_terms.append(
-                penalty
-                * start_variable_1.value_term(value=violation[0], quantum_circuit_n_qubits=self._n_qubits).compose(
+                start_variable_1.value_term(value=violation[0], quantum_circuit_n_qubits=self._n_qubits).compose(
                     start_variable_2.value_term(value=violation[1], quantum_circuit_n_qubits=self._n_qubits)
                 )
             )
 
         return SparsePauliOp.sum(local_terms)
 
-    def _makespan_optimization_term(self, max_value: float) -> SparsePauliOp:
+    def _makespan_optimization_term(self) -> SparsePauliOp:
         """
         Returns a SparsePauliOp observable which increasingly penalizes the last operation of a job,
         for increasing start times in accordance with the optimization term proposed in
         https://www.sciencedirect.com/science/article/pii/S0377221723002072 .
         Optimizing the expectation value of this observable should amount to optimizing the makespan of the JSSP.
-        The eigenvalues of this observable are scaled so that its expectation value is always smaller than max_value
+        The eigenvalues of this observable are scaled so that its expectation value always lies between 0 and 1
 
-        :arg max_value: maximum value of the optimization term
-        :type max_value: float
         :return: a SparsePauliOp which penalizes JSSP solutions with higher makespans
         :rtype: SparsePauliOp
         """
@@ -344,21 +342,18 @@ class JSSPDomainWallHamiltonianEncoder:
                 operation_end = start_time + last_operation.processing_duration
                 local_terms.append(
                     (1 / max_optimization_value)
-                    * max_value
                     * (n_jobs + 1) ** operation_end
                     * start_variable.value_term(value=start_time, quantum_circuit_n_qubits=self._n_qubits)
                 )
 
         return SparsePauliOp.sum(local_terms)
 
-    def _early_start_term(self, max_value: float) -> SparsePauliOp:
+    def _early_start_term(self) -> SparsePauliOp:
         """
         Returns a SparsePauliOp observable which penalizes all operations of all jobs linearly for starting later than
         the earliest possible start time. The eigenvalues of this observable are scaled so that its
-        expectation value is always smaller than max_value
+        expectation value always lies between 0 and 1
 
-        :arg max_value: maximum value of the optimization term
-        :type max_value: float
         :return: a SparsePauliOp which penalizes all operations which start later than necessary
         :rtype: SparsePauliOp
         """
@@ -373,7 +368,6 @@ class JSSPDomainWallHamiltonianEncoder:
                     continue
                 local_terms.append(
                     (1 / max_optimization_value)
-                    * max_value
                     * i
                     * start_variable.value_term(value=value, quantum_circuit_n_qubits=self._n_qubits)
                 )
