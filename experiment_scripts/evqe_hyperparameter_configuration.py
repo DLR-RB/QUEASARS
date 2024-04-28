@@ -140,7 +140,8 @@ def main():
                 makespan_limit=current_instance[1] + 1,
                 max_opt_value=100,
                 encoding_penalty=config["encoding_penalty"],
-                constraint_penalty=config["constraint_penalty"],
+                overlap_constraint_penalty=min(config["overlap_constraint_penalty"], config["encoding_penalty"]),
+                precedence_constraint_penalty=min(config["precedence_constraint_penalty"], config["encoding_penalty"]),
                 opt_all_operations_share=config["opt_all_operations_share"],
             )
             hamiltonian = encoder.get_problem_hamiltonian()
@@ -187,7 +188,8 @@ def main():
         Float("topological_search", (0, 1), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
         Float("encoding_penalty", (110, 1000), default=300),
-        Float("constraint_penalty", (110, 1000), default=150),
+        Float("overlap_constraint_penalty", (110, 1000), default=150),
+        Float("precedence_constraint_penalty", (110, 1000), default=150),
         Float("opt_all_operations_share", (0, 0.5), default=0.25),
     ]
     space = ConfigurationSpace()

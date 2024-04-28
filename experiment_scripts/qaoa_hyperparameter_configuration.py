@@ -51,19 +51,7 @@ def main():
         all_problem_instances = load(fp=file, cls=JSSPJSONDecoder)
 
     problem_instances = all_problem_instances[12][: args.n_instances]
-    labeled_instances = {
-        "instance_"
-        + str(i): (
-            JSSPDomainWallHamiltonianEncoder(
-                jssp_instance=instance[0],
-                makespan_limit=instance[1] + 1,
-                opt_all_operations_share=0.25,
-                constraint_penalty=150,
-            ),
-            instance[1],
-        )
-        for i, instance in enumerate(problem_instances)
-    }
+    labeled_instances = {"instance_" + str(i): instance for i, instance in enumerate(problem_instances)}
     instance_features = {label: [i] for i, label in enumerate(labeled_instances.keys())}
 
     def target_function(config: Configuration, instance: str, seed: int):
@@ -87,7 +75,17 @@ def main():
 
         solver = QAOA(sampler=sampler_primitive, optimizer=optimizer, aggregation=0.5)
 
-        hamiltonian = labeled_instances[instance][0].get_problem_hamiltonian()
+        current_instance = labeled_instances[instance]
+        encoder = JSSPDomainWallHamiltonianEncoder(
+            jssp_instance=current_instance[0],
+            makespan_limit=current_instance[1] + 1,
+            max_opt_value=100,
+            encoding_penalty=config["encoding_penalty"],
+            overlap_constraint_penalty=min(config["overlap_constraint_penalty"], config["encoding_penalty"]),
+            precedence_constraint_penalty=min(config["precedence_constraint_penalty"], config["encoding_penalty"]),
+            opt_all_operations_share=config["opt_all_operations_share"],
+        )
+        hamiltonian = encoder.get_problem_hamiltonian()
 
         result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
@@ -98,7 +96,7 @@ def main():
 
         result_value = 0.0
         for bitstring, probability in quasi_distribution.items():
-            parsed_result = labeled_instances[instance][0].translate_result_bitstring(bitstring=bitstring)
+            parsed_result = encoder.translate_result_bitstring(bitstring=bitstring)
             if not parsed_result.is_valid:
                 result_value += probability * 100
             elif not parsed_result.makespan == labeled_instances[instance][1]:
