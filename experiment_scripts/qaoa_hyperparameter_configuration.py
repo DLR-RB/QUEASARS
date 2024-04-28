@@ -117,6 +117,10 @@ def main():
         Float("learning_rate", (5e-2, 0.5), default=0.1, q=0.05),
         Integer("last_avg", (1, 4), default=1, q=1),
         Integer("resamplings", (1, 4), default=1, q=1),
+        Float("encoding_penalty", (110, 1000), default=300),
+        Float("overlap_constraint_penalty", (110, 1000), default=150),
+        Float("precedence_constraint_penalty", (110, 1000), default=150),
+        Float("opt_all_operations_share", (0, 0.5), default=0.25),
     ]
     space = ConfigurationSpace()
     space.add_hyperparameters(params)
