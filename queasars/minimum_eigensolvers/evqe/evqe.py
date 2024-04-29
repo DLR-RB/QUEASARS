@@ -87,6 +87,11 @@ class EVQEMinimumEigensolverConfiguration:
         a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
         by dask, otherwise the computation will fail. If no parallel_executor is provided a ThreadPoolExecutor
         with as many threads as population_size will be launched
+    :param n_initial_layers: number of layers with which the individuals in the initial population are initialized.
+        By default, this is set to 1. This should only be increased, if randomize_initial_population_parameters
+        is set to True, or the parameter_search_probability is high. Otherwise, the added layers may start as an
+        identity operator and only seldom be optimized, minimizing their effect.
+    :type n_initial_layers: int
     :param randomize_initial_population_parameters: Determines whether the parameter values of the individuals in
         the first population shall be initialized randomly or at 0. By default, the parameter values in the
         initial population are initialized randomly
@@ -116,6 +121,7 @@ class EVQEMinimumEigensolverConfiguration:
     parameter_search_probability: float
     topological_search_probability: float
     layer_removal_probability: float
+    n_initial_layers: int = 1
     randomize_initial_population_parameters: bool = True
     parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
     mutually_exclusive_primitives: bool = True
@@ -132,6 +138,11 @@ class EVQEMinimumEigensolverConfiguration:
             raise ValueError("The topological_search_probability must not exceed the range (0, 1)!")
         if not 0 <= self.layer_removal_probability <= 1:
             raise ValueError("The layer_removal_probability must not exceed the range (0, 1)!")
+        if self.n_initial_layers < 1:
+            raise ValueError(
+                "The number of initial layers for each individual "
+                + f"of the population must be at least 1! But it was {self.n_initial_layers}!"
+            )
 
 
 class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
@@ -146,7 +157,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
 
         population_initializer: Callable[[int], EVQEPopulation] = lambda n_qubits: EVQEPopulation.random_population(
             n_qubits=n_qubits,
-            n_layers=1,
+            n_layers=configuration.n_initial_layers,
             n_individuals=configuration.population_size,
             randomize_parameter_values=configuration.randomize_initial_population_parameters,
             random_seed=new_random_seed(random_generator=self.random_generator),
