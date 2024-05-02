@@ -334,9 +334,7 @@ class JSSPDomainWallHamiltonianEncoder:
         :return: a SparsePauliOp which penalizes all operations which start later than necessary
         :rtype: SparsePauliOp
         """
-        max_optimization_value = sum(
-            (variable.n_qubits**2 + variable.n_qubits) / 2 for variable in self._operation_start_variables.values()
-        )
+        max_optimization_value = sum(len(variable.values) - 1 for variable in self._operation_start_variables.values())
 
         local_terms = []
         for start_variable in self._operation_start_variables.values():
