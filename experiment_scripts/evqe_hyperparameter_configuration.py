@@ -72,8 +72,6 @@ def main():
 
         optimizer = SPSA(
             maxiter=config["maxiter"],
-            blocking=bool(config["blocking"]),
-            allowed_increase=config["allowed_increase"],
             trust_region=bool(config["trust_region"]),
             perturbation=config["perturbation"],
             learning_rate=config["learning_rate"],
@@ -93,7 +91,9 @@ def main():
 
         population_size = 10
 
-        randomize_initial_population_parameters = False
+        randomize_initial_population_parameters = bool(config["randomize_initial_parameters"])
+
+        n_initial_layers = config["n_initial_layers"]
 
         speciation_genetic_distance_threshold = config["genetic_distance"]
 
@@ -122,6 +122,7 @@ def main():
                 random_seed=random_seed,
                 population_size=population_size,
                 randomize_initial_population_parameters=randomize_initial_population_parameters,
+                n_initial_layers=n_initial_layers,
                 speciation_genetic_distance_threshold=speciation_genetic_distance_threshold,
                 selection_alpha_penalty=selection_alpha_penalty,
                 selection_beta_penalty=selection_beta_penalty,
@@ -146,8 +147,11 @@ def main():
             )
             hamiltonian = encoder.get_problem_hamiltonian()
 
-            initial_state = QuantumCircuit(hamiltonian.num_qubits)
-            initial_state.h(range(0, hamiltonian.num_qubits))
+            if bool(config["start_in_superposition"]):
+                initial_state = QuantumCircuit(hamiltonian.num_qubits)
+                initial_state.h(range(0, hamiltonian.num_qubits))
+            else:
+                initial_state = None
 
             result = solver.compute_minimum_eigenvalue_with_initial_state(
                 operator=hamiltonian, initial_state_circuit=initial_state
@@ -174,8 +178,6 @@ def main():
 
     params = [
         Integer("maxiter", (1, 50), default=10),
-        Integer("blocking", (0, 1), default=0),
-        Integer("allowed_increase", (0, 100)),
         Integer("trust_region", (0, 1), default=0),
         Float("perturbation", (1e-2, 0.5), default=0.1),
         Float("learning_rate", (1e-2, 0.5), default=0.1),
@@ -187,6 +189,9 @@ def main():
         Float("parameter_search", (0, 0.5), default=0.25),
         Float("topological_search", (0, 1), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
+        Integer("randomize_initial_parameters", (0, 1), default=0),
+        Integer("n_initial_layers", (1, 2), default=1),
+        Integer("start_in_superposition", (0, 1), default=0),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),
         Float("precedence_constraint_penalty", (110, 1000), default=150),
