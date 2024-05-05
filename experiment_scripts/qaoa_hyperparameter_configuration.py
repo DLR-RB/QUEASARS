@@ -84,7 +84,7 @@ def main():
                 resamplings=config["resamplings"],
                 termination_checker=criterion.termination_check,
             )
-            solver = QAOA(sampler=sampler_primitive, optimizer=optimizer, aggregation=0.5)
+            solver = QAOA(sampler=sampler_primitive, optimizer=optimizer, aggregation=0.5, reps=2)
 
             result = solver.compute_minimum_eigenvalue(hamiltonian)
 
