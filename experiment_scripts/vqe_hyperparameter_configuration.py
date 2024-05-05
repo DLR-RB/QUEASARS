@@ -125,7 +125,16 @@ def main():
         result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
         circ = result.optimal_circuit
-        circ = circ.assign_parameters(criterion.best_parameter_values)
+
+        try:
+            params = criterion.best_parameter_values
+        except ValueError:
+            return {
+                "result_value": float("inf"),
+                "circuit_evaluations": float("inf"),
+            }
+
+        circ = circ.assign_parameters(params)
         meas = sampler_primitive.run(circ)
         quasi_distribution = meas.result().quasi_dists[0].binary_probabilities()
 
