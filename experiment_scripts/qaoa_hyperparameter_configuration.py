@@ -56,25 +56,6 @@ def main():
 
     def target_function(config: Configuration, instance: str, seed: int):
 
-        QiskitAlgorithmGlobals.random_seed = seed
-        sampler_primitive = Sampler(run_options={"seed": seed})
-
-        criterion = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=4)
-
-        optimizer = SPSA(
-            maxiter=1000,
-            blocking=bool(config["blocking"]),
-            allowed_increase=config["allowed_increase"],
-            trust_region=bool(config["trust_region"]),
-            perturbation=config["perturbation"],
-            learning_rate=config["learning_rate"],
-            last_avg=config["last_avg"],
-            resamplings=config["resamplings"],
-            termination_checker=criterion.termination_check,
-        )
-
-        solver = QAOA(sampler=sampler_primitive, optimizer=optimizer, aggregation=0.5)
-
         current_instance = labeled_instances[instance]
         encoder = JSSPDomainWallHamiltonianEncoder(
             jssp_instance=current_instance[0],
@@ -87,38 +68,58 @@ def main():
         )
         hamiltonian = encoder.get_problem_hamiltonian()
 
-        with Client(scheduler_file="qaoa_scheduler.json") as client:
-            future = client.submit(solver.compute_minimum_eigenvalue, hamiltonian)
-            result = future.result()
+        def solve(hamiltonian):
+            QiskitAlgorithmGlobals.random_seed = seed
+            sampler_primitive = Sampler(run_options={"seed": seed})
 
-        circ = result.optimal_circuit
+            criterion = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=4)
+            optimizer = SPSA(
+                maxiter=1000,
+                blocking=bool(config["blocking"]),
+                allowed_increase=config["allowed_increase"],
+                trust_region=bool(config["trust_region"]),
+                perturbation=config["perturbation"],
+                learning_rate=config["learning_rate"],
+                last_avg=config["last_avg"],
+                resamplings=config["resamplings"],
+                termination_checker=criterion.termination_check,
+            )
+            solver = QAOA(sampler=sampler_primitive, optimizer=optimizer, aggregation=0.5)
 
-        try:
-            params = criterion.best_parameter_values
-        except ValueError:
+            result = solver.compute_minimum_eigenvalue(hamiltonian)
+
+            circ = result.optimal_circuit
+
+            try:
+                params = criterion.best_parameter_values
+            except ValueError:
+                return {
+                    "result_value": float("inf"),
+                    "circuit_evaluations": float("inf"),
+                }
+
+            circ = circ.assign_parameters(params)
+            meas = sampler_primitive.run(circ)
+            quasi_distribution = meas.result().quasi_dists[0].binary_probabilities()
+
+            result_value = 0.0
+            for bitstring, probability in quasi_distribution.items():
+                parsed_result = encoder.translate_result_bitstring(bitstring=bitstring)
+                if not parsed_result.is_valid:
+                    result_value += probability * 100
+                elif not parsed_result.makespan == labeled_instances[instance][1]:
+                    result_value += probability * 50
+                else:
+                    pass
+
             return {
-                "result_value": float("inf"),
-                "circuit_evaluations": float("inf"),
+                "result_value": result_value,
+                "circuit_evaluations": criterion.n_function_evaluations,
             }
 
-        circ = circ.assign_parameters(params)
-        meas = sampler_primitive.run(circ)
-        quasi_distribution = meas.result().quasi_dists[0].binary_probabilities()
-
-        result_value = 0.0
-        for bitstring, probability in quasi_distribution.items():
-            parsed_result = encoder.translate_result_bitstring(bitstring=bitstring)
-            if not parsed_result.is_valid:
-                result_value += probability * 100
-            elif not parsed_result.makespan == labeled_instances[instance][1]:
-                result_value += probability * 50
-            else:
-                pass
-
-        return {
-            "result_value": result_value,
-            "circuit_evaluations": criterion.n_function_evaluations,
-        }
+        with Client(scheduler_file="qaoa_scheduler.json") as client:
+            future = client.submit(solve, hamiltonian)
+            return future.result()
 
     params = [
         Integer("blocking", (0, 1), default=0),
