@@ -106,7 +106,7 @@ def main():
 
         layer_removal_probability = config["layer_removal"]
 
-        with Client(scheduler_file="scheduler.json") as parallel_executor:
+        with Client(scheduler_file="evqe_scheduler.json") as parallel_executor:
             parallel_executor = parallel_executor
 
             mutually_exclusive_primitives = False
@@ -223,7 +223,7 @@ def main():
             LocalCluster(n_workers=args.n_workers, processes=True, threads_per_worker=1) as calculation_cluster,
             Client(calculation_cluster) as calculation_client,
         ):
-            calculation_client.write_scheduler_file("scheduler.json")
+            calculation_client.write_scheduler_file("evqe_scheduler.json")
 
             facade = AlgorithmConfigurationFacade(
                 scenario,

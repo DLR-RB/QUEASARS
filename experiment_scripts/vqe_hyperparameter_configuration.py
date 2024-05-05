@@ -122,7 +122,9 @@ def main():
         ansatz_circuit = ansatz(n_qubits=hamiltonian.num_qubits, layers=2)
         solver = SamplingVQE(sampler=sampler_primitive, optimizer=optimizer, ansatz=ansatz_circuit, aggregation=0.5)
 
-        result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
+        with Client(scheduler_file="evqe_scheduler.json") as client:
+            future = client.submit(solver.compute_minimum_eigenvalue, hamiltonian)
+            result = future.result()
 
         circ = result.optimal_circuit
 
@@ -188,32 +190,38 @@ def main():
         LocalCluster(n_workers=args.n_workers, processes=True, threads_per_worker=1) as smac_cluster,
         Client(smac_cluster) as smac_client,
     ):
-        facade = AlgorithmConfigurationFacade(
-            scenario,
-            target_function=target_function,
-            config_selector=selector,
-            multi_objective_algorithm=ParEGO(scenario),
-            overwrite=args.overwrite,
-            logging_level=10,
-            dask_client=smac_client,
-        )
+        with (
+            LocalCluster(n_workers=args.n_workers, processes=True, threads_per_worker=1) as calculation_cluster,
+            Client(calculation_cluster) as calculation_client,
+        ):
+            calculation_client.write_scheduler_file("vqe_scheduler.json")
 
-        incumbents = facade.optimize()
+            facade = AlgorithmConfigurationFacade(
+                scenario,
+                target_function=target_function,
+                config_selector=selector,
+                multi_objective_algorithm=ParEGO(scenario),
+                overwrite=args.overwrite,
+                logging_level=10,
+                dask_client=smac_client,
+            )
 
-        if not isinstance(incumbents, list):
-            incumbents = [incumbents]
+            incumbents = facade.optimize()
 
-        serializables = []
-        for incumbent in incumbents:
-            average_cost = facade.runhistory.average_cost(incumbent)
-            labeled_cost = list(zip(scenario.objectives, average_cost))
-            incumbent_dict = dict(incumbent)
-            serializables.append([incumbent.config_id, labeled_cost, incumbent_dict])
+            if not isinstance(incumbents, list):
+                incumbents = [incumbents]
 
-        file_path = Path(Path(__file__).parent, "smac_results", f"vqe_smac_result_{args.trial_name}.json")
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(file_path, "w") as file:
-            dump(obj=serializables, fp=file, indent=2)
+            serializables = []
+            for incumbent in incumbents:
+                average_cost = facade.runhistory.average_cost(incumbent)
+                labeled_cost = list(zip(scenario.objectives, average_cost))
+                incumbent_dict = dict(incumbent)
+                serializables.append([incumbent.config_id, labeled_cost, incumbent_dict])
+
+            file_path = Path(Path(__file__).parent, "smac_results", f"vqe_smac_result_{args.trial_name}.json")
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(file_path, "w") as file:
+                dump(obj=serializables, fp=file, indent=2)
 
     time.sleep(5)
 
