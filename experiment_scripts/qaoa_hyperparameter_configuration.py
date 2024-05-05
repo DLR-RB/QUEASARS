@@ -110,13 +110,13 @@ def main():
         }
 
     params = [
-        Integer("blocking", (0, 1), default=0, q=1),
-        Integer("allowed_increase", (10, 250), q=10),
-        Integer("trust_region", (0, 1), default=0, q=1),
-        Float("perturbation", (5e-2, 0.5), default=0.1, q=0.05),
-        Float("learning_rate", (5e-2, 0.5), default=0.1, q=0.05),
-        Integer("last_avg", (1, 4), default=1, q=1),
-        Integer("resamplings", (1, 4), default=1, q=1),
+        Integer("blocking", (0, 1), default=0),
+        Float("allowed_increase", (0, 500)),
+        Integer("trust_region", (0, 1), default=0),
+        Float("perturbation", (1e-2, 0.5), default=0.1),
+        Float("learning_rate", (1e-2, 0.5), default=0.1),
+        Integer("last_avg", (1, 4), default=1),
+        Integer("resamplings", (1, 4), default=1),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),
         Float("precedence_constraint_penalty", (110, 1000), default=150),
