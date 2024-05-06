@@ -16,7 +16,7 @@ from smac.main.config_selector import ConfigSelector
 
 from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
-from queasars.minimum_eigensolvers.base.termination_criteria import PopulationChangeRelativeTolerance
+from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeChangeTolerance
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfiguration, EVQEMinimumEigensolver
 
 
@@ -72,6 +72,8 @@ def main():
 
         optimizer = SPSA(
             maxiter=config["maxiter"],
+            blocking=bool(config["blocking"]),
+            allowed_increase=config["allowed_increase"],
             trust_region=bool(config["trust_region"]),
             perturbation=config["perturbation"],
             learning_rate=config["learning_rate"],
@@ -83,13 +85,13 @@ def main():
 
         max_generations = None
         max_circuit_evaluations = 30000
-        termination_criterion = PopulationChangeRelativeTolerance(
-            minimum_relative_change=0.01, allowed_consecutive_violations=2
+        termination_criterion = BestIndividualRelativeChangeTolerance(
+            minimum_relative_change=0.01, allowed_consecutive_violations=1
         )
 
         random_seed = seed
 
-        population_size = 10
+        population_size = config["population_size"]
 
         randomize_initial_population_parameters = bool(config["randomize_initial_parameters"])
 
@@ -105,6 +107,9 @@ def main():
         topological_search_probability = config["topological_search"]
 
         layer_removal_probability = config["layer_removal"]
+
+        use_tournament_selection = bool(config["tournament_selection"])
+        tournament_size = min(config["tournament_size"], population_size)
 
         with Client(scheduler_file="evqe_scheduler.json") as parallel_executor:
             parallel_executor = parallel_executor
@@ -131,6 +136,8 @@ def main():
                 layer_removal_probability=layer_removal_probability,
                 parallel_executor=parallel_executor,
                 mutually_exclusive_primitives=mutually_exclusive_primitives,
+                use_tournament_selection=use_tournament_selection,
+                tournament_size=tournament_size,
             )
 
             solver = EVQEMinimumEigensolver(configuration=configuration)
@@ -177,18 +184,23 @@ def main():
             }
 
     params = [
-        Integer("maxiter", (1, 50), default=10),
+        Integer("maxiter", (1, 100), default=10),
+        Integer("blocking", (0, 1), default=0),
+        Float("allowed_increase", (0, 500)),
         Integer("trust_region", (0, 1), default=0),
         Float("perturbation", (1e-2, 0.5), default=0.1),
         Float("learning_rate", (1e-2, 0.5), default=0.1),
         Integer("last_avg", (1, 4), default=1),
         Integer("resamplings", (1, 4), default=1),
+        Integer("population_size", (5, 20), default=10),
         Integer("genetic_distance", (1, 5), default=2),
         Float("alpha_penalty", (0, 1), default=1),
         Float("beta_penalty", (0, 1), default=0.1),
         Float("parameter_search", (0, 0.5), default=0.25),
         Float("topological_search", (0, 1), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
+        Integer("tournament_selection", (0, 1), default=1),
+        Integer("tournament_size", (1, 20), default=3),
         Integer("randomize_initial_parameters", (0, 1), default=0),
         Integer("n_initial_layers", (1, 2), default=1),
         Integer("start_in_superposition", (0, 1), default=0),
