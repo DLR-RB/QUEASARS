@@ -19,6 +19,7 @@ from queasars.job_shop_scheduling.serialization import JSSPJSONDecoder
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
 from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeChangeTolerance
 from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolverConfiguration, EVQEMinimumEigensolver
+from queasars.utility.spsa_termination import SPSATerminationChecker
 
 
 def count_controlled_gates(circuit):
@@ -71,6 +72,7 @@ def main():
         sampler_primitive = Sampler(run_options={"seed": seed})
         estimator_primitive = _DiagonalEstimator(sampler=sampler_primitive, aggregation=0.5)
 
+        termination_checker = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=4)
         optimizer = SPSA(
             maxiter=config["maxiter"],
             blocking=bool(config["blocking"]),
@@ -80,6 +82,7 @@ def main():
             learning_rate=config["learning_rate"],
             last_avg=config["last_avg"],
             resamplings=config["resamplings"],
+            termination_checker=termination_checker.termination_check,
         )
 
         optimizer_n_circuit_evaluations = config["maxiter"] * 2 * config["resamplings"]
@@ -194,14 +197,14 @@ def main():
         Integer("last_avg", (1, 4), default=1),
         Integer("resamplings", (1, 4), default=1),
         Integer("population_size", (5, 20), default=10),
-        Integer("genetic_distance", (1, 5), default=2),
+        Integer("genetic_distance", (2, 5), default=2),
         Float("alpha_penalty", (0, 1), default=1),
         Float("beta_penalty", (0, 1), default=0.1),
         Float("parameter_search", (0, 0.5), default=0.25),
         Float("topological_search", (0, 1), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
         Integer("tournament_selection", (0, 1), default=1),
-        Float("tournament_size", (0.1, 0.75), default=0.2),
+        Float("tournament_size", (0.1, 1), default=0.2),
         Integer("randomize_initial_parameters", (0, 1), default=0),
         Integer("n_initial_layers", (1, 2), default=1),
         Integer("start_in_superposition", (0, 1), default=0),
