@@ -3,6 +3,7 @@ from pathlib import Path
 from json import load, dump
 from argparse import ArgumentParser
 from datetime import datetime
+from math import floor
 
 from dask.distributed import LocalCluster, Client
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer
@@ -109,7 +110,7 @@ def main():
         layer_removal_probability = config["layer_removal"]
 
         use_tournament_selection = bool(config["tournament_selection"])
-        tournament_size = min(config["tournament_size"], population_size)
+        tournament_size = max(2, floor(config["tournament_size"] * population_size))
 
         with Client(scheduler_file="evqe_scheduler.json") as parallel_executor:
             parallel_executor = parallel_executor
@@ -200,7 +201,7 @@ def main():
         Float("topological_search", (0, 1), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
         Integer("tournament_selection", (0, 1), default=1),
-        Integer("tournament_size", (1, 20), default=3),
+        Float("tournament_size", (0.1, 0.75), default=0.2),
         Integer("randomize_initial_parameters", (0, 1), default=0),
         Integer("n_initial_layers", (1, 2), default=1),
         Integer("start_in_superposition", (0, 1), default=0),
