@@ -72,7 +72,13 @@ def main():
         sampler_primitive = Sampler(run_options={"seed": seed})
         estimator_primitive = _DiagonalEstimator(sampler=sampler_primitive, aggregation=0.5)
 
-        termination_checker = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=4)
+        if bool(config["optimizer_terminate_early"]):
+            termination_checker = SPSATerminationChecker(
+                minimum_relative_change=0.01,
+                allowed_consecutive_violations=config["optimizer_allowed_consecutive_violations"],
+            )
+        else:
+            termination_checker = None
         optimizer = SPSA(
             maxiter=config["maxiter"],
             blocking=bool(config["blocking"]),
@@ -97,9 +103,9 @@ def main():
 
         population_size = config["population_size"]
 
-        randomize_initial_population_parameters = bool(config["randomize_initial_parameters"])
+        randomize_initial_population_parameters = True
 
-        n_initial_layers = config["n_initial_layers"]
+        n_initial_layers = 2
 
         speciation_genetic_distance_threshold = config["genetic_distance"]
 
@@ -112,8 +118,8 @@ def main():
 
         layer_removal_probability = config["layer_removal"]
 
-        use_tournament_selection = bool(config["tournament_selection"])
-        tournament_size = max(2, floor(config["tournament_size"] * population_size))
+        use_tournament_selection = True
+        tournament_size = 2
 
         with Client(scheduler_file="evqe_scheduler.json") as parallel_executor:
             parallel_executor = parallel_executor
@@ -158,15 +164,7 @@ def main():
             )
             hamiltonian = encoder.get_problem_hamiltonian()
 
-            if bool(config["start_in_superposition"]):
-                initial_state = QuantumCircuit(hamiltonian.num_qubits)
-                initial_state.h(range(0, hamiltonian.num_qubits))
-            else:
-                initial_state = None
-
-            result = solver.compute_minimum_eigenvalue_with_initial_state(
-                operator=hamiltonian, initial_state_circuit=initial_state
-            )
+            result = solver.compute_minimum_eigenvalue(operator=hamiltonian)
 
             quasi_distribution = result.eigenstate.binary_probabilities()
 
@@ -192,26 +190,23 @@ def main():
         Integer("blocking", (0, 1), default=0),
         Float("allowed_increase", (0, 500)),
         Integer("trust_region", (0, 1), default=0),
-        Float("perturbation", (1e-2, 0.5), default=0.1),
-        Float("learning_rate", (1e-2, 0.5), default=0.1),
+        Float("perturbation", (1e-2, 0.5), default=0.2),
+        Float("learning_rate", (1e-2, 0.5), default=0.2),
         Integer("last_avg", (1, 4), default=1),
         Integer("resamplings", (1, 4), default=1),
+        Integer("optimizer_terminate_early", (0, 1), default=1),
+        Integer("optimizer_allowed_consecutive_violations", (1, 4), default=1),
         Integer("population_size", (5, 20), default=10),
         Integer("genetic_distance", (2, 5), default=2),
-        Float("alpha_penalty", (0, 1), default=1),
+        Float("alpha_penalty", (0, 1), default=0.1),
         Float("beta_penalty", (0, 1), default=0.1),
         Float("parameter_search", (0, 0.5), default=0.25),
-        Float("topological_search", (0, 1), default=0.4),
+        Float("topological_search", (0, 0.75), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
-        Integer("tournament_selection", (0, 1), default=1),
-        Float("tournament_size", (0.1, 1), default=0.2),
-        Integer("randomize_initial_parameters", (0, 1), default=0),
-        Integer("n_initial_layers", (1, 2), default=1),
-        Integer("start_in_superposition", (0, 1), default=0),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),
         Float("precedence_constraint_penalty", (110, 1000), default=150),
-        Float("opt_all_operations_share", (0, 0.5), default=0.25),
+        Float("opt_all_operations_share", (0.1, 0.5), default=0.5),
     ]
     space = ConfigurationSpace()
     space.add_hyperparameters(params)
