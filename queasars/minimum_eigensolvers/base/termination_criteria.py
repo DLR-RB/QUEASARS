@@ -131,8 +131,11 @@ class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBase
             self._previous_expectation_value
         )
         self._previous_expectation_value = population_evaluation.best_expectation_value
-
         self._relative_change_history.append(relative_change)
+
+        if len(self._relative_change_history) < self._allowed_consecutive_violations + 1:
+            return False
+
         max_change = max(self._relative_change_history[-self._allowed_consecutive_violations - 1 :])
 
         return not max_change >= self._minimum_relative_change
