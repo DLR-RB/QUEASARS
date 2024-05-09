@@ -73,10 +73,11 @@ def main():
         estimator_primitive = _DiagonalEstimator(sampler=sampler_primitive, aggregation=0.5)
 
         if bool(config["optimizer_terminate_early"]):
-            termination_checker = SPSATerminationChecker(
+            criterion = SPSATerminationChecker(
                 minimum_relative_change=0.01,
                 allowed_consecutive_violations=config["optimizer_allowed_consecutive_violations"],
             )
+            termination_checker = criterion.termination_check
         else:
             termination_checker = None
         optimizer = SPSA(
@@ -88,7 +89,7 @@ def main():
             learning_rate=config["learning_rate"],
             last_avg=config["last_avg"],
             resamplings=config["resamplings"],
-            termination_checker=termination_checker.termination_check,
+            termination_checker=termination_checker,
         )
 
         optimizer_n_circuit_evaluations = config["maxiter"] * 2 * config["resamplings"]
