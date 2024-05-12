@@ -19,17 +19,22 @@ class SPSATerminationChecker:
         falls below the threshold value. If set to 2 for example, this terminates the first time the change falls below
         the threshold three consecutive times. Must be at least 0.
     :type allowed_consecutive_violations: int
+    :param maxfev: maximum amount of function evaluations the SPSA optimizer may utilize
+    :type maxfev: Optional[int]
     """
 
-    def __init__(self, minimum_relative_change: float, allowed_consecutive_violations: int):
+    def __init__(
+        self, minimum_relative_change: float, allowed_consecutive_violations: int, maxfev: Optional[int] = None
+    ):
         self._minimum_relative_change: float = minimum_relative_change
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
+        self._maxfev: Optional[int] = maxfev
         self._function_value_history: list[float] = []
         self._change_history: list[float] = []
         self._n_function_evaluations = 0
         self._best_function_value: float = float("inf")
         self._best_parameter_values: Optional[NDArray] = None
-        self._done = False
+        self._done: bool = False
 
     def termination_check(
         self,
@@ -51,6 +56,13 @@ class SPSATerminationChecker:
             self._done = False
 
         self._n_function_evaluations = n_function_evaluations
+
+        if self._maxfev is not None and self._n_function_evaluations >= self._maxfev:
+            return True
+
+        if not accepted:
+            return False
+
         self._function_value_history.append(function_value)
 
         if function_value < self._best_function_value:

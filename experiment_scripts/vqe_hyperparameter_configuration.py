@@ -106,9 +106,11 @@ def main():
             QiskitAlgorithmGlobals.random_seed = seed
             sampler_primitive = Sampler(run_options={"seed": seed})
 
-            criterion = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=4)
+            criterion = SPSATerminationChecker(
+                minimum_relative_change=0.01, allowed_consecutive_violations=9, maxfev=5000
+            )
             optimizer = SPSA(
-                maxiter=1000,
+                maxiter=2500,
                 blocking=bool(config["blocking"]),
                 allowed_increase=config["allowed_increase"],
                 trust_region=bool(config["trust_region"]),
