@@ -119,7 +119,7 @@ def main():
                 termination_checker=criterion.termination_check,
             )
 
-            ansatz_circuit = ansatz(n_qubits=hamiltonian.num_qubits, layers=2)
+            ansatz_circuit = ansatz(n_qubits=hamiltonian.num_qubits, layers=config["repetitions"])
             solver = SamplingVQE(sampler=sampler_primitive, optimizer=optimizer, ansatz=ansatz_circuit, aggregation=0.5)
 
             result = solver.compute_minimum_eigenvalue(hamiltonian)
@@ -164,6 +164,7 @@ def main():
         Float("learning_rate", (1e-2, 0.5), default=0.1),
         Integer("last_avg", (1, 4), default=1),
         Integer("resamplings", (1, 4), default=1),
+        Integer("repetitions", (2, 4), default=2),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),
         Float("precedence_constraint_penalty", (110, 1000), default=150),
