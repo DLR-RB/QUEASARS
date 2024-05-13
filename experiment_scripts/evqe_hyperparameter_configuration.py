@@ -72,14 +72,13 @@ def main():
         sampler_primitive = Sampler(run_options={"seed": seed})
         estimator_primitive = _DiagonalEstimator(sampler=sampler_primitive, aggregation=0.5)
 
-        if bool(config["optimizer_terminate_early"]):
-            criterion = SPSATerminationChecker(
-                minimum_relative_change=0.01,
-                allowed_consecutive_violations=config["optimizer_allowed_consecutive_violations"],
-            )
-            termination_checker = criterion.termination_check
-        else:
-            termination_checker = None
+        criterion = SPSATerminationChecker(
+            minimum_relative_change=0.01,
+            allowed_consecutive_violations=config["optimizer_allowed_consecutive_violations"],
+            maxfev=250,
+        )
+        termination_checker = criterion.termination_check
+
         optimizer = SPSA(
             maxiter=config["maxiter"],
             blocking=bool(config["blocking"]),
@@ -102,7 +101,7 @@ def main():
 
         random_seed = seed
 
-        population_size = config["population_size"]
+        population_size = 10
 
         randomize_initial_population_parameters = True
 
@@ -195,14 +194,12 @@ def main():
         Float("learning_rate", (1e-2, 0.5), default=0.2),
         Integer("last_avg", (1, 4), default=1),
         Integer("resamplings", (1, 4), default=1),
-        Integer("optimizer_terminate_early", (0, 1), default=1),
-        Integer("optimizer_allowed_consecutive_violations", (1, 4), default=1),
-        Integer("population_size", (5, 20), default=10),
+        Integer("optimizer_allowed_consecutive_violations", (1, 9), default=1),
         Integer("genetic_distance", (2, 5), default=2),
         Float("alpha_penalty", (0, 1), default=0.1),
         Float("beta_penalty", (0, 1), default=0.1),
         Float("parameter_search", (0, 0.5), default=0.25),
-        Float("topological_search", (0, 0.75), default=0.4),
+        Float("topological_search", (0.4, 0.8), default=0.4),
         Float("layer_removal", (0, 0.25), default=0.05),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),

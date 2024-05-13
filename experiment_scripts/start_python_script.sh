@@ -60,11 +60,5 @@ else
         sbatch_args="--cluster=${cluster_cpu} --partition=${partition_cpu} --nodes=${nodes} --ntasks-per-node=${tasks} --cpus-per-task=${cpus} --mem=${memory} --time=${time}"
 fi
 
-job_id="$(squeue -u $USER | tail -1| awk '{print $1}')"
-if ! [ "$job_id" == "JOBID" ]; then
-        echo Reconnecting to Job "$job_id"
-        srun --pty --jobid $job_id bash -i
-else
-        echo Starting new Job
-        sbatch $sbatch_args experiment_scripts/_start_python_job.sh --env "$conda_env" --script_name "$script" --script_args "$script_args"
-fi
+echo Starting new Job
+sbatch $sbatch_args experiment_scripts/_start_python_job.sh --env "$conda_env" --script_name "$script" --script_args "$script_args"
