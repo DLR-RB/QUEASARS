@@ -186,7 +186,7 @@ def main():
             }
 
     params = [
-        Integer("maxiter", (1, 100), default=10),
+        Integer("maxiter", (10, 50), default=20),
         Integer("blocking", (0, 1), default=0),
         Float("allowed_increase", (0, 500)),
         Integer("trust_region", (0, 1), default=0),
@@ -194,13 +194,13 @@ def main():
         Float("learning_rate", (1e-2, 0.5), default=0.2),
         Integer("last_avg", (1, 4), default=1),
         Integer("resamplings", (1, 4), default=1),
-        Integer("optimizer_allowed_consecutive_violations", (1, 9), default=1),
-        Integer("genetic_distance", (2, 5), default=2),
-        Float("alpha_penalty", (0, 1), default=0.1),
-        Float("beta_penalty", (0, 1), default=0.1),
+        Integer("optimizer_allowed_consecutive_violations", (1, 9), default=2),
+        Integer("genetic_distance", (1, 3), default=2),
+        Float("alpha_penalty", (0, 0.4), default=0.1),
+        Float("beta_penalty", (0, 0.4), default=0.1),
         Float("parameter_search", (0, 0.5), default=0.25),
         Float("topological_search", (0.4, 0.8), default=0.4),
-        Float("layer_removal", (0, 0.25), default=0.05),
+        Float("layer_removal", (0, 0.15), default=0.05),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),
         Float("precedence_constraint_penalty", (110, 1000), default=150),
