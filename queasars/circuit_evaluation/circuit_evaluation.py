@@ -3,17 +3,20 @@
 
 from abc import ABC, abstractmethod
 from typing import Union, Optional
+from warnings import warn
 
 from numpy import real
-
 from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimator, BaseSampler, EstimatorResult, SamplerResult, PrimitiveJob
 from qiskit.quantum_info.operators.base_operator import BaseOperator
+from qiskit.quantum_info.operators import SparsePauliOp
 from qiskit.result import QuasiDistribution
 
-from qiskit_algorithms.minimum_eigensolvers.diagonal_estimator import _DiagonalEstimator
-
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
+from queasars.circuit_evaluation.expectation_calculation import (
+    get_expectation_with_operator,
+    get_expectation_with_bitstring_evaluator,
+)
 
 
 class BaseCircuitEvaluator(ABC):
@@ -49,15 +52,22 @@ class CircuitEvaluatorException(Exception):
 
 
 class OperatorCircuitEvaluator(BaseCircuitEvaluator):
-    """Class which evaluates quantum circuits by estimating the eigenvalue of the circuit for a given operator
+    """Class which evaluates quantum circuits by estimating the expectation value of the circuit for a given operator
 
-    :param qiskit_primitive: Qiskit primitive used for estimating the circuit's eigenvalue.
+    :param qiskit_primitive: Qiskit primitive used for estimating the circuit's expectation value.
         Must be an Estimator or a Sampler. The usage of an Estimator is the preferred option
     :type qiskit_primitive: BaseEstimator | BaseSampler
-    :param operator: Operator for which the eigenvalue is estimated. If the operator is not hermitian,
+    :param operator: Operator for which the expectation value is estimated. If the operator is not hermitian,
         the complex part of the result is dropped. If the qiskit_primitive is a sampler, the operator
-        must be diagonal
+        must be a diagonal SparsePauliOp
     :type operator: BaseOperator
+    :param alpha: when using a Sampler to estimate the expectation value, it is derived from the probability
+        distribution of measured basis states. In that case, the expectation value can also be calculated
+        over only the lower alpha tail of the state distribution. Alpha must be in the range (0, 1].
+        By default, alpha is 1, recovering the normal expectation value calculation. For other alpha values
+        this leads to the CVaR score as explained in https://quantum-journal.org/papers/q-2020-04-20-256/ .
+        If using the CVaR score, the operator must be a SparsePauliOp
+    :type alpha: float
     :param initial_state_circuit: If the qubits of the quantum circuits shall be initialized in a specific
         state for the circuit evaluation, this initial state can be given as the quantum circuit which initializes
         it. It must operate on exactly as many qubits as the given operator
@@ -68,19 +78,32 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         self,
         qiskit_primitive: Union[BaseEstimator[PrimitiveJob[EstimatorResult]], BaseSampler[PrimitiveJob[SamplerResult]]],
         operator: BaseOperator,
+        alpha: float,
         initial_state_circuit: Optional[QuantumCircuit] = None,
     ):
         """Constructor Method"""
-        self._estimator: BaseEstimator[PrimitiveJob[EstimatorResult]]
+        self._estimator: Optional[BaseEstimator[PrimitiveJob[EstimatorResult]]] = None
+        self._sampler: Optional[BaseSampler[PrimitiveJob[SamplerResult]]] = None
         if isinstance(qiskit_primitive, BaseEstimator):
             self._estimator = qiskit_primitive
-        if isinstance(qiskit_primitive, BaseSampler):
-            # The _DiagonalEstimator is an internal qiskit Wrapper for Samplers
-            # to calculate expectation values based on the Sampler's QuasiDistribution.
-            # If support for this wrapper is dropped in the future, this should be
-            # relatively easy to replicate ourselves.
-            self._estimator = _DiagonalEstimator(sampler=qiskit_primitive)
+        elif isinstance(qiskit_primitive, BaseSampler):
+            self._sampler = qiskit_primitive
+        else:
+            raise ValueError("The qiskit primitive was neither a BaseEstimator nor a BaseSampler!")
+
+        if self._sampler is not None and not isinstance(operator, SparsePauliOp):
+            raise ValueError(
+                "If using a sampler to estimate the expectation value, the operator must be a SparsePauliOp!"
+            )
         self._operator: BaseOperator = operator
+
+        if alpha <= 0 or 1 < alpha:
+            raise ValueError("alpha must be in the range (0, 1]!")
+        if alpha < 1 and self._estimator is not None:
+            warn(
+                "If an estimator is used to calculate the expectation value, specifying the alpha value has no effect!"
+            )
+        self._alpha: float = alpha
         if initial_state_circuit is not None and initial_state_circuit.num_qubits != self._operator.num_qubits:
             raise ValueError(
                 f"The amount of qubits in the initial state circuit ({initial_state_circuit.num_qubits} "
@@ -91,12 +114,27 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
         if self._initial_state_circuit is not None:
             circuits = [self._initial_state_circuit.compose(circuit, inplace=False) for circuit in circuits]
-        if isinstance(self._estimator, _DiagonalEstimator):
+
+        if self._sampler is not None and isinstance(self._operator, SparsePauliOp):
             circuits = [circuit.measure_all(inplace=False) for circuit in circuits]
-        evaluation_result: EstimatorResult = self._estimator.run(
-            circuits=circuits, observables=[self._operator] * len(circuits), parameter_values=parameter_values
-        ).result()
-        return list(real(evaluation_result.values))
+            sampling_result: SamplerResult = self._sampler.run(
+                circuits=circuits, parameter_values=parameter_values
+            ).result()
+            quasi_dists: list[QuasiDistribution] = sampling_result.quasi_dists
+            return [
+                get_expectation_with_operator(measurement_distribution=dist, operator=self._operator, alpha=self._alpha)
+                for dist in quasi_dists
+            ]
+
+        if self._estimator is not None:
+            evaluation_result: EstimatorResult = self._estimator.run(
+                circuits=circuits, observables=[self._operator] * len(circuits), parameter_values=parameter_values
+            ).result()
+            return list(real(evaluation_result.values))
+
+        raise ValueError(
+            "The OperatorCircuitEvaluator was unable to return results, as it seems to have been misconfigured!"
+        )
 
     @property
     def n_qubits(self) -> int:
@@ -112,6 +150,13 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
     :type sampler: BaseSampler
     :param bitstring_evaluator: Evaluation function used to evaluate individual measurements
     :type bitstring_evaluator: BitstringEvaluator
+    :param alpha: when using a Sampler to estimate the expectation value, it is derived from the probability
+        distribution of measured basis states. In that case, the expectation value can also be calculated
+        over only the lower alpha tail of the state distribution. Alpha must be in the range (0, 1].
+        By default, alpha is 1, recovering the normal expectation value calculation. For other alpha values
+        this leads to the CVaR score as explained in https://quantum-journal.org/papers/q-2020-04-20-256/ .
+        If using the CVaR score, the operator must be a SparsePauliOp
+    :type alpha: float
     :param initial_state_circuit: If the qubits of the quantum circuits shall be initialized in a specific
         state for the circuit evaluation, this initial state can be given as the quantum circuit which initializes
         it. It must operate on exactly as many qubits as the input length of the bitstring_evaluator specifies
@@ -122,6 +167,7 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
         self,
         sampler: BaseSampler[PrimitiveJob[SamplerResult]],
         bitstring_evaluator: BitstringEvaluator,
+        alpha: float,
         initial_state_circuit: Optional[QuantumCircuit] = None,
     ):
         """Constructor Method"""
@@ -136,26 +182,27 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
                 + "does not match the input length of the BitstringEvaluator "
                 + f"({self._bitstring_evaluator.input_length})!"
             )
+        if alpha <= 0 or 1 < alpha:
+            raise ValueError("alpha must be in the range (0, 1]!")
+        self._alpha: float = alpha
         self._initial_state_circuit: Optional[QuantumCircuit] = initial_state_circuit
 
     def evaluate_circuits(self, circuits: list[QuantumCircuit], parameter_values: list[list[float]]) -> list[float]:
         if self._initial_state_circuit is not None:
             circuits = [self._initial_state_circuit.compose(circuit, inplace=False) for circuit in circuits]
+
         circuits = [circuit.measure_all(inplace=False) for circuit in circuits]
         evaluation_result: SamplerResult = self._sampler.run(
             circuits=circuits, parameter_values=parameter_values
         ).result()
-        quasi_distributions: list[QuasiDistribution] = evaluation_result.quasi_dists
-        expectation_values: list[float] = []
-        for distribution in quasi_distributions:
-            binary_distribution = distribution.binary_probabilities(num_bits=self._bitstring_evaluator.input_length)
-            expectation_values.append(
-                sum(
-                    probability * self._bitstring_evaluator.evaluate_bitstring(bitstring)
-                    for bitstring, probability in binary_distribution.items()
-                )
+        quasi_dists: list[QuasiDistribution] = evaluation_result.quasi_dists
+
+        return [
+            get_expectation_with_bitstring_evaluator(
+                measurement_distribution=dist, bitstring_evaluator=self._bitstring_evaluator, alpha=self._alpha
             )
-        return expectation_values
+            for dist in quasi_dists
+        ]
 
     @property
     def n_qubits(self) -> int:
