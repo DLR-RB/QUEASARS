@@ -62,10 +62,11 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         must be a diagonal SparsePauliOp
     :type operator: BaseOperator
     :param alpha: when using a Sampler to estimate the expectation value, it is derived from the probability
-        distribution of measured basis states. In that case, the expectation value can also be calculated
-        over only the lower alpha tail of the state distribution. Alpha must be in the range (0, 1].
-        By default, alpha is 1, recovering the normal expectation value calculation. For other alpha values
-        this leads to the CVaR score as explained in https://quantum-journal.org/papers/q-2020-04-20-256/ .
+        distribution of measured basis states and their respective eigenvalues. In that case,
+        the expectation value can also be calculated over only the lower alpha tail of the state distribution.
+        Alpha must be in the range (0, 1]. By default, alpha is 1, recovering the normal expectation value calculation.
+        For other alpha values this leads to the CVaR score as explained in
+        https://quantum-journal.org/papers/q-2020-04-20-256/ .
         If using the CVaR score, the operator must be a SparsePauliOp
     :type alpha: float
     :param initial_state_circuit: If the qubits of the quantum circuits shall be initialized in a specific
@@ -151,10 +152,11 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
     :param bitstring_evaluator: Evaluation function used to evaluate individual measurements
     :type bitstring_evaluator: BitstringEvaluator
     :param alpha: when using a Sampler to estimate the expectation value, it is derived from the probability
-        distribution of measured basis states. In that case, the expectation value can also be calculated
-        over only the lower alpha tail of the state distribution. Alpha must be in the range (0, 1].
-        By default, alpha is 1, recovering the normal expectation value calculation. For other alpha values
-        this leads to the CVaR score as explained in https://quantum-journal.org/papers/q-2020-04-20-256/ .
+        distribution of measured basis states and their respective eigenvalues. In that case,
+        the expectation value can also be calculated over only the lower alpha tail of the state distribution.
+        Alpha must be in the range (0, 1]. By default, alpha is 1, recovering the normal expectation value calculation.
+        For other alpha values this leads to the CVaR score as explained in
+        https://quantum-journal.org/papers/q-2020-04-20-256/ .
         If using the CVaR score, the operator must be a SparsePauliOp
     :type alpha: float
     :param initial_state_circuit: If the qubits of the quantum circuits shall be initialized in a specific

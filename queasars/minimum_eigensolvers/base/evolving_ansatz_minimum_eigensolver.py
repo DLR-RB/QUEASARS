@@ -73,10 +73,11 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :param parallel_executor: Parallel executor used for concurrent computations. Can either be a Dask Client or
         a python ThreadPool executor. If reproducible behaviour is desired only one worker thread should be used
     :type parallel_executor: Union[Client, ThreadPoolExecutor]
-    :param distribution_alpha_tail: If a Sampler is used to estimate the expectation value this expectation value can
-        also be calculated over only the lower alpha tail of the measurement distribution.
+    :param distribution_alpha_tail: If only a Sampler is used, the expectation value is calculated from the
+        probability distribution of measured basis states and their respective eigenvalues. In that case, the
+        expectation value can also be calculated over only the lower alpha tail of the state distribution.
         distribution_alpha_tail can be in the range (0, 1]. By default, it is 1.
-        Then the expectation is calculated over the whole measurement distribution. Otherwise, it is only calculated
+        Then the expectation is calculated over the whole state distribution. Otherwise, it is only calculated
         over the lower alpha tail of the distribution as discussed in
         https://quantum-journal.org/papers/q-2020-04-20-256/
     :type distribution_alpha_tail: float
