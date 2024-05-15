@@ -78,7 +78,7 @@ class OperatorCircuitEvaluator(BaseCircuitEvaluator):
         self,
         qiskit_primitive: Union[BaseEstimator[PrimitiveJob[EstimatorResult]], BaseSampler[PrimitiveJob[SamplerResult]]],
         operator: BaseOperator,
-        alpha: float,
+        alpha: float = 1.0,
         initial_state_circuit: Optional[QuantumCircuit] = None,
     ):
         """Constructor Method"""
@@ -167,7 +167,7 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
         self,
         sampler: BaseSampler[PrimitiveJob[SamplerResult]],
         bitstring_evaluator: BitstringEvaluator,
-        alpha: float,
+        alpha: float = 1.0,
         initial_state_circuit: Optional[QuantumCircuit] = None,
     ):
         """Constructor Method"""
