@@ -119,7 +119,7 @@ def main():
         layer_removal_probability = config["layer_removal"]
 
         use_tournament_selection = True
-        tournament_size = 2
+        tournament_size = config["tournament_size"]
 
         with Client(scheduler_file="evqe_scheduler.json") as parallel_executor:
             parallel_executor = parallel_executor
@@ -201,6 +201,7 @@ def main():
         Float("parameter_search", (0, 0.5), default=0.25),
         Float("topological_search", (0.4, 0.8), default=0.4),
         Float("layer_removal", (0, 0.15), default=0.05),
+        Integer("tournament_size", (2, 3), default=2),
         Float("encoding_penalty", (110, 1000), default=300),
         Float("overlap_constraint_penalty", (110, 1000), default=150),
         Float("precedence_constraint_penalty", (110, 1000), default=150),
