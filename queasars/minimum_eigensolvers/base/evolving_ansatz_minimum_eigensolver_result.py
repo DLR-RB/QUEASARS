@@ -7,7 +7,7 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.result import QuasiDistribution
 from qiskit_algorithms.minimum_eigensolvers import MinimumEigensolverResult
 
-from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BasePopulationEvaluationResult
+from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BasePopulationEvaluationResult, BaseIndividual
 
 
 class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
@@ -18,7 +18,8 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._eigenstate: Optional[QuasiDistribution] = None
         self._optimal_parameters: Optional[dict] = None
         self._optimal_circuit: Optional[QuantumCircuit] = None
-        self._circuit_evaluations: Optional[int] = None
+        self._circuit_evaluations: Optional[list[int]] = None
+        self._best_individual: Optional[BaseIndividual] = None
         self._generations: Optional[int] = None
         self._population_evaluation_results: Optional[list[BasePopulationEvaluationResult]] = None
 
@@ -78,22 +79,40 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._optimal_circuit = value
 
     @property
-    def circuit_evaluations(self) -> Optional[int]:
-        """Returns the number of circuit evaluations used by the eigensolver
+    def circuit_evaluations(self) -> Optional[list[int]]:
+        """Returns the number of circuit evaluations used by the eigensolver per generation
 
-        :return: The number of circuit evaluations
-        :rtype: int
+        :return: The number of circuit evaluations per generation
+        :rtype: list[int]
         """
         return self._circuit_evaluations
 
     @circuit_evaluations.setter
-    def circuit_evaluations(self, value: int) -> None:
-        """Sets the number of circuit evaluations used by the eigensolver
+    def circuit_evaluations(self, value: list[int]) -> None:
+        """Sets the number of circuit evaluations used by the eigensolver per generation
 
-        :arg value: Value to set the number of circuit evaluations to
-        :type: int
+        :arg value: Value to set the number of circuit evaluations per generation to
+        :type value: list[int]
         """
         self._circuit_evaluations = value
+
+    @property
+    def best_individual(self) -> Optional[BaseIndividual]:
+        """Returns the best Individual encountered during the evolution
+
+        :return: The best Individual encountered during the evolution
+        :rtype: BaseIndividual
+        """
+        return self._best_individual
+
+    @best_individual.setter
+    def best_individual(self, value: BaseIndividual):
+        """Sets the best Individual encountered during the evolution
+
+        :arg value: Value to set the best Individual to
+        :type value: BaseIndividual
+        """
+        self._best_individual = value
 
     @property
     def generations(self) -> Optional[int]:
