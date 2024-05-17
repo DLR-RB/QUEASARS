@@ -25,10 +25,12 @@ class VQABenchmarkResult:
     seed: int
     expectation_evaluation_counts: list[float]
     expectation_values: list[float]
-    min_energy: float
-    max_energy: float
     measurement_distribution: QuasiDistribution
     state_translations: dict[int, JobShopSchedulingResult]
+    optimal_makespan: int
+    min_energy: float
+    max_opt_energy: float
+    max_energy: float
 
 
 @dataclass
@@ -37,9 +39,11 @@ class EVQEBenchmarkResult:
     instance_nr: int
     seed: int
     result: EvolvingAnsatzMinimumEigensolverResult
-    min_energy: float
-    max_energy: float
     state_translations: dict[int, JobShopSchedulingResult]
+    optimal_makespan: int
+    min_energy: float
+    max_opt_energy: float
+    max_energy: float
 
 
 class ResultEncoder(JSONEncoder):
@@ -70,6 +74,8 @@ class ResultEncoder(JSONEncoder):
                 "vqaresult_state_translations": [
                     [key, self.default(value)] for key, value in o.state_translations.items()
                 ],
+                "vqaresult_optimal_makespan": o.optimal_makespan,
+                "vqaresult_max_opt_energy": o.max_opt_energy,
             }
 
         if isinstance(o, EVQEBenchmarkResult):
@@ -83,6 +89,8 @@ class ResultEncoder(JSONEncoder):
                 "evqeresult_state_translations": [
                     [key, self.default(value)] for key, value in o.state_translations.items()
                 ],
+                "evqeresult_optimal_makespan": o.optimal_makespan,
+                "evqeresult_max_opt_energy": o.max_opt_energy,
             }
 
 
@@ -115,6 +123,8 @@ class ResultDecoder(JSONDecoder):
                 "vqaresult_max_energy",
                 "vqaresult_measurement_distribution",
                 "vqaresult_state_translations",
+                "vqaresult_optimal_makespan",
+                "vqaresult_max_opt_energy",
             ]
             for key in object_dict.keys()
         ):
@@ -130,6 +140,8 @@ class ResultDecoder(JSONDecoder):
                 "evqeresult_min_energy",
                 "evqeresult_max_energy",
                 "evqeresult_state_translations",
+                "evqeresult_optimal_makespan",
+                "evqeresult_max_opt_energy",
             ]
             for key in object_dict.keys()
         ):
@@ -147,6 +159,8 @@ class ResultDecoder(JSONDecoder):
             max_energy=object_dict["vqaresult_max_energy"],
             measurement_distribution=object_dict["vqaresult_measurement_distribution"],
             state_translations=object_dict["vqaresult_state_translations"],
+            optimal_makespan=object_dict["vqaresult_optimal_makespan"],
+            max_opt_energy=object_dict["vqaresult_max_opt_energy"],
         )
 
     @staticmethod
@@ -159,4 +173,6 @@ class ResultDecoder(JSONDecoder):
             min_energy=object_dict["evqeresult_min_energy"],
             max_energy=object_dict["evqeresult_max_energy"],
             state_translations=object_dict["evqeresult_state_translations"],
+            optimal_makespan=object_dict["evqeresult_optimal_makespan"],
+            max_opt_energy=object_dict["evqeresult_max_opt_energy"],
         )
