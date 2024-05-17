@@ -32,6 +32,7 @@ class SPSATerminationChecker:
         self._function_value_history: list[float] = []
         self._change_history: list[float] = []
         self._n_function_evaluations = 0
+        self._n_function_evaluation_history: list[float] = []
         self._best_function_value: float = float("inf")
         self._best_parameter_values: Optional[NDArray] = None
         self._done: bool = False
@@ -51,6 +52,7 @@ class SPSATerminationChecker:
             self._function_value_history = []
             self._change_history = []
             self._n_function_evaluations = 0
+            self._n_function_evaluation_history = []
             self._best_function_value = float("inf")
             self._best_parameter_values = None
             self._done = False
@@ -64,6 +66,7 @@ class SPSATerminationChecker:
             return False
 
         self._function_value_history.append(function_value)
+        self._n_function_evaluation_history.append(n_function_evaluations)
 
         if function_value < self._best_function_value:
             self._best_function_value = function_value
@@ -99,6 +102,14 @@ class SPSATerminationChecker:
         :rtype: list[float]
         """
         return self._function_value_history
+
+    @property
+    def n_function_evaluation_history(self) -> list[float]:
+        """
+        :return: a list of function evaluations needed of the same length as function_value_history
+        :rtype: list[float]
+        """
+        return self._n_function_evaluation_history
 
     @property
     def best_function_value(self) -> float:
