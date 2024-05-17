@@ -165,7 +165,6 @@ class EvolvingAnsatzMinimumEigensolverResultJSONDecoder(JSONDecoder):
     def object_hook(self, object_dict):
 
         if any(key in self._evqe_population_decoder.identifying_keys() for key in object_dict.keys()):
-            print(object_dict)
             return self._evqe_population_decoder.object_hook(object_dict)
 
         if "complex_number_real_value" in object_dict or "complex_number_imaginary_value" in object_dict:
@@ -204,9 +203,6 @@ class EvolvingAnsatzMinimumEigensolverResultJSONDecoder(JSONDecoder):
             for key in object_dict.keys()
         ):
             return self.parse_evolving_ansatz_result(object_dict)
-
-        print(object_dict)
-        raise ValueError("test")
 
     @staticmethod
     def parse_complex_number(object_dict):
