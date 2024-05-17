@@ -16,12 +16,13 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
     def __init__(self) -> None:
         super().__init__()
         self._eigenstate: Optional[QuasiDistribution] = None
+        self._best_individual: Optional[BaseIndividual] = None
         self._optimal_parameters: Optional[dict] = None
         self._optimal_circuit: Optional[QuantumCircuit] = None
         self._circuit_evaluations: Optional[list[int]] = None
-        self._best_individual: Optional[BaseIndividual] = None
         self._generations: Optional[int] = None
         self._population_evaluation_results: Optional[list[BasePopulationEvaluationResult]] = None
+        self._initial_state_circuit: Optional[QuantumCircuit] = None
 
     @property
     def eigenstate(self) -> Optional[QuasiDistribution]:
@@ -42,61 +43,6 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._eigenstate = value
 
     @property
-    def optimal_parameters(self) -> Optional[dict]:
-        """Returns the optimal parameters in a dictionary
-
-        :return: The optimal parameters
-        :rtype: Optional[dict]
-        """
-        return self._optimal_parameters
-
-    @optimal_parameters.setter
-    def optimal_parameters(self, value: dict) -> None:
-        """Sets optimal parameters
-
-        :arg value: Value to set the optimal parameters to
-        :type value: dict
-        """
-        self._optimal_parameters = value
-
-    @property
-    def optimal_circuit(self) -> Optional[QuantumCircuit]:
-        """The optimal circuit. Along with the optimal parameters,
-        this can be used to retrieve the minimum eigenstate.
-
-        :return: The optimal parameterized quantum circuit
-        :rtype: Optional[QuantumCircuit]
-        """
-        return self._optimal_circuit
-
-    @optimal_circuit.setter
-    def optimal_circuit(self, value: QuantumCircuit) -> None:
-        """Sets the optimal circuit
-
-        :arg value: Value to set the optimal circuit to
-        :type value: QuantumCircuit
-        """
-        self._optimal_circuit = value
-
-    @property
-    def circuit_evaluations(self) -> Optional[list[int]]:
-        """Returns the number of circuit evaluations used by the eigensolver per generation
-
-        :return: The number of circuit evaluations per generation
-        :rtype: list[int]
-        """
-        return self._circuit_evaluations
-
-    @circuit_evaluations.setter
-    def circuit_evaluations(self, value: list[int]) -> None:
-        """Sets the number of circuit evaluations used by the eigensolver per generation
-
-        :arg value: Value to set the number of circuit evaluations per generation to
-        :type value: list[int]
-        """
-        self._circuit_evaluations = value
-
-    @property
     def best_individual(self) -> Optional[BaseIndividual]:
         """Returns the best Individual encountered during the evolution
 
@@ -113,6 +59,57 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         :type value: BaseIndividual
         """
         self._best_individual = value
+
+    @property
+    def optimal_parameters(self) -> Optional[dict]:
+        """Returns the optimal parameters in a dictionary
+
+        :return: The optimal parameters
+        :rtype: Optional[dict]
+        """
+        if self._optimal_parameters is None and self._best_individual is not None:
+            circ = self._optimal_circuit
+            if circ is None:
+                return None
+            parameters = circ.parameters
+            parameter_values = self._best_individual.get_parameter_values()
+            self._optimal_parameters = dict(zip(parameters, parameter_values))
+
+        return self._optimal_parameters
+
+    @property
+    def optimal_circuit(self) -> Optional[QuantumCircuit]:
+        """The optimal circuit. Along with the optimal parameters,
+        this can be used to retrieve the minimum eigenstate.
+
+        :return: The optimal parameterized quantum circuit
+        :rtype: Optional[QuantumCircuit]
+        """
+        if self._optimal_circuit is None and self._best_individual is not None:
+            circ = self._best_individual.get_parameterized_quantum_circuit()
+            if self._initial_state_circuit is not None:
+                circ = self._initial_state_circuit.compose(circ, inplace=False)
+            self._optimal_circuit = circ
+
+        return self._optimal_circuit
+
+    @property
+    def circuit_evaluations(self) -> Optional[list[int]]:
+        """Returns the number of circuit evaluations used by the eigensolver per generation
+
+        :return: The number of circuit evaluations per generation
+        :rtype: Optional[list[int]]
+        """
+        return self._circuit_evaluations
+
+    @circuit_evaluations.setter
+    def circuit_evaluations(self, value: list[int]) -> None:
+        """Sets the number of circuit evaluations used by the eigensolver per generation
+
+        :arg value: Value to set the number of circuit evaluations per generation to
+        :type value: list[int]
+        """
+        self._circuit_evaluations = value
 
     @property
     def generations(self) -> Optional[int]:
@@ -160,3 +157,21 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         if self.population_evaluation_results is not None and len(self.population_evaluation_results) != 0:
             return self.population_evaluation_results[-1]
         return None
+
+    @property
+    def initial_state_circuit(self) -> Optional[QuantumCircuit]:
+        """Returns the quantum circuit which was used to initialize all individuals in one initial state
+
+        :return: the quantum circuit used to initialize all individuals in one initial state
+        :rtype: Optional[QuantumCircuit]
+        """
+        return self._initial_state_circuit
+
+    @initial_state_circuit.setter
+    def initial_state_circuit(self, value: QuantumCircuit):
+        """Sets the quantum circuit which was used to initialize all individuals in one initial state
+
+        :arg value: the quantum circuit which was used to initialize all individuals in one initial state
+        :type value: QuantumCircuit
+        """
+        self._initial_state_circuit = value

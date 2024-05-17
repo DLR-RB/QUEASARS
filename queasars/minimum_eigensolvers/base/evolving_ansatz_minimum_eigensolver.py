@@ -404,19 +404,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         result = EvolvingAnsatzMinimumEigensolverResult()
         result.eigenvalue = current_best_expectation_value
         result.eigenstate = sampler_result_best_individual.quasi_dists[0]
-        if initial_state_circuit is None:
-            result.optimal_circuit = current_best_individual.get_parameterized_quantum_circuit()
-        else:
-            result.optimal_circuit = initial_state_circuit.compose(
-                current_best_individual.get_parameterized_quantum_circuit()
-            )
-        result.optimal_parameters = dict(
-            zip(result.optimal_circuit.parameters, current_best_individual.get_parameter_values())
-        )
-        result.circuit_evaluations = n_circuit_evaluations
         result.best_individual = current_best_individual
+        result.circuit_evaluations = n_circuit_evaluations
         result.generations = n_generations
         result.population_evaluation_results = population_evaluations
+        result.initial_state_circuit = initial_state_circuit
 
         if isinstance(aux_circuit_evaluators, list):
             result.aux_operators_evaluated = [
