@@ -71,7 +71,7 @@ def run_single_benchmark(
 
         state_translations = {
             state: encoder.translate_result_bitstring(format(state, f"0{hamiltonian.num_qubits}b"))
-            for state, _ in quasi_distribution.keys()
+            for state in quasi_distribution.keys()
         }
 
         bench_result = VQABenchmarkResult(
