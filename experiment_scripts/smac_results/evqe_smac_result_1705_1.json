@@ -1,0 +1,432 @@
+[
+  [
+    35,
+    [
+      [
+        "result_value",
+        90.6494140625
+      ],
+      [
+        "circuit_evaluations",
+        23235.18181818182
+      ],
+      [
+        "circuit_depth",
+        1.7272727272727273
+      ],
+      [
+        "cx_count",
+        5.681818181818182
+      ]
+    ],
+    {
+      "allowed_increase": 155.38534075811438,
+      "alpha_penalty": 0.1817806725878217,
+      "beta_penalty": 0.11244362138124626,
+      "blocking": 0,
+      "encoding_penalty": 288.50190945348197,
+      "genetic_distance": 3,
+      "last_avg": 1,
+      "layer_removal": 0.14125908268302745,
+      "learning_rate": 0.3409365870730668,
+      "maxiter": 31,
+      "opt_all_operations_share": 0.4340922594300961,
+      "optimizer_allowed_consecutive_violations": 3,
+      "overlap_constraint_penalty": 792.8084634493308,
+      "parameter_search": 0.07658141616023195,
+      "perturbation": 0.24292965313793524,
+      "precedence_constraint_penalty": 684.1566567563249,
+      "resamplings": 1,
+      "topological_search": 0.6701583137908361,
+      "tournament_size": 2,
+      "trust_region": 0
+    }
+  ],
+  [
+    75,
+    [
+      [
+        "result_value",
+        8.595969460227273
+      ],
+      [
+        "circuit_evaluations",
+        10806.636363636364
+      ],
+      [
+        "circuit_depth",
+        2.0454545454545454
+      ],
+      [
+        "cx_count",
+        6.681818181818182
+      ]
+    ],
+    {
+      "allowed_increase": 85.33498128761752,
+      "alpha_penalty": 0.3639394076385005,
+      "beta_penalty": 0.34965586505917234,
+      "blocking": 0,
+      "encoding_penalty": 858.2667852832725,
+      "genetic_distance": 2,
+      "last_avg": 4,
+      "layer_removal": 0.13097952074482977,
+      "learning_rate": 0.4675857547679672,
+      "maxiter": 38,
+      "opt_all_operations_share": 0.28519843550443535,
+      "optimizer_allowed_consecutive_violations": 6,
+      "overlap_constraint_penalty": 621.8057756963344,
+      "parameter_search": 0.34483367779736596,
+      "perturbation": 0.43509989596078213,
+      "precedence_constraint_penalty": 517.8566090538036,
+      "resamplings": 3,
+      "topological_search": 0.6067490138371541,
+      "tournament_size": 3,
+      "trust_region": 1
+    }
+  ],
+  [
+    74,
+    [
+      [
+        "result_value",
+        18.740699404761905
+      ],
+      [
+        "circuit_evaluations",
+        3914.4761904761904
+      ],
+      [
+        "circuit_depth",
+        3.857142857142857
+      ],
+      [
+        "cx_count",
+        13.952380952380953
+      ]
+    ],
+    {
+      "allowed_increase": 249.5829353991337,
+      "alpha_penalty": 0.14734618225297946,
+      "beta_penalty": 0.02141274721674132,
+      "blocking": 0,
+      "encoding_penalty": 318.6226847291538,
+      "genetic_distance": 1,
+      "last_avg": 1,
+      "layer_removal": 0.0235278357782748,
+      "learning_rate": 0.42676802234294314,
+      "maxiter": 33,
+      "opt_all_operations_share": 0.18882213672528264,
+      "optimizer_allowed_consecutive_violations": 2,
+      "overlap_constraint_penalty": 619.4915055490884,
+      "parameter_search": 0.39231011461708076,
+      "perturbation": 0.34602201093833374,
+      "precedence_constraint_penalty": 274.90555811420893,
+      "resamplings": 1,
+      "topological_search": 0.7860474209164376,
+      "tournament_size": 2,
+      "trust_region": 1
+    }
+  ],
+  [
+    80,
+    [
+      [
+        "result_value",
+        86.15838913690476
+      ],
+      [
+        "circuit_evaluations",
+        24958.0
+      ],
+      [
+        "circuit_depth",
+        1.619047619047619
+      ],
+      [
+        "cx_count",
+        5.285714285714286
+      ]
+    ],
+    {
+      "allowed_increase": 244.405105762964,
+      "alpha_penalty": 0.20200059988375407,
+      "beta_penalty": 0.20951746597169485,
+      "blocking": 0,
+      "encoding_penalty": 111.13742310807507,
+      "genetic_distance": 2,
+      "last_avg": 4,
+      "layer_removal": 0.1466549875681813,
+      "learning_rate": 0.1268125302192561,
+      "maxiter": 19,
+      "opt_all_operations_share": 0.33856833219332816,
+      "optimizer_allowed_consecutive_violations": 3,
+      "overlap_constraint_penalty": 967.3047883828825,
+      "parameter_search": 0.22498992043658228,
+      "perturbation": 0.37311555864433377,
+      "precedence_constraint_penalty": 532.6607780298806,
+      "resamplings": 1,
+      "topological_search": 0.5521403368557806,
+      "tournament_size": 3,
+      "trust_region": 0
+    }
+  ],
+  [
+    183,
+    [
+      [
+        "result_value",
+        25.413876488095237
+      ],
+      [
+        "circuit_evaluations",
+        2758.4761904761904
+      ],
+      [
+        "circuit_depth",
+        2.857142857142857
+      ],
+      [
+        "cx_count",
+        10.285714285714286
+      ]
+    ],
+    {
+      "allowed_increase": 392.60926326197676,
+      "alpha_penalty": 0.27745333235101505,
+      "beta_penalty": 0.09046522014487782,
+      "blocking": 0,
+      "encoding_penalty": 459.4306308403071,
+      "genetic_distance": 1,
+      "last_avg": 1,
+      "layer_removal": 0.059804135039857646,
+      "learning_rate": 0.478280273448421,
+      "maxiter": 44,
+      "opt_all_operations_share": 0.32885146634148266,
+      "optimizer_allowed_consecutive_violations": 1,
+      "overlap_constraint_penalty": 386.3908417701474,
+      "parameter_search": 0.3209112131485437,
+      "perturbation": 0.3511362493237271,
+      "precedence_constraint_penalty": 113.17473023597543,
+      "resamplings": 1,
+      "topological_search": 0.7535444795805954,
+      "tournament_size": 3,
+      "trust_region": 1
+    }
+  ],
+  [
+    139,
+    [
+      [
+        "result_value",
+        82.14053199404762
+      ],
+      [
+        "circuit_evaluations",
+        25872.571428571428
+      ],
+      [
+        "circuit_depth",
+        1.6666666666666667
+      ],
+      [
+        "cx_count",
+        5.714285714285714
+      ]
+    ],
+    {
+      "allowed_increase": 79.8643646025502,
+      "alpha_penalty": 0.15451490479925944,
+      "beta_penalty": 0.1955985566385043,
+      "blocking": 0,
+      "encoding_penalty": 892.7485015576576,
+      "genetic_distance": 2,
+      "last_avg": 4,
+      "layer_removal": 0.10012176972238522,
+      "learning_rate": 0.3115996591930235,
+      "maxiter": 28,
+      "opt_all_operations_share": 0.2552696519036116,
+      "optimizer_allowed_consecutive_violations": 6,
+      "overlap_constraint_penalty": 234.8773835295649,
+      "parameter_search": 0.40387512962263394,
+      "perturbation": 0.3340381649584525,
+      "precedence_constraint_penalty": 490.1602631769485,
+      "resamplings": 1,
+      "topological_search": 0.4259165362207278,
+      "tournament_size": 3,
+      "trust_region": 0
+    }
+  ],
+  [
+    190,
+    [
+      [
+        "result_value",
+        19.626581101190474
+      ],
+      [
+        "circuit_evaluations",
+        5531.523809523809
+      ],
+      [
+        "circuit_depth",
+        2.9047619047619047
+      ],
+      [
+        "cx_count",
+        10.285714285714286
+      ]
+    ],
+    {
+      "allowed_increase": 341.69278898487227,
+      "alpha_penalty": 0.03792994611380762,
+      "beta_penalty": 0.07041802281728533,
+      "blocking": 0,
+      "encoding_penalty": 231.11302535415388,
+      "genetic_distance": 2,
+      "last_avg": 2,
+      "layer_removal": 0.07996993275137919,
+      "learning_rate": 0.48293887166405136,
+      "maxiter": 37,
+      "opt_all_operations_share": 0.19096876049207157,
+      "optimizer_allowed_consecutive_violations": 3,
+      "overlap_constraint_penalty": 243.04186674819778,
+      "parameter_search": 0.26313511168572534,
+      "perturbation": 0.3578717933727495,
+      "precedence_constraint_penalty": 395.4034510950299,
+      "resamplings": 2,
+      "topological_search": 0.7997191002922235,
+      "tournament_size": 3,
+      "trust_region": 1
+    }
+  ],
+  [
+    178,
+    [
+      [
+        "result_value",
+        17.896670386904763
+      ],
+      [
+        "circuit_evaluations",
+        6863.047619047619
+      ],
+      [
+        "circuit_depth",
+        2.380952380952381
+      ],
+      [
+        "cx_count",
+        8.095238095238095
+      ]
+    ],
+    {
+      "allowed_increase": 118.40755925842878,
+      "alpha_penalty": 0.11431636208633096,
+      "beta_penalty": 0.02490914469162582,
+      "blocking": 0,
+      "encoding_penalty": 193.55682455013502,
+      "genetic_distance": 2,
+      "last_avg": 1,
+      "layer_removal": 0.0951355412198011,
+      "learning_rate": 0.39716780514929145,
+      "maxiter": 41,
+      "opt_all_operations_share": 0.4541034214963158,
+      "optimizer_allowed_consecutive_violations": 4,
+      "overlap_constraint_penalty": 563.2297228356807,
+      "parameter_search": 0.11885406217296696,
+      "perturbation": 0.3209754000153745,
+      "precedence_constraint_penalty": 372.65545135473565,
+      "resamplings": 3,
+      "topological_search": 0.6594791558962945,
+      "tournament_size": 3,
+      "trust_region": 1
+    }
+  ],
+  [
+    199,
+    [
+      [
+        "result_value",
+        11.904761904761905
+      ],
+      [
+        "circuit_evaluations",
+        8917.142857142857
+      ],
+      [
+        "circuit_depth",
+        1.9523809523809523
+      ],
+      [
+        "cx_count",
+        6.571428571428571
+      ]
+    ],
+    {
+      "allowed_increase": 127.44905937455678,
+      "alpha_penalty": 0.3062395783388183,
+      "beta_penalty": 0.34803498369506747,
+      "blocking": 0,
+      "encoding_penalty": 971.6977714592518,
+      "genetic_distance": 2,
+      "last_avg": 4,
+      "layer_removal": 0.12959408956257462,
+      "learning_rate": 0.48202483798529705,
+      "maxiter": 42,
+      "opt_all_operations_share": 0.17947415011159557,
+      "optimizer_allowed_consecutive_violations": 4,
+      "overlap_constraint_penalty": 598.484698658064,
+      "parameter_search": 0.33021562823921197,
+      "perturbation": 0.3674113785108918,
+      "precedence_constraint_penalty": 337.83124523059894,
+      "resamplings": 3,
+      "topological_search": 0.530844779030489,
+      "tournament_size": 3,
+      "trust_region": 1
+    }
+  ],
+  [
+    200,
+    [
+      [
+        "result_value",
+        8.523995535714286
+      ],
+      [
+        "circuit_evaluations",
+        10375.238095238095
+      ],
+      [
+        "circuit_depth",
+        1.9047619047619047
+      ],
+      [
+        "cx_count",
+        6.238095238095238
+      ]
+    ],
+    {
+      "allowed_increase": 103.5548636633809,
+      "alpha_penalty": 0.39839355168210694,
+      "beta_penalty": 0.34965586505917234,
+      "blocking": 0,
+      "encoding_penalty": 820.7599850658912,
+      "genetic_distance": 1,
+      "last_avg": 4,
+      "layer_removal": 0.126489673678869,
+      "learning_rate": 0.4711545280719031,
+      "maxiter": 38,
+      "opt_all_operations_share": 0.2973521962287848,
+      "optimizer_allowed_consecutive_violations": 6,
+      "overlap_constraint_penalty": 588.4370230158905,
+      "parameter_search": 0.32819482583471693,
+      "perturbation": 0.49501501986665,
+      "precedence_constraint_penalty": 623.8316378755103,
+      "resamplings": 3,
+      "topological_search": 0.6067490138371541,
+      "tournament_size": 3,
+      "trust_region": 1
+    }
+  ]
+]
