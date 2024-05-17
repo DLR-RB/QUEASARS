@@ -102,8 +102,12 @@ def run_single_benchmark(
         with open(file_path, "w") as f:
             dump(obj=bench_result, fp=f, cls=ResultEncoder, indent=2)
 
+        return True
+
     except Exception as e:
         warn(f"The following exception occurred during a benchmarking run:\n {str(e)}")
+
+    return False
 
 
 def main():
