@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 from datetime import datetime
+from json import dump
 from pathlib import Path
 
 from dask.distributed import LocalCluster, Client, wait, warn
@@ -14,7 +15,7 @@ from experiment_scripts.benchmark_utility import (
     load_benchmarking_dataset,
     get_makespan_energy_split,
 )
-from experiment_scripts.benchmark_result_serialization import VQABenchmarkResult
+from experiment_scripts.benchmark_result_serialization import VQABenchmarkResult, ResultEncoder
 from queasars.job_shop_scheduling.problem_instances import JobShopSchedulingProblemInstance
 from queasars.job_shop_scheduling.domain_wall_hamiltonian_encoder import JSSPDomainWallHamiltonianEncoder
 from queasars.utility.spsa_termination import SPSATerminationChecker
@@ -97,6 +98,9 @@ def run_single_benchmark(
             f"result_{seed}.json",
         )
         file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(file_path, "w") as f:
+            dump(obj=bench_result, fp=f, cls=ResultEncoder, indent=2)
 
     except Exception as e:
         warn(f"The following exception occurred during a benchmarking run:\n {str(e)}")
