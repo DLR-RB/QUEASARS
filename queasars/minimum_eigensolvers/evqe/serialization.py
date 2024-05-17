@@ -26,10 +26,13 @@ class EVQEPopulationJSONEncoder(JSONEncoder):
 
     def default(self, o: Any):
 
+        if any(isinstance(o, t) for t in self._circuit_layer_encoder.serializable_types()):
+            return self._circuit_layer_encoder.default(o)
+
         if isinstance(o, EVQEIndividual):
             return {
                 "evqe_individual_n_qubits": o.n_qubits,
-                "evqe_individual_layers": [self._circuit_layer_encoder.default(layer) for layer in o.layers],
+                "evqe_individual_layers": [self.default(layer) for layer in o.layers],
                 "evqe_individual_parameter_values": list(o.parameter_values),
             }
 
@@ -61,6 +64,17 @@ class EVQEPopulationJSONEncoder(JSONEncoder):
                 "evqe_population_species_membership": species_membership,
             }
 
+    @staticmethod
+    def serializable_types() -> set[type]:
+        """
+        :return: a set of all types, which this encoder can serialize
+        :rtype: set[type]
+        """
+        return {
+            EVQEIndividual,
+            EVQEPopulation,
+        }
+
 
 class EVQEPopulationJSONDecoder(JSONDecoder):
     """
@@ -89,7 +103,7 @@ class EVQEPopulationJSONDecoder(JSONDecoder):
             "evqe_population_species_representatives",
             "evqe_population_species_members",
             "evqe_population_species_membership",
-        }
+        }.union(EVQECircuitLayerDecoder.identifying_keys())
 
     def object_hook(self, object_dict):
 

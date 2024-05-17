@@ -58,9 +58,19 @@ class EVQECircuitLayerEncoder(JSONEncoder):
                 "evqe_control_qubit_index": o.control_qubit_index,
             }
 
-        raise ValueError(
-            f"The object was unable to be serialized as its type {type(o)} is not supported by EVQECircuitLayerEncoder!"
-        )
+    @staticmethod
+    def serializable_types() -> set[type]:
+        """
+        :return: a set of all types, which this encoder can serialize
+        :rtype: set[type]
+        """
+        return {
+            EVQECircuitLayer,
+            IdentityGate,
+            RotationGate,
+            ControlGate,
+            ControlledRotationGate,
+        }
 
 
 class EVQECircuitLayerDecoder(JSONDecoder):
