@@ -23,6 +23,8 @@ class VQABenchmarkResult:
     n_qubits: int
     instance_nr: int
     seed: int
+    best_expectation_value: float
+    best_parameter_values: list[float]
     expectation_evaluation_counts: list[float]
     expectation_values: list[float]
     measurement_distribution: QuasiDistribution
@@ -76,6 +78,8 @@ class ResultEncoder(JSONEncoder):
                 ],
                 "vqaresult_optimal_makespan": o.optimal_makespan,
                 "vqaresult_max_opt_energy": o.max_opt_energy,
+                "vqaresult_best_expectation_value": o.best_expectation_value,
+                "vqaresult_best_parameter_values": o.best_parameter_values,
             }
 
         if isinstance(o, EVQEBenchmarkResult):
@@ -125,6 +129,8 @@ class ResultDecoder(JSONDecoder):
                 "vqaresult_state_translations",
                 "vqaresult_optimal_makespan",
                 "vqaresult_max_opt_energy",
+                "vqaresult_best_expectation_value",
+                "vqaresult_best_parameter_values",
             ]
             for key in object_dict.keys()
         ):
@@ -161,6 +167,8 @@ class ResultDecoder(JSONDecoder):
             state_translations=dict(object_dict["vqaresult_state_translations"]),
             optimal_makespan=object_dict["vqaresult_optimal_makespan"],
             max_opt_energy=object_dict["vqaresult_max_opt_energy"],
+            best_expectation_value=object_dict["vqaresult_best_expectation_value"],
+            best_parameter_values=object_dict["vqaresult_best_parameter_values"],
         )
 
     @staticmethod

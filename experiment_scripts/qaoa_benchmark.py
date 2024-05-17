@@ -78,6 +78,8 @@ def run_single_benchmark(
             n_qubits=hamiltonian.num_qubits,
             instance_nr=instance_nr,
             seed=seed,
+            best_expectation_value=checker.best_function_value,
+            best_parameter_values=list(checker.best_parameter_values),
             expectation_evaluation_counts=checker.n_function_evaluation_history,
             expectation_values=checker.function_value_history,
             measurement_distribution=quasi_distribution,
