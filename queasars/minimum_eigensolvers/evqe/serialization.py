@@ -140,12 +140,10 @@ class EVQEPopulationJSONDecoder(JSONDecoder):
 
         species_members = object_dict["evqe_population_species_members"]
         if species_members is not None:
-            print(species_members)
             species_members = dict(tuple(species_members))
 
         species_membership = object_dict["evqe_population_species_membership"]
         if species_membership is not None:
-            print(species_membership)
             species_membership = dict(species_membership)
 
         return EVQEPopulation(
