@@ -86,7 +86,7 @@ def run_single_benchmark(
             maxiter=7500,
             blocking=False,
             trust_region=True,
-            perturbation=0.2,
+            perturbation=0.21,
             learning_rate=0.26,
             last_avg=4,
             resamplings=2,
