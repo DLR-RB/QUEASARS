@@ -85,7 +85,7 @@ def run_single_benchmark(
         opt = SPSA(
             maxiter=7500,
             blocking=False,
-            trust_region=False,
+            trust_region=True,
             perturbation=0.2,
             learning_rate=0.26,
             last_avg=4,
