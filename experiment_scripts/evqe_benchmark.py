@@ -56,7 +56,7 @@ def run_single_benchmark(
             blocking=False,
             trust_region=True,
             perturbation=0.35,
-            learning_rate=43,
+            learning_rate=0.43,
             last_avg=1,
             resamplings=1,
             termination_checker=checker.termination_check,
