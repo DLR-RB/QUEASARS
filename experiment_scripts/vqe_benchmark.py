@@ -5,8 +5,6 @@ from argparse import ArgumentParser
 from datetime import datetime
 from json import dump
 from pathlib import Path
-from sys import stdout
-import logging
 
 from dask.distributed import LocalCluster, Client, wait, warn
 from qiskit.circuit import QuantumCircuit, Parameter
@@ -82,11 +80,6 @@ def run_single_benchmark(
         max_opt_energy, _ = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
 
         sampler = Sampler()
-
-        logger = logging.getLogger("queasars.utility.spsa_termination")
-        handler = logging.StreamHandler(stdout)
-        logger.setLevel(logging.INFO)
-        logger.addHandler(handler)
 
         checker = SPSATerminationChecker(
             minimum_relative_change=0.01, allowed_consecutive_violations=9, maxfev=30000, logging_interval=50

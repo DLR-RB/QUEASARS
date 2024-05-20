@@ -3,7 +3,8 @@
 
 from typing import Optional
 from numpy.typing import NDArray
-from logging import info
+import logging
+from sys import stdout
 
 
 class SPSATerminationChecker:
@@ -42,6 +43,11 @@ class SPSATerminationChecker:
         self._best_parameter_values: Optional[NDArray] = None
         self._done: bool = False
         self._logging_interval: int = logging_interval
+        if self._logging_interval >= 1:
+            self._logger = logging.getLogger("queasars.utility.spsa_termination")
+            handler = logging.StreamHandler(stdout)
+            self._logger.setLevel(logging.INFO)
+            self._logger.addHandler(handler)
         self._logging_counter: int = 0
 
     def termination_check(
@@ -68,7 +74,7 @@ class SPSATerminationChecker:
         self._n_function_evaluations = n_function_evaluations
         self._logging_counter += 1
         if self._logging_interval >= 1 and self._logging_counter % self._logging_interval == 0:
-            info(
+            self._logger.info(
                 f"SPSA optimization Progress: {self.n_function_evaluations/self._maxfev}\n"
                 + f"Minimum Function Value: {self.best_function_value}"
             )
