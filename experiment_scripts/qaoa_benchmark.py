@@ -47,7 +47,9 @@ def run_single_benchmark(
 
         sampler = Sampler()
 
-        checker = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=10, maxfev=30000)
+        checker = SPSATerminationChecker(
+            minimum_relative_change=0.01, allowed_consecutive_violations=10, maxfev=30000, logging_interval=50
+        )
         opt = SPSA(
             maxiter=15000,
             blocking=True,

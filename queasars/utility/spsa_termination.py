@@ -3,6 +3,7 @@
 
 from typing import Optional
 from numpy.typing import NDArray
+from dask.distributed import print as dask_print
 
 
 class SPSATerminationChecker:
@@ -24,7 +25,11 @@ class SPSATerminationChecker:
     """
 
     def __init__(
-        self, minimum_relative_change: float, allowed_consecutive_violations: int, maxfev: Optional[int] = None
+        self,
+        minimum_relative_change: float,
+        allowed_consecutive_violations: int,
+        maxfev: Optional[int] = None,
+        logging_interval: int = -1,
     ):
         self._minimum_relative_change: float = minimum_relative_change
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
@@ -36,6 +41,8 @@ class SPSATerminationChecker:
         self._best_function_value: float = float("inf")
         self._best_parameter_values: Optional[NDArray] = None
         self._done: bool = False
+        self._logging_interval: int = logging_interval
+        self._logging_counter: int = 0
 
     def termination_check(
         self,
@@ -56,8 +63,15 @@ class SPSATerminationChecker:
             self._best_function_value = float("inf")
             self._best_parameter_values = None
             self._done = False
+            self._logging_counter = 0
 
         self._n_function_evaluations = n_function_evaluations
+        self._logging_counter += 1
+        if self._logging_interval >= 1 and self._logging_counter % self._logging_interval == 0:
+            dask_print(
+                f"SPSA optimization Progress: {self.n_function_evaluations/self._maxfev}\n"
+                + f"Minimum Function Value: {self.best_function_value}"
+            )
 
         if self._maxfev is not None and self._n_function_evaluations >= self._maxfev:
             return True
