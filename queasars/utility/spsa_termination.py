@@ -3,7 +3,7 @@
 
 from typing import Optional
 from numpy.typing import NDArray
-from dask.distributed import print as dask_print
+from logging import info
 
 
 class SPSATerminationChecker:
@@ -68,7 +68,7 @@ class SPSATerminationChecker:
         self._n_function_evaluations = n_function_evaluations
         self._logging_counter += 1
         if self._logging_interval >= 1 and self._logging_counter % self._logging_interval == 0:
-            dask_print(
+            info(
                 f"SPSA optimization Progress: {self.n_function_evaluations/self._maxfev}\n"
                 + f"Minimum Function Value: {self.best_function_value}"
             )
