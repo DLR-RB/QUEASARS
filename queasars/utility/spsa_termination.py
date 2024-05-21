@@ -1,6 +1,7 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
+from time import time
 from typing import Optional
 from numpy.typing import NDArray
 import logging
@@ -61,6 +62,8 @@ class SPSATerminationChecker:
         """Given the callback values provided by qiskit_algorithm's SPSA optimizer, this method determines
         whether the SPSA optimization should terminate"""
 
+        print(n_function_evaluations, accepted)
+
         if self._done:
             self._function_value_history = []
             self._change_history = []
@@ -75,7 +78,7 @@ class SPSATerminationChecker:
         self._logging_counter += 1
         if self._logging_interval >= 1 and self._logging_counter % self._logging_interval == 0:
             self._logger.info(
-                f"SPSA optimization Progress: {self.n_function_evaluations/self._maxfev}\n"
+                f"SPSA Function Evaluations So Far: {self.n_function_evaluations}\n"
                 + f"Minimum Function Value: {self.best_function_value}"
             )
 

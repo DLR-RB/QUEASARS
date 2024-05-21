@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 from json import dump
 from pathlib import Path
+import logging
 
 from dask.distributed import LocalCluster, Client, wait, warn
 from qiskit.circuit import QuantumCircuit, Parameter
@@ -56,7 +57,11 @@ def ansatz(n_qubits, layers):
 
 
 def run_single_benchmark(
-    benchmark_name: str, problem_instance: tuple[JobShopSchedulingProblemInstance, int], instance_nr: int, seed: int
+    benchmark_name: str,
+    problem_instance: tuple[JobShopSchedulingProblemInstance, int],
+    instance_nr: int,
+    seed: int,
+    qiskit_threads_per_worker: int,
 ) -> bool:
 
     try:
@@ -79,10 +84,12 @@ def run_single_benchmark(
         max_energy = max(diagonal)
         max_opt_energy, _ = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
 
-        sampler = Sampler()
+        sampler = Sampler(run_options={"max_parallel_threads": qiskit_threads_per_worker})
+
+        logging.basicConfig(level=logging.INFO)
 
         checker = SPSATerminationChecker(
-            minimum_relative_change=0.01, allowed_consecutive_violations=9, maxfev=30000, logging_interval=50
+            minimum_relative_change=0.01, allowed_consecutive_violations=9, maxfev=30000, logging_interval=1
         )
         opt = SPSA(
             maxiter=7500,
@@ -152,6 +159,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--name", type=str, default=f"vqe_bench_{datetime.now().isoformat()}", required=False)
     parser.add_argument("--n_workers", type=int, default=10, required=False)
+    parser.add_argument("--qiskit_threads_per_worker", default=2, required=False)
     parser.add_argument("--problem_sizes", type=int, nargs="+", required=True)
     parser.add_argument("--instance_indices", type=int, nargs="+", required=True)
     parser.add_argument("--n_runs_per_instance", type=int, default=5, required=False)
@@ -177,6 +185,7 @@ def main():
                         dataset[problem_size][instance_index],
                         instance_index,
                         seed,
+                        args.qiskit_threads_per_worker
                     )
 
         wait(run_confirmations.values())
