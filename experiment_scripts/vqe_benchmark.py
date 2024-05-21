@@ -7,7 +7,7 @@ from json import dump
 from pathlib import Path
 import logging
 from concurrent.futures import ProcessPoolExecutor, wait
-
+from multiprocessing import get_context
 
 from qiskit.circuit import QuantumCircuit, Parameter
 from qiskit_aer.primitives import Sampler
@@ -169,7 +169,8 @@ def main():
 
     dataset = load_benchmarking_dataset()
 
-    with ProcessPoolExecutor(max_workers=args.n_workers) as client:
+    context = get_context(method="spawn")
+    with ProcessPoolExecutor(max_workers=args.n_workers, mp_context=context) as client:
         run_confirmations = dict()
         for problem_size in args.problem_sizes:
             for instance_index in args.instance_indices:
