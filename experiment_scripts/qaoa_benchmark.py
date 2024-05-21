@@ -7,7 +7,7 @@ from json import dump
 from pathlib import Path
 import logging
 
-from dask.distributed import LocalCluster, Client, wait, warn
+from concurrent.futures import ProcessPoolExecutor, wait
 from qiskit_aer.primitives import Sampler
 from qiskit_algorithms.optimizers import SPSA
 from qiskit_algorithms.minimum_eigensolvers import QAOA
@@ -116,7 +116,7 @@ def run_single_benchmark(
         return True
 
     except Exception as e:
-        warn(f"The following exception occurred during a benchmarking run:\n {str(e)}")
+        logging.warning(f"The following exception occurred during a benchmarking run:\n {str(e)}")
 
     return False
 
@@ -129,18 +129,11 @@ def main():
     parser.add_argument("--problem_sizes", type=int, nargs="+", required=True)
     parser.add_argument("--instance_indices", type=int, nargs="+", required=True)
     parser.add_argument("--n_runs_per_instance", type=int, default=5, required=False)
-    parser.add_argument("--memory", type=str, default="2GB", required=False)
     args = parser.parse_args()
 
     dataset = load_benchmarking_dataset()
 
-    with (
-        LocalCluster(
-            n_workers=args.n_workers, threads_per_worker=1, processes=True, memory_limit=args.memory
-        ) as CalculationCluster,
-        Client(CalculationCluster) as client,
-    ):
-
+    with ProcessPoolExecutor(max_workers=args.n_workers) as client:
         run_confirmations = dict()
         for problem_size in args.problem_sizes:
             for instance_index in args.instance_indices:
@@ -159,7 +152,7 @@ def main():
         for scenario, result in run_confirmations.items():
             result = result.result()
             if not result:
-                warn(
+                logging.warning(
                     f"The benchmark run for the instance of size {scenario[0]} with \n"
                     + f"the index {scenario[1]} and seed {scenario[2]} failed!"
                 )
