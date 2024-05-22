@@ -37,7 +37,7 @@ def run_single_benchmark(
             max_opt_value=100,
             encoding_penalty=319,
             overlap_constraint_penalty=319,
-            precedence_constraint_penalty=274,
+            precedence_constraint_penalty=275,
             opt_all_operations_share=0.19,
         )
         hamiltonian = encoder.get_problem_hamiltonian()
