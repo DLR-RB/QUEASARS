@@ -45,7 +45,7 @@ def run_single_benchmark(
 
         min_energy = min(diagonal)
         max_energy = max(diagonal)
-        max_opt_energy, _ = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
+        max_opt_energy, min_subopt_energy = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
 
         sampler = Sampler()
         estimator = _DiagonalEstimator(sampler=sampler, aggregation=0.5)
@@ -73,7 +73,7 @@ def run_single_benchmark(
                 optimizer=opt,
                 optimizer_n_circuit_evaluations=66,
                 max_generations=None,
-                max_circuit_evaluations=30000,
+                max_circuit_evaluations=15000,
                 termination_criterion=evqe_termination,
                 random_seed=None,
                 population_size=10,
@@ -104,8 +104,10 @@ def run_single_benchmark(
                 instance_nr=instance_nr,
                 seed=seed,
                 result=result,
+                min_penalty=275,
                 min_energy=min_energy,
                 max_energy=max_energy,
+                min_subopt_energy=min_subopt_energy,
                 max_opt_energy=max_opt_energy,
                 state_translations=state_translations,
                 optimal_makespan=min_makespan,

@@ -7,7 +7,6 @@ from json import dump
 from pathlib import Path
 import logging
 from concurrent.futures import ProcessPoolExecutor, wait
-from multiprocessing import get_context
 
 from qiskit.circuit import QuantumCircuit, Parameter
 from qiskit_aer.primitives import Sampler
@@ -83,17 +82,17 @@ def run_single_benchmark(
 
         min_energy = min(diagonal)
         max_energy = max(diagonal)
-        max_opt_energy, _ = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
+        max_opt_energy, min_subopt_energy = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
 
         sampler = Sampler(run_options={"max_parallel_threads": qiskit_threads_per_worker})
 
         logging.basicConfig(level=logging.INFO)
 
         checker = SPSATerminationChecker(
-            minimum_relative_change=0.01, allowed_consecutive_violations=9, maxfev=30000, logging_interval=1
+            minimum_relative_change=0.01, allowed_consecutive_violations=9, maxfev=15000, logging_interval=1
         )
         opt = SPSA(
-            maxiter=7500,
+            maxiter=3750,
             blocking=False,
             trust_region=True,
             perturbation=0.21,
@@ -129,7 +128,9 @@ def run_single_benchmark(
             measurement_distribution=quasi_distribution,
             state_translations=state_translations,
             optimal_makespan=min_makespan,
+            min_penalty=806,
             min_energy=min_energy,
+            min_subopt_energy=min_subopt_energy,
             max_opt_energy=max_opt_energy,
             max_energy=max_energy,
         )
@@ -164,13 +165,11 @@ def main():
     parser.add_argument("--problem_sizes", type=int, nargs="+", required=True)
     parser.add_argument("--instance_indices", type=int, nargs="+", required=True)
     parser.add_argument("--n_runs_per_instance", type=int, default=5, required=False)
-    parser.add_argument("--memory", type=str, default="2GB", required=False)
     args = parser.parse_args()
 
     dataset = load_benchmarking_dataset()
 
-    context = get_context(method="spawn")
-    with ProcessPoolExecutor(max_workers=args.n_workers, mp_context=context) as client:
+    with ProcessPoolExecutor(max_workers=args.n_workers) as client:
         run_confirmations = dict()
         for problem_size in args.problem_sizes:
             for instance_index in args.instance_indices:
