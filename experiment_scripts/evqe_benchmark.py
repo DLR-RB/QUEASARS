@@ -5,6 +5,8 @@ from argparse import ArgumentParser
 from datetime import datetime
 from json import dump
 from pathlib import Path
+import logging
+from sys import stdout
 
 from dask.distributed import LocalCluster, Client, wait, warn
 from qiskit_aer.primitives import Sampler
@@ -66,6 +68,11 @@ def run_single_benchmark(
         )
 
         with Client(scheduler_file="evqe_scheduler.json") as client:
+
+            logger = logging.getLogger("queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver")
+            handler = logging.StreamHandler(stream=stdout)
+            logger.setLevel(logging.INFO)
+            logger.addHandler(handler)
 
             config = EVQEMinimumEigensolverConfiguration(
                 sampler=sampler,
