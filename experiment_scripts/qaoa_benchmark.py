@@ -135,7 +135,7 @@ def main():
 
     dataset = load_benchmarking_dataset()
 
-    with ProcessPoolExecutor(max_workers=args.n_workers, mp_context=context) as client:
+    with ProcessPoolExecutor(max_workers=args.n_workers) as client:
         run_confirmations = dict()
         for problem_size in args.problem_sizes:
             for instance_index in args.instance_indices:
