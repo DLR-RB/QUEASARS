@@ -7,6 +7,7 @@ from json import dump
 from pathlib import Path
 import logging
 from concurrent.futures import ProcessPoolExecutor, wait
+import os
 
 from qiskit.circuit import QuantumCircuit, Parameter
 from qiskit_aer.primitives import Sampler
@@ -166,6 +167,10 @@ def main():
     parser.add_argument("--instance_indices", type=int, nargs="+", required=True)
     parser.add_argument("--n_runs_per_instance", type=int, default=5, required=False)
     args = parser.parse_args()
+
+    # Set the openmp variable for threads per workers to prevent it from
+    # superseding qiskit's max_parallel_threads parameter
+    os.environ["OMP_NUM_THREADS"] = args.qiskit_threads_per_worker
 
     dataset = load_benchmarking_dataset()
 
