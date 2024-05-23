@@ -26,7 +26,11 @@ from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividu
 
 
 def run_single_benchmark(
-    benchmark_name: str, problem_instance: tuple[JobShopSchedulingProblemInstance, int], instance_nr: int, seed: int
+    benchmark_name: str,
+    problem_instance: tuple[JobShopSchedulingProblemInstance, int],
+    instance_nr: int,
+    seed: int,
+    population_size: int,
 ) -> bool:
 
     try:
@@ -83,7 +87,7 @@ def run_single_benchmark(
                 max_circuit_evaluations=15000,
                 termination_criterion=evqe_termination,
                 random_seed=None,
-                population_size=10,
+                population_size=population_size,
                 randomize_initial_population_parameters=True,
                 n_initial_layers=2,
                 speciation_genetic_distance_threshold=1,
@@ -150,6 +154,7 @@ def main():
     parser.add_argument("--problem_sizes", type=int, nargs="+", required=True)
     parser.add_argument("--instance_indices", type=int, nargs="+", required=True)
     parser.add_argument("--n_runs_per_instance", type=int, default=5, required=False)
+    parser.add_argument("--population_size", type=int, default=10, required=False)
     parser.add_argument("--memory", type=str, default="2GB", required=False)
     args = parser.parse_args()
 
@@ -179,6 +184,7 @@ def main():
                             dataset[problem_size][instance_index],
                             instance_index,
                             seed,
+                            args.population_size,
                         )
 
             wait(run_confirmations.values())
