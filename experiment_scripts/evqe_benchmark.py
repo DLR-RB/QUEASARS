@@ -161,10 +161,6 @@ def main():
     parser.add_argument("--qiskit_threads_per_worker", type=int, default=1, required=False)
     args = parser.parse_args()
 
-    # Set the openmp variable for threads per workers to prevent it from
-    # superseding qiskit's max_parallel_threads parameter
-    os.environ["OMP_NUM_THREADS"] = str(args.qiskit_threads_per_worker)
-
     dataset = load_benchmarking_dataset()
 
     with (

@@ -14,10 +14,12 @@
 #SBATCH --time=01:00:00
 #SBATCH --account=
 
+omp_num_threads='1'
+
 print_usage() {
     cat <<USAGE
 
-    Usage: $0 [--env conda_environment] [--script_name] [--script_args]
+    Usage: $0 [--env conda_environment] [--script_name] [--script_args] [--omp_num_threads]
 
 USAGE
     exit 1
@@ -30,6 +32,7 @@ for arg in "$@"; do
     --env) conda_env=$2; shift 2 ;;
     --script_name) script=$2; shift 2 ;;
     --script_args) script_args=$2; shift 2 ;;
+    --omp_num_threads) omp_num_threads=$2; shift 2;;
   esac
 done
 
@@ -48,5 +51,7 @@ module add miniconda3
 eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 
 conda activate "$conda_env"
+
+export OMP_NUM_THREADS="$omp_num_threads"
 
 poetry run python experiment_scripts/${script} ${script_args}

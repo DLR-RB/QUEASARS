@@ -13,11 +13,12 @@ cpus='8'
 gpus='1'
 memory='32gb'
 time='01:00:00'
+omp_num_threads='1'
 
 print_usage() {
     cat <<USAGE
 
-    Usage: $0 [--env conda_environment] [--use_gpu] [--nodes num_nodes] [--tasks num_tasks_per_node] [--cpus num_cpus] [--gpus num_gpus] [--memory memory_per_cpu] [--time time] [--script_name] [--script_args]
+    Usage: $0 [--env conda_environment] [--use_gpu] [--nodes num_nodes] [--tasks num_tasks_per_node] [--cpus num_cpus] [--gpus num_gpus] [--memory memory_per_cpu] [--time time] [--script_name] [--script_args] [--omp_num_threads]
 
 USAGE
     exit 1
@@ -35,6 +36,7 @@ for arg in "$@"; do
     --time) time=$2; shift 2 ;;
     --script_name) script=$2; shift 2;;
     --script_args) script_args=$2; shift 2;;
+    --omp_num_threads) omp_num_threads=$2; shift 2;;
     --help) print_usage ; shift ;;
   esac
 done
@@ -61,4 +63,4 @@ else
 fi
 
 echo Starting new Job
-sbatch $sbatch_args experiment_scripts/_start_python_job.sh --env "$conda_env" --script_name "$script" --script_args "$script_args"
+sbatch $sbatch_args experiment_scripts/_start_python_job.sh --env "$conda_env" --script_name "$script" --script_args "$script_args" --omp_num_threads "$omp_num_threads"
