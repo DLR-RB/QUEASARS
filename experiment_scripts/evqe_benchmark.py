@@ -163,7 +163,7 @@ def main():
 
     # Set the openmp variable for threads per workers to prevent it from
     # superseding qiskit's max_parallel_threads parameter
-    os.environ["OMP_NUM_THREADS"] = args.qiskit_threads_per_worker
+    os.environ["OMP_NUM_THREADS"] = str(args.qiskit_threads_per_worker)
 
     dataset = load_benchmarking_dataset()
 
