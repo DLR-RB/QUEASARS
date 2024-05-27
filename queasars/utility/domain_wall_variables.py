@@ -76,14 +76,12 @@ class DomainWallVariable(Generic[T]):
         """
         return self._n_qubits
 
-    def viability_term(self, penalty: float, quantum_circuit_n_qubits: int) -> SparsePauliOp:
+    def viability_term(self, quantum_circuit_n_qubits: int) -> SparsePauliOp:
         """
         Returns a SparsepauliOp observable which penalizes invalid variable states (states with more than one domain
         wall). Its eigenvalues are 0 only for eigenstates which are valid variable states (contain only one
-        domain wall) and (n-1)*penalty for eigenstates which contain n domain walls
+        domain wall) and (n-1) for eigenstates which contain n domain walls
 
-        :arg penalty: size of the applied penalty for each violation
-        :type penalty: float
         :arg quantum_circuit_n_qubits: the amount of qubits in the quantum circuit in which this variable is part of
         :type quantum_circuit_n_qubits: int
         :return: a SparsePauliOp which penalizes invalid variable states
@@ -97,7 +95,6 @@ class DomainWallVariable(Generic[T]):
             local_terms.append(
                 1
                 / 2
-                * penalty
                 * (
                     pauli_identity_string(n_qubits=quantum_circuit_n_qubits)
                     - self._z_dash_term(
@@ -111,7 +108,7 @@ class DomainWallVariable(Generic[T]):
                     )
                 )
             )
-        local_terms.append(-1 * penalty * pauli_identity_string(n_qubits=quantum_circuit_n_qubits))
+        local_terms.append(-1 * pauli_identity_string(n_qubits=quantum_circuit_n_qubits))
 
         return SparsePauliOp.sum(ops=local_terms)
 
