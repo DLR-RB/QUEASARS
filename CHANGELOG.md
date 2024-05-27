@@ -3,6 +3,12 @@ QUEASARS change log
 
 Current version: 0.2.0
 
+## Unreleased
+
+### Added
+
+- Add the ability to initialize EVQE individuals with more than one circuit layer ([Issue #26])
+
 ## 0.2.0
 
 - Implement a general algorithm structure for Evolving Ansatz VQE algorithms
@@ -12,3 +18,5 @@ Current version: 0.2.0
 ## 0.1.0
 
 - Initial codeless pypi commit
+
+[Issue #26]: https://github.com/DLR-RB/QUEASARS/issues/26
