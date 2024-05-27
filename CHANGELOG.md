@@ -8,6 +8,7 @@ Current version: 0.2.0
 ### Added
 
 - Added tournament selection as an alternative selection method for EVQE ([Issue #25])
+- Add the ability to initialize EVQE individuals with more than one circuit layer ([Issue #26])
 
 ### Fixed
 
@@ -24,5 +25,6 @@ Current version: 0.2.0
 
 - Initial codeless pypi commit
 
+[Issue #26]: https://github.com/DLR-RB/QUEASARS/issues/26
 [Issue #25]: https://github.com/DLR-RB/QUEASARS/issues/25
 [Issue #23]: https://github.com/DLR-RB/QUEASARS/issues/23
