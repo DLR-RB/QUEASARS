@@ -92,6 +92,14 @@ class EVQEMinimumEigensolverConfiguration:
         is set to True, or the parameter_search_probability is high. Otherwise, the added layers may start as an
         identity operator and only seldom be optimized, minimizing their effect.
     :type n_initial_layers: int
+    :param use_tournament_selection: indicates whether to use tournament selection. By default, this is
+        set to False. In that case, roulette wheel selection is used. Should be true, if the measured expectation
+        values can be negative.
+    :type use_tournament_selection: bool
+    :param tournament_size: indicates the size of the tournaments used. This can be in the range [1, population_size].
+        It cannot be None, if use_tournament_selection is set to True. A tournament_size of 1 yields random selection,
+        with increasing tournament selection sizes increasing the selection pressure.
+    :type tournament_size: int
     :param randomize_initial_population_parameters: Determines whether the parameter values of the individuals in
         the first population shall be initialized randomly or at 0. By default, the parameter values in the
         initial population are initialized randomly
@@ -122,6 +130,8 @@ class EVQEMinimumEigensolverConfiguration:
     topological_search_probability: float
     layer_removal_probability: float
     n_initial_layers: int = 1
+    use_tournament_selection: bool = False
+    tournament_size: Optional[int] = None
     randomize_initial_population_parameters: bool = True
     parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
     mutually_exclusive_primitives: bool = True
@@ -142,6 +152,15 @@ class EVQEMinimumEigensolverConfiguration:
             raise ValueError(
                 "The number of initial layers for each individual "
                 + f"of the population must be at least 1! But it was {self.n_initial_layers}!"
+            )
+        if self.use_tournament_selection and self.tournament_size is None:
+            raise ValueError("To use tournament_selection, a tournament_size must be specified! It cannot be None!")
+        if self.use_tournament_selection and not 1 <= self.tournament_size:
+            raise ValueError(f"The tournament_size cannot be smaller than 1!, but it was {self.tournament_size}!")
+        if self.use_tournament_selection and self.population_size < self.tournament_size:
+            raise ValueError(
+                f"The tournament_size cannot be larger than the size of the population ({self.population_size})! \n"
+                + f"Yet the tournament_size is {self.tournament_size}!"
             )
 
 
@@ -177,6 +196,8 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             EVQESelection(
                 alpha_penalty=configuration.selection_alpha_penalty,
                 beta_penalty=configuration.selection_beta_penalty,
+                use_tournament_selection=configuration.use_tournament_selection,
+                tournament_size=configuration.tournament_size,
                 random_seed=new_random_seed(random_generator=self.random_generator),
             ),
             EVQEParameterSearch(
