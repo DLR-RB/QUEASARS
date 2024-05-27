@@ -42,17 +42,27 @@ class BestIndividualChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminat
     :param minimum_change: absolute expectation value improvement below which the algorithm shall terminate.
         Must be at least 0
     :type minimum_change: float
+    :param allowed_consecutive_violations: determines how often the threshold value can be violated consecutively
+        before this criterion chooses to terminate. If set to 0, this terminates the first time the change falls
+        below the threshold value. If set to 2 for example, this terminates the first time the change falls below
+        the threshold three consecutive times. Must be at least 0.
+    :type allowed_consecutive_violations: int
     """
 
-    def __init__(self, minimum_change: float):
+    def __init__(self, minimum_change: float, allowed_consecutive_violations: int = 0):
         if minimum_change <= 0:
             raise ValueError("The minimum absolute improvement parameter must be bigger than 0!")
+        if allowed_consecutive_violations < 0:
+            raise ValueError("allowed_consecutive_violations must be at least 0!")
 
         self._minimum_change: float = minimum_change
-        self._previous_expectation_value: float = float("inf")
+        self._allowed_consecutive_violations: int = allowed_consecutive_violations
+        self._previous_expectation_value: Optional[float] = None
+        self._change_history: list[float] = []
 
     def reset_state(self) -> None:
-        self._previous_expectation_value = float("inf")
+        self._previous_expectation_value = None
+        self._change_history = []
 
     def check_termination(
         self,
@@ -60,16 +70,21 @@ class BestIndividualChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminat
         best_individual: BaseIndividual,
         best_expectation_value: float,
     ) -> bool:
-        if self._previous_expectation_value == float("inf"):
+
+        if self._previous_expectation_value is None:
             self._previous_expectation_value = population_evaluation.best_expectation_value
             return False
 
-        change: float = abs(self._previous_expectation_value - population_evaluation.best_expectation_value)
-        if change >= self._minimum_change:
-            self._previous_expectation_value = population_evaluation.best_expectation_value
+        change = abs(self._previous_expectation_value - population_evaluation.best_expectation_value)
+        self._change_history.append(change)
+        self._previous_expectation_value = population_evaluation.best_expectation_value
+
+        if len(self._change_history) < self._allowed_consecutive_violations + 1:
             return False
 
-        return True
+        max_change_in_last_relevant_window = max(self._change_history[-self._allowed_consecutive_violations - 1 :])
+
+        return max_change_in_last_relevant_window < self._minimum_change
 
 
 class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
@@ -80,17 +95,27 @@ class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBase
     :param minimum_relative_change: relative improvement in expectation value below which the algorithm shall
         terminate. Must be in the range )0,1)
     :type minimum_relative_change: float
+    :param allowed_consecutive_violations: determines how often the threshold value can be violated consecutively
+        before this criterion chooses to terminate. If set to 0, this terminates the first time the change falls
+        below the threshold value. If set to 2 for example, this terminates the first time the change falls below
+        the threshold three consecutive times. Must be at least 0.
+    :type allowed_consecutive_violations: int
     """
 
-    def __init__(self, minimum_relative_change: float):
+    def __init__(self, minimum_relative_change: float, allowed_consecutive_violations: int = 0):
         if minimum_relative_change <= 0 or minimum_relative_change > 1:
             raise ValueError("The minimum relative improvement parameter must not exceed the range )0,1)!")
+        if allowed_consecutive_violations < 0:
+            raise ValueError("allowed_consecutive_violations must be at least 0!")
 
-        self._minimum_relative_change = minimum_relative_change
-        self._previous_expectation_value: float = float("inf")
+        self._minimum_relative_change: float = minimum_relative_change
+        self._allowed_consecutive_violations: int = allowed_consecutive_violations
+        self._previous_expectation_value: Optional[float] = None
+        self._relative_change_history: list[float] = []
 
     def reset_state(self) -> None:
-        self._previous_expectation_value = float("inf")
+        self._previous_expectation_value = None
+        self._relative_change_history = []
 
     def check_termination(
         self,
@@ -98,18 +123,25 @@ class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBase
         best_individual: BaseIndividual,
         best_expectation_value: float,
     ) -> bool:
-        if self._previous_expectation_value == float("inf"):
+
+        if self._previous_expectation_value is None:
             self._previous_expectation_value = population_evaluation.best_expectation_value
             return False
 
         relative_change = abs(self._previous_expectation_value - population_evaluation.best_expectation_value) / abs(
             self._previous_expectation_value
         )
-        if relative_change >= self._minimum_relative_change:
-            self._previous_expectation_value = population_evaluation.best_expectation_value
+        self._previous_expectation_value = population_evaluation.best_expectation_value
+        self._relative_change_history.append(relative_change)
+
+        if len(self._relative_change_history) < self._allowed_consecutive_violations + 1:
             return False
 
-        return True
+        max_change_in_last_relevant_window = max(
+            self._relative_change_history[-self._allowed_consecutive_violations - 1 :]
+        )
+
+        return max_change_in_last_relevant_window < self._minimum_relative_change
 
 
 class BestIndividualExpectationValueThreshold(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
@@ -215,6 +247,9 @@ class PopulationChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationC
 
         self._last_population_evaluation = population_evaluation
 
+        if len(self._change_history) < self._allowed_consecutive_violations + 1:
+            return False
+
         if max(self._change_history[-(self._allowed_consecutive_violations + 1) :]) < self._minimum_change:
             return True
 
@@ -287,6 +322,9 @@ class PopulationChangeRelativeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerm
             self._relative_change_history.append(distance / last_population_median_expectation)
 
         self._last_population_evaluation = population_evaluation
+
+        if len(self._relative_change_history) < self._allowed_consecutive_violations + 1:
+            return False
 
         if (
             max(self._relative_change_history[-(self._allowed_consecutive_violations + 1) :])
