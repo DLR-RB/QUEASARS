@@ -14,6 +14,7 @@ Current version: 0.2.0
 
 - Fix Pauli strings being in inverse bit order ([Issue #23])
 - Fix erroneous interaction of penalty terms in the JSSP Hamiltonian ([Issue #23])
+- Fix erroneous normalization of the early start Term in the JSSP Hamiltonian ([Issue #29])
 
 ## 0.2.0
 
@@ -25,6 +26,7 @@ Current version: 0.2.0
 
 - Initial codeless pypi commit
 
+[Issue #29]: https://github.com/DLR-RB/QUEASARS/issues/29
 [Issue #26]: https://github.com/DLR-RB/QUEASARS/issues/26
 [Issue #25]: https://github.com/DLR-RB/QUEASARS/issues/25
 [Issue #23]: https://github.com/DLR-RB/QUEASARS/issues/23
