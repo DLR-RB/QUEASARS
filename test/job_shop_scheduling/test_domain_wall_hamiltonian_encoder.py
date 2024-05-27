@@ -32,7 +32,8 @@ class TestDomainWallHamiltonianEncoder:
             jssp_instance=instance,
             makespan_limit=4,
             encoding_penalty=penalty,
-            constraint_penalty=0,
+            overlap_constraint_penalty=0,
+            precedence_constraint_penalty=0,
             max_opt_value=0,
         )
         hamiltonian = encoder.get_problem_hamiltonian()
@@ -57,7 +58,8 @@ class TestDomainWallHamiltonianEncoder:
             jssp_instance=instance,
             makespan_limit=4,
             encoding_penalty=0,
-            constraint_penalty=penalty,
+            overlap_constraint_penalty=penalty,
+            precedence_constraint_penalty=penalty,
             max_opt_value=0,
         )
         hamiltonian = encoder.get_problem_hamiltonian()
@@ -87,7 +89,8 @@ class TestDomainWallHamiltonianEncoder:
             jssp_instance=instance,
             makespan_limit=4,
             encoding_penalty=0,
-            constraint_penalty=0,
+            overlap_constraint_penalty=0,
+            precedence_constraint_penalty=0,
             max_opt_value=optimization_value,
             opt_all_operations_share=0,
         )
