@@ -105,6 +105,14 @@ class EVQEMinimumEigensolverConfiguration:
         initial population are initialized randomly
     :type randomize_initial_population_parameters: bool
     :type parallel_executor: Union[Client, ThreadPoolExecutor, None]
+    :param distribution_alpha_tail: If only a Sampler is used, the expectation value is calculated from the
+        probability distribution of measured basis states and their respective eigenvalues. In that case, the
+        expectation value can also be calculated over only the lower alpha tail of the state distribution.
+        distribution_alpha_tail can be in the range (0, 1]. By default, it is 1.
+        Then the expectation is calculated over the whole state distribution. Otherwise, it is only calculated
+        over the lower alpha tail of the distribution as discussed in
+        https://quantum-journal.org/papers/q-2020-04-20-256/
+    :type distribution_alpha_tail: float
     :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
         Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
         a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
@@ -134,6 +142,7 @@ class EVQEMinimumEigensolverConfiguration:
     tournament_size: Optional[int] = None
     randomize_initial_population_parameters: bool = True
     parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
+    distribution_alpha_tail: float = 1
     mutually_exclusive_primitives: bool = True
 
     def __post_init__(self):
@@ -232,6 +241,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             termination_criterion=configuration.termination_criterion,
             parallel_executor=parallel_executor,
             mutually_exclusive_primitives=configuration.mutually_exclusive_primitives,
+            distribution_alpha_tail=configuration.distribution_alpha_tail,
         )
         super().__init__(configuration=config)
 
