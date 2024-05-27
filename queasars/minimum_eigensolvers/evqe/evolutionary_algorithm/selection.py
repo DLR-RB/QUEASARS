@@ -4,6 +4,7 @@
 from concurrent.futures import Future as ConcurrentFuture, wait as concurrent_wait
 from random import Random
 from typing import Optional, Union, cast
+from warnings import warn
 
 from dask.distributed import Future as DaskFuture, wait as dask_wait, Client
 from numpy import argmin
@@ -28,14 +29,37 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
     :type: float
     :param beta_penalty: scaling factor for penalizing the amount of controlled gates of an individual
     :type: float
+    :param use_tournament_selection: indicates whether to use tournament selection. By default, this is
+        set to False. In that case, roulette wheel selection is used. Should be true, if the measured expectation
+        values can be negative.
+    :type use_tournament_selection: bool
+    :param tournament_size: indicates the size of the tournaments used. This can be in the range [1, population_size].
+        It cannot be None, if use_tournament_selection is set to True. A tournament_size of 1 yields random selection,
+        with increasing tournament selection sizes increasing the selection pressure.
+    :type tournament_size: int
     :param random_seed: integer value to control randomness
     :type: int
     """
 
-    def __init__(self, alpha_penalty: float, beta_penalty: float, random_seed: Optional[int]):
-        self.alpha_penalty: float = alpha_penalty
-        self.beta_penalty: float = beta_penalty
-        self.random_generator: Random = Random(random_seed)
+    def __init__(
+        self,
+        alpha_penalty: float,
+        beta_penalty: float,
+        use_tournament_selection: bool = False,
+        tournament_size: Optional[int] = None,
+        random_seed: Optional[int] = None,
+    ):
+        self._alpha_penalty: float = alpha_penalty
+        self._beta_penalty: float = beta_penalty
+        self._use_tournament_selection: bool = use_tournament_selection
+        if self._use_tournament_selection:
+            if tournament_size is not None:
+                self._tournament_size: int = tournament_size
+                if self._tournament_size < 1:
+                    raise ValueError("the tournament_size must be at least 1!")
+            else:
+                raise ValueError("tournament_size cannot be None, if tournament selection should be used!")
+        self._random_generator: Random = Random(random_seed)
 
     def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
         # measure the expectation values for all individuals
@@ -84,29 +108,64 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
         )
         operator_context.result_callback(result)
 
-        # disallow negative or 0 values in fitnesses by shifting all evaluation results by a fixed offset
-        offset: float
-        if evaluation_results[best_individual_index] <= 0:
-            offset = -evaluation_results[best_individual_index] + 1
-        else:
-            offset = 0
+        selected_individuals: list[EVQEIndividual] = []
+        fitness_values: list[float] = []
 
-        fitness_values: list[float] = [
-            (
-                evaluation_results[i]
-                + offset
-                + self.alpha_penalty * len(individual.layers)
-                + self.beta_penalty * individual.get_n_controlled_gates()
+        if not self._use_tournament_selection:
+            # disallow negative or 0 values in fitnesses by shifting all evaluation results by a fixed offset
+            offset: float
+            if evaluation_results[best_individual_index] <= 0:
+                offset = -evaluation_results[best_individual_index] + 1
+                warn(
+                    "Tournament selection should be preferred over roulette wheel selection, "
+                    + "if negative expectation values are involved in the fitness!"
+                )
+            else:
+                offset = 0
+
+            fitness_values = [
+                (
+                    evaluation_results[i]
+                    + offset
+                    + self._alpha_penalty * len(individual.layers)
+                    + self._beta_penalty * individual.get_n_controlled_gates()
+                )
+                * float(len(population.species_members[population.species_membership[i]]))
+                for i, individual in enumerate(population.individuals)
+            ]
+
+            fitness_weights: list[float] = [1 / (fitness + offset) for fitness in fitness_values]
+            selected_individuals = self._random_generator.choices(
+                population.individuals, weights=fitness_weights, k=len(population.individuals)
             )
-            * float(len(population.species_members[population.species_membership[i]]))
-            for i, individual in enumerate(population.individuals)
-        ]
+        else:
 
-        fitness_weights: list[float] = [1 / fitness for fitness in fitness_values]
+            fitness_values = [
+                (
+                    evaluation_results[i]
+                    + self._alpha_penalty * len(individual.layers)
+                    + self._beta_penalty * individual.get_n_controlled_gates()
+                )
+                * float(len(population.species_members[population.species_membership[i]]))
+                for i, individual in enumerate(population.individuals)
+            ]
 
-        selected_individuals: list[EVQEIndividual] = self.random_generator.choices(
-            population.individuals, weights=fitness_weights, k=len(population.individuals)
-        )
+            while len(selected_individuals) < len(population.individuals):
+                tournament_indices = self._random_generator.choices(
+                    range(0, len(population.individuals)), k=self._tournament_size
+                )
+                best_index: Optional[int] = None
+                best_fitness_value: Optional[float] = None
+
+                for tournament_index in tournament_indices:
+                    if best_fitness_value is None or fitness_values[tournament_index] < best_fitness_value:
+                        best_index = tournament_index
+                        best_fitness_value = fitness_values[tournament_index]
+
+                if best_index is not None:
+                    selected_individuals.append(population.individuals[best_index])
+                else:
+                    raise EVQESelectionException("No individual was selected for a round of tournament selection!")
 
         return EVQEPopulation(
             individuals=tuple(selected_individuals),

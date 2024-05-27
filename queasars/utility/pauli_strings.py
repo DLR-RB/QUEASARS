@@ -36,6 +36,6 @@ def pauli_z_string(qubit_index: int, n_qubits: int) -> SparsePauliOp:
         raise ValueError("The qubit index is invalid!")
 
     pauli_list: list[str] = ["I"] * n_qubits
-    pauli_list[qubit_index] = "Z"
+    pauli_list[-(qubit_index + 1)] = "Z"
     pauli_string: str = "".join(pauli_list)
     return SparsePauliOp(pauli_string)
