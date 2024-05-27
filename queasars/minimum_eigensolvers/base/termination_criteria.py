@@ -61,6 +61,7 @@ class BestIndividualChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminat
         self._change_history: list[float] = []
 
     def reset_state(self) -> None:
+        self._previous_expectation_value = None
         self._change_history = []
 
     def check_termination(
@@ -81,9 +82,9 @@ class BestIndividualChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminat
         if len(self._change_history) < self._allowed_consecutive_violations + 1:
             return False
 
-        max_change = max(self._change_history[-self._allowed_consecutive_violations - 1 :])
+        max_change_in_last_relevant_window = max(self._change_history[-self._allowed_consecutive_violations - 1 :])
 
-        return not max_change >= self._minimum_change
+        return max_change_in_last_relevant_window < self._minimum_change
 
 
 class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
@@ -136,9 +137,11 @@ class BestIndividualRelativeChangeTolerance(EvolvingAnsatzMinimumEigensolverBase
         if len(self._relative_change_history) < self._allowed_consecutive_violations + 1:
             return False
 
-        max_change = max(self._relative_change_history[-self._allowed_consecutive_violations - 1 :])
+        max_change_in_last_relevant_window = max(
+            self._relative_change_history[-self._allowed_consecutive_violations - 1 :]
+        )
 
-        return not max_change >= self._minimum_relative_change
+        return max_change_in_last_relevant_window < self._minimum_relative_change
 
 
 class BestIndividualExpectationValueThreshold(EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion):
