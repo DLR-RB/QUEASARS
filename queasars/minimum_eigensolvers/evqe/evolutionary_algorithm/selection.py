@@ -49,17 +49,17 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
         tournament_size: Optional[int] = None,
         random_seed: Optional[int] = None,
     ):
-        self.alpha_penalty: float = alpha_penalty
-        self.beta_penalty: float = beta_penalty
-        self.use_tournament_selection: bool = use_tournament_selection
-        if self.use_tournament_selection:
+        self._alpha_penalty: float = alpha_penalty
+        self._beta_penalty: float = beta_penalty
+        self._use_tournament_selection: bool = use_tournament_selection
+        if self._use_tournament_selection:
             if tournament_size is not None:
-                self.tournament_size: int = tournament_size
-                if self.tournament_size < 1:
+                self._tournament_size: int = tournament_size
+                if self._tournament_size < 1:
                     raise ValueError("the tournament_size must be at least 1!")
             else:
                 raise ValueError("tournament_size cannot be None, if tournament selection should be used!")
-        self.random_generator: Random = Random(random_seed)
+        self._random_generator: Random = Random(random_seed)
 
     def apply_operator(self, population: EVQEPopulation, operator_context: OperatorContext) -> EVQEPopulation:
         # measure the expectation values for all individuals
@@ -111,7 +111,7 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
         selected_individuals: list[EVQEIndividual] = []
         fitness_values: list[float] = []
 
-        if not self.use_tournament_selection:
+        if not self._use_tournament_selection:
             # disallow negative or 0 values in fitnesses by shifting all evaluation results by a fixed offset
             offset: float
             if evaluation_results[best_individual_index] <= 0:
@@ -127,15 +127,15 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
                 (
                     evaluation_results[i]
                     + offset
-                    + self.alpha_penalty * len(individual.layers)
-                    + self.beta_penalty * individual.get_n_controlled_gates()
+                    + self._alpha_penalty * len(individual.layers)
+                    + self._beta_penalty * individual.get_n_controlled_gates()
                 )
                 * float(len(population.species_members[population.species_membership[i]]))
                 for i, individual in enumerate(population.individuals)
             ]
 
             fitness_weights: list[float] = [1 / (fitness + offset) for fitness in fitness_values]
-            selected_individuals = self.random_generator.choices(
+            selected_individuals = self._random_generator.choices(
                 population.individuals, weights=fitness_weights, k=len(population.individuals)
             )
         else:
@@ -143,16 +143,16 @@ class EVQESelection(BaseEvolutionaryOperator[EVQEPopulation]):
             fitness_values = [
                 (
                     evaluation_results[i]
-                    + self.alpha_penalty * len(individual.layers)
-                    + self.beta_penalty * individual.get_n_controlled_gates()
+                    + self._alpha_penalty * len(individual.layers)
+                    + self._beta_penalty * individual.get_n_controlled_gates()
                 )
                 * float(len(population.species_members[population.species_membership[i]]))
                 for i, individual in enumerate(population.individuals)
             ]
 
             while len(selected_individuals) < len(population.individuals):
-                tournament_indices = self.random_generator.choices(
-                    range(0, len(population.individuals)), k=self.tournament_size
+                tournament_indices = self._random_generator.choices(
+                    range(0, len(population.individuals)), k=self._tournament_size
                 )
                 best_index: Optional[int] = None
                 best_fitness_value: Optional[float] = None
