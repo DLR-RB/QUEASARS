@@ -5,6 +5,10 @@ Current version: 0.2.0
 
 ## Unreleased
 
+### Added
+
+- Added tournament selection as an alternative selection method for EVQE ([Issue #25])
+
 ### Fixed
 
 - Fix Pauli strings being in inverse bit order ([Issue #23])
@@ -20,4 +24,5 @@ Current version: 0.2.0
 
 - Initial codeless pypi commit
 
+[Issue #25]: https://github.com/DLR-RB/QUEASARS/issues/25
 [Issue #23]: https://github.com/DLR-RB/QUEASARS/issues/23
