@@ -70,6 +70,8 @@ module = [
     'qiskit.converters.*',
     'qiskit.primitives',
     'qiskit.primitives.*',
+    'qiskit.qpy',
+    'qiskit.qpy.*',
     'qiskit.quantum_info',
     'qiskit.quantum_info.*',
     'qiskit.result',

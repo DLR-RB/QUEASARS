@@ -307,7 +307,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         aux_circuit_evaluators: ListOrDict[BaseCircuitEvaluator],
         initial_state_circuit: Optional[QuantumCircuit] = None,
     ) -> "EvolvingAnsatzMinimumEigensolverResult":
-        n_circuit_evaluations: int = 0
+        n_circuit_evaluations: list[int] = []
         n_generations: int = 0
         terminate: bool = False
         current_best_individual: Optional[BaseIndividual] = None
@@ -354,7 +354,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
 
         def circuit_evaluation_callback(evaluations: int) -> None:
             nonlocal n_circuit_evaluations
-            n_circuit_evaluations += evaluations
+            nonlocal n_generations
+            if len(n_circuit_evaluations) < n_generations + 1:
+                n_circuit_evaluations.append(evaluations)
+            else:
+                n_circuit_evaluations[n_generations] += evaluations
 
         operator_context: OperatorContext = OperatorContext(
             circuit_evaluator=circuit_evaluator,
@@ -374,7 +378,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 # Terminate if the maximum circuit evaluation count has been exceeded
                 if (
                     self.configuration.max_circuit_evaluations is not None
-                    and n_circuit_evaluations >= self.configuration.max_circuit_evaluations
+                    and sum(n_circuit_evaluations) >= self.configuration.max_circuit_evaluations
                 ):
                     terminate = True
 
@@ -385,7 +389,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 if (
                     self.configuration.max_circuit_evaluations is not None
                     and estimated_evaluations is not None
-                    and n_circuit_evaluations + estimated_evaluations >= self.configuration.max_circuit_evaluations
+                    and sum(n_circuit_evaluations) + estimated_evaluations >= self.configuration.max_circuit_evaluations
                 ):
                     terminate = True
 
@@ -417,18 +421,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         result = EvolvingAnsatzMinimumEigensolverResult()
         result.eigenvalue = current_best_expectation_value
         result.eigenstate = sampler_result_best_individual.quasi_dists[0]
-        if initial_state_circuit is None:
-            result.optimal_circuit = current_best_individual.get_parameterized_quantum_circuit()
-        else:
-            result.optimal_circuit = initial_state_circuit.compose(
-                current_best_individual.get_parameterized_quantum_circuit()
-            )
-        result.optimal_parameters = dict(
-            zip(result.optimal_circuit.parameters, current_best_individual.get_parameter_values())
-        )
+        result.best_individual = current_best_individual
         result.circuit_evaluations = n_circuit_evaluations
         result.generations = n_generations
         result.population_evaluation_results = population_evaluations
+        result.initial_state_circuit = initial_state_circuit
 
         if isinstance(aux_circuit_evaluators, list):
             result.aux_operators_evaluated = [
