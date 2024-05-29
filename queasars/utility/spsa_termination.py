@@ -56,7 +56,7 @@ class SPSATerminationChecker:
         """Given the callback values provided by qiskit_algorithm's SPSA optimizer, this method determines
         whether the SPSA optimization should terminate"""
 
-        if self._done:
+        if self._done or n_function_evaluations < self._n_function_evaluations:
             self._function_value_history = []
             self._change_history = []
             self._n_function_evaluations = 0
