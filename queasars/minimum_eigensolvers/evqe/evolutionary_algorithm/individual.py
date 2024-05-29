@@ -316,7 +316,6 @@ class EVQEIndividual(BaseIndividual):
                 )
                 gate = layer.get_layer_gate(layer_id=i, parameter_values=layer_parameter_values)
             circuit.append(instruction=gate, qargs=range(0, n_qubits))
-            circuit.barrier()
         return circuit
 
     def get_parameter_values(self) -> tuple[float, ...]:

@@ -11,6 +11,7 @@ Current version: 0.2.0
 - Add the ability to initialize EVQE individuals with more than one circuit layer ([Issue #26])
 - Added the ability to use the Critival Value at Risk instead of the Expectation Value ([Issue #32])
 - Added JSON serialization classes to enable the serialization of EvolvingAnsatzMinimumEigensolverResults ([Issue #35])
+- Added a termination criterion for qiskit_algorithm's SPSA optimizer ([Issue #37])
 
 ### Fixed
 
@@ -34,6 +35,7 @@ Current version: 0.2.0
 
 - Initial codeless pypi commit
 
+[Issue #37]: https://github.com/DLR-RB/QUEASARS/issues/37
 [Issue #35]: https://github.com/DLR-RB/QUEASARS/issues/35
 [Issue #32]: https://github.com/DLR-RB/QUEASARS/issues/32
 [Issue #31]: https://github.com/DLR-RB/QUEASARS/issues/31
