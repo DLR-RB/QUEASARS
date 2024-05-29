@@ -17,8 +17,6 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         super().__init__()
         self._eigenstate: Optional[QuasiDistribution] = None
         self._best_individual: Optional[BaseIndividual] = None
-        self._optimal_parameters: Optional[dict] = None
-        self._optimal_circuit: Optional[QuantumCircuit] = None
         self._circuit_evaluations: Optional[list[int]] = None
         self._generations: Optional[int] = None
         self._population_evaluation_results: Optional[list[BasePopulationEvaluationResult]] = None
