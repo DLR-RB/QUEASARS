@@ -7,7 +7,7 @@ from json import dump
 from pathlib import Path
 import logging
 from sys import stdout
-import os
+from typing import Optional
 
 from dask.distributed import LocalCluster, Client, wait, warn
 from qiskit_aer.primitives import Sampler
@@ -31,6 +31,7 @@ def run_single_benchmark(
     problem_instance: tuple[JobShopSchedulingProblemInstance, int],
     instance_nr: int,
     seed: int,
+    shots: Optional[int],
     qiskit_threads_per_worker: int,
     population_size: int,
 ) -> bool:
@@ -55,7 +56,10 @@ def run_single_benchmark(
         max_energy = max(diagonal)
         max_opt_energy, min_subopt_energy = get_makespan_energy_split(diagonal, encoder, 100, min_makespan)
 
-        sampler = Sampler(run_options={"max_parallel_threads": qiskit_threads_per_worker})
+        if shots is None:
+            sampler = Sampler(run_options={"max_parallel_threads": qiskit_threads_per_worker})
+        else:
+            sampler = Sampler(run_options={"max_parallel_threads": qiskit_threads_per_worker, "shots": shots})
         estimator = _DiagonalEstimator(sampler=sampler, aggregation=0.5)
 
         checker = SPSATerminationChecker(minimum_relative_change=0.01, allowed_consecutive_violations=2, maxfev=250)
@@ -157,6 +161,7 @@ def main():
     parser.add_argument("--instance_indices", type=int, nargs="+", required=True)
     parser.add_argument("--n_runs_per_instance", type=int, default=5, required=False)
     parser.add_argument("--population_size", type=int, default=10, required=False)
+    parser.add_argument("--shots", type=int, default=None, required=False)
     parser.add_argument("--memory", type=str, default="2GB", required=False)
     parser.add_argument("--qiskit_threads_per_worker", type=int, default=1, required=False)
     args = parser.parse_args()
@@ -187,6 +192,7 @@ def main():
                             dataset[problem_size][instance_index],
                             instance_index,
                             seed,
+                            args.shots,
                             args.qiskit_threads_per_worker,
                             args.population_size,
                         )
