@@ -25,7 +25,7 @@ class VQABenchmarkResult:
     seed: Optional[int] = None
     best_expectation_value: Optional[float] = None
     best_parameter_values: Optional[list[float]] = None
-    expectation_evaluation_counts: Optional[list[float]] = None
+    expectation_evaluation_counts: Optional[list[int]] = None
     expectation_values: Optional[list[float]] = None
     measurement_distribution: Optional[QuasiDistribution] = None
     state_translations: Optional[dict[int, JobShopSchedulingResult]] = None
