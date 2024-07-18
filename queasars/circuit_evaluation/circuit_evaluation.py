@@ -26,7 +26,7 @@ from queasars.circuit_evaluation.expectation_calculation import (
 )
 
 
-def _measure_quasi_distributions(
+def measure_quasi_distributions(
     circuits: list[QuantumCircuit], parameter_values: list[list[float]], sampler: BaseSamplerV2, shots: int
 ) -> list[QuasiDistribution]:
     """
@@ -148,7 +148,7 @@ class OperatorSamplerCircuitEvaluator(BaseCircuitEvaluator):
         if self._initial_state_circuit is not None:
             circuits = [self._initial_state_circuit.compose(circuit, inplace=False) for circuit in circuits]
 
-        quasi_dists: list[QuasiDistribution] = _measure_quasi_distributions(
+        quasi_dists: list[QuasiDistribution] = measure_quasi_distributions(
             circuits=circuits, parameter_values=parameter_values, sampler=self._sampler, shots=self._sampler_shots
         )
         return [
@@ -272,7 +272,7 @@ class BitstringCircuitEvaluator(BaseCircuitEvaluator):
         if self._initial_state_circuit is not None:
             circuits = [self._initial_state_circuit.compose(circuit, inplace=False) for circuit in circuits]
 
-        quasi_dists: list[QuasiDistribution] = _measure_quasi_distributions(
+        quasi_dists: list[QuasiDistribution] = measure_quasi_distributions(
             circuits=circuits,
             parameter_values=parameter_values,
             sampler=self._sampler,
