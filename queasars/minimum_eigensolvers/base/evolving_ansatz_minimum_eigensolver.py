@@ -10,6 +10,7 @@ from numpy import median, mean
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import BaseEstimatorV2, BaseSamplerV2
+from qiskit.quantum_info.operators import SparsePauliOp
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
 from qiskit_algorithms.minimum_eigensolvers import MinimumEigensolver
@@ -175,7 +176,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
         While an ``operator`` is required by algorithms, ``aux_operators`` are optional
 
-        :arg operator: Qubit operator of the observable
+        :arg operator: Quantum operator of the observable. If this solver is configured to only use sampler,
+                        the operator must be of type SparsePauliOp.
         :type operator: BaseOperator
         :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
@@ -199,7 +201,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
         While an ``operator`` is required by algorithms, ``aux_operators`` are optional
 
-        :arg operator: Qubit operator of the observable
+        :arg operator: Quantum operator of the observable. If this solver is configured to only use sampler,
+                        the operator must be of type SparsePauliOp.
         :type operator: BaseOperator
         :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
@@ -227,6 +230,11 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         def sampler_initialisation_function(op: BaseOperator) -> OperatorSamplerCircuitEvaluator:
             if self.configuration.configured_sampler is None:
                 raise ValueError("This error should never occur! This seems to be an issue of the internal logic!")
+            if not isinstance(op, SparsePauliOp):
+                raise ValueError(
+                    "The operator must be of type SparsePauliOp, when using a Sampler " +
+                    f"to approximate the expectation value! Instead it was of type {type(op)}!"
+                )
             return OperatorSamplerCircuitEvaluator(
                 sampler=self.configuration.configured_sampler.sampler,
                 sampler_shots=self.configuration.configured_sampler.shots,
@@ -423,9 +431,10 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         ):
             raise Exception("The algorithm seems to have terminated without having evaluated any population! ")
 
-        best_circuit: QuantumCircuit = current_best_individual.get_quantum_circuit()
+        best_circuit: QuantumCircuit = current_best_individual.get_parameterized_quantum_circuit()
         if initial_state_circuit is not None:
             best_circuit = initial_state_circuit.compose(best_circuit, inplace=False)
+        best_circuit.measure_all(inplace=True)
 
         result = EvolvingAnsatzMinimumEigensolverResult()
         result.eigenvalue = current_best_expectation_value
@@ -434,7 +443,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
             parameter_values=[list(current_best_individual.get_parameter_values())],
             sampler=self.configuration.configured_sampler.sampler,
             shots=self.configuration.configured_sampler.shots,
-        )
+        )[0]
         result.best_individual = current_best_individual
         result.circuit_evaluations = n_circuit_evaluations
         result.generations = n_generations
