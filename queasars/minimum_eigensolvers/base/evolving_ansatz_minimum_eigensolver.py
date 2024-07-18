@@ -9,7 +9,6 @@ from dask.distributed import Client
 from numpy import median, mean
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import BaseEstimatorV2, BaseSamplerV2
 from qiskit.quantum_info.operators import SparsePauliOp
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
@@ -23,6 +22,7 @@ from queasars.circuit_evaluation.circuit_evaluation import (
     OperatorCircuitEvaluator,
     OperatorSamplerCircuitEvaluator,
 )
+from queasars.circuit_evaluation.configured_primitives import ConfiguredEstimatorV2, ConfiguredSamplerV2
 from queasars.circuit_evaluation.mutex_primitives import (
     BatchingMutexEstimator,
     BatchingMutexSampler,
@@ -45,20 +45,6 @@ from queasars.minimum_eigensolvers.base.termination_criteria import (
 
 
 POP = TypeVar("POP", bound=BasePopulation)
-
-
-@dataclass
-class ConfiguredSamplerV2:
-    """Dataclass that holds a qiskit SamplerV2 and the amount of shots that shall be used when sampling."""
-    sampler: BaseSamplerV2
-    shots: int
-
-
-@dataclass
-class ConfiguredEstimatorV2:
-    """Dataclass that holds a qiskit EstimatorV2 and the precision to which the expectation value shall be estimated."""
-    estimator: BaseEstimatorV2
-    precision: float
 
 
 @dataclass
@@ -232,8 +218,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 raise ValueError("This error should never occur! This seems to be an issue of the internal logic!")
             if not isinstance(op, SparsePauliOp):
                 raise ValueError(
-                    "The operator must be of type SparsePauliOp, when using a Sampler " +
-                    f"to approximate the expectation value! Instead it was of type {type(op)}!"
+                    "The operator must be of type SparsePauliOp, when using a Sampler "
+                    + f"to approximate the expectation value! Instead it was of type {type(op)}!"
                 )
             return OperatorSamplerCircuitEvaluator(
                 sampler=self.configuration.configured_sampler.sampler,

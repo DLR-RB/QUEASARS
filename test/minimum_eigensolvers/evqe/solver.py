@@ -6,9 +6,8 @@ from typing import Optional
 from qiskit_aer.primitives import EstimatorV2, SamplerV2
 from qiskit_algorithms.optimizers import NFT
 
+from queasars.circuit_evaluation.configured_primitives import ConfiguredEstimatorV2, ConfiguredSamplerV2
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
-    ConfiguredEstimatorV2,
-    ConfiguredSamplerV2,
     EvolvingAnsatzMinimumEigensolverResult,
 )
 from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeChangeTolerance

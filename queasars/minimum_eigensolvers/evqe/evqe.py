@@ -9,10 +9,9 @@ from typing import Callable, Optional, Union
 from dask.distributed import Client
 from qiskit_algorithms.optimizers import Optimizer
 
+from queasars.circuit_evaluation.configured_primitives import ConfiguredEstimatorV2, ConfiguredSamplerV2
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
-    ConfiguredEstimatorV2,
-    ConfiguredSamplerV2,
     EvolvingAnsatzMinimumEigensolver,
     EvolvingAnsatzMinimumEigensolverConfiguration,
 )
