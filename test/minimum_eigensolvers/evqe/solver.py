@@ -3,10 +3,12 @@
 
 from dask.distributed import Client
 from typing import Optional
-from qiskit_aer.primitives import Estimator, Sampler
+from qiskit_aer.primitives import EstimatorV2, SamplerV2
 from qiskit_algorithms.optimizers import NFT
 
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
+    ConfiguredEstimatorV2,
+    ConfiguredSamplerV2,
     EvolvingAnsatzMinimumEigensolverResult,
 )
 from queasars.minimum_eigensolvers.base.termination_criteria import BestIndividualRelativeChangeTolerance
@@ -16,14 +18,20 @@ from queasars.minimum_eigensolvers.evqe.evqe import EVQEMinimumEigensolver, EVQE
 def create_sample_solver(
     client: Optional[Client] = None, mutually_exclusive_primitives: bool = True
 ) -> EVQEMinimumEigensolver:
-    estimator = Estimator(approximation=True)
-    sampler = Sampler()
+    configured_estimator = ConfiguredEstimatorV2(
+        estimator=EstimatorV2(),
+        precision=0.05,
+    )
+    configured_sampler = ConfiguredSamplerV2(
+        sampler=SamplerV2(),
+        shots=1000,
+    )
     optimizer = NFT(maxiter=40)
     termination_criterion = BestIndividualRelativeChangeTolerance(minimum_relative_change=0.005)
 
     solver_configuration = EVQEMinimumEigensolverConfiguration(
-        sampler=sampler,
-        estimator=estimator,
+        configured_sampler=configured_sampler,
+        configured_estimator=configured_estimator,
         optimizer=optimizer,
         optimizer_n_circuit_evaluations=40,
         max_generations=None,
