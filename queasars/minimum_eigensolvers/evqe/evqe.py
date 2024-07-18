@@ -7,12 +7,12 @@ from random import Random
 from typing import Callable, Optional, Union
 
 from dask.distributed import Client
-
-from qiskit.primitives import Estimator, Sampler
 from qiskit_algorithms.optimizers import Optimizer
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
+    ConfiguredEstimatorV2,
+    ConfiguredSamplerV2,
     EvolvingAnsatzMinimumEigensolver,
     EvolvingAnsatzMinimumEigensolverConfiguration,
 )
@@ -35,15 +35,14 @@ from queasars.utility.random import new_random_seed
 class EVQEMinimumEigensolverConfiguration:
     """Configuration for the EVQEMinimumEigensolver
 
-    :param estimator: Estimator primitive used to estimate the circuit's eigenvalue. If none is provided for that
-        purpose, the sampler is used instead. If reproducible behaviour is required, the seed option of the estimator
-        needs to be set. If a dask Client is used as the parallel_executor,
-        the Estimator needs to be serializable by dask, otherwise the computation will fail
-    :type estimator: Optional[Estimator]
-    :param sampler: Sampler primitive used to measure the circuits QuasiDistribution. If reproducible behaviour is
-        required, the seed option of the estimator needs to be set. If a dask Client is used as the parallel_executor,
-        the Sampler needs to be serializable by dask, otherwise the computation will fail
-    :type sampler: Sampler
+    :param configured_estimator: Configured EstimatorV2 primitive used to estimate the circuit's eigenvalue.
+        If none is provided for that purpose, the sampler is used instead. If a dask Client is used as the
+        parallel_executor, the Estimator needs to be serializable by dask, otherwise the computation will fail
+    :type configured_estimator: Optional[ConfiguredEstimatorV2]
+    :param configured_sampler: Sampler primitive used to measure the circuits QuasiDistribution.
+        If a dask Client is used as the parallel_executor, the Sampler needs to be serializable by dask,
+        otherwise the computation will fail
+    :type configured_sampler: ConfiguredSamplerV2
     :param optimizer: Qiskit optimizer used to optimize the parameter values. Should be configured to terminate after
         a relatively low amount of circuit evaluations to enable the gradual evolution of the individuals
     :type optimizer: Optimizer
@@ -122,8 +121,8 @@ class EVQEMinimumEigensolverConfiguration:
     :type mutually_exclusive_primitives: bool
     """
 
-    estimator: Optional[Estimator]
-    sampler: Sampler
+    configured_estimator: Optional[ConfiguredEstimatorV2]
+    configured_sampler: ConfiguredSamplerV2
     optimizer: Optimizer
     optimizer_n_circuit_evaluations: Optional[int]
     max_generations: Optional[int]
@@ -234,8 +233,8 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
         config: EvolvingAnsatzMinimumEigensolverConfiguration = EvolvingAnsatzMinimumEigensolverConfiguration(
             population_initializer=population_initializer,
             evolutionary_operators=evolutionary_operators,
-            estimator=configuration.estimator,
-            sampler=configuration.sampler,
+            configured_estimator=configuration.configured_estimator,
+            configured_sampler=configuration.configured_sampler,
             max_generations=configuration.max_generations,
             max_circuit_evaluations=configuration.max_circuit_evaluations,
             termination_criterion=configuration.termination_criterion,
