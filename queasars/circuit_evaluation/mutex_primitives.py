@@ -2,7 +2,7 @@
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 from threading import Condition, Lock
 from time import sleep
-from typing import Callable, Generic, Iterable, Optional, TypeVar
+from typing import Any, Callable, Generic, Iterable, Optional, TypeVar
 
 from dask.utils import SerializableLock
 from qiskit.primitives import (
@@ -24,14 +24,14 @@ PUBRESULT = TypeVar("PUBRESULT")
 
 class BatchingMutexPrimitiveJobRunner(Generic[PUBTYPE, PUBRESULT]):
     """
-    Class which wraps a method f of the type Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT]]]
+    Class which wraps a method f of the type Callable[[list[PUBTYPE]], PrimitiveJob[PrimitiveResult[PUBRESULT]]]
     It batches the calls to f and enforces mutually exclusive access on f. Therefore, if multiple threads enter
     during the waiting time their arguments are concatenated and only one thread executes f,
     with the rest waiting to gather the results once they are available
 
     :param f: Callable which takes a list of values as an input and returns a BasePrimitiveJob that processes and
                 returns values for each input value.
-    :type f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT]]]
+    :type f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT], Any]]
     :param batch_waiting_duration: Amount of time the last entering thread waits for others to enter after itself.
         Specifying no waiting duration might lead very small batches.
     :type batch_waiting_duration: Optional[float]
@@ -39,13 +39,13 @@ class BatchingMutexPrimitiveJobRunner(Generic[PUBTYPE, PUBRESULT]):
 
     def __init__(
         self,
-        f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT]]],
+        f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT], Any]],
         batch_waiting_duration: Optional[float],
     ):
         """
         Constructor Method
         """
-        self.f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT]]] = f
+        self.f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT], Any]] = f
         self.batch_waiting_duration: Optional[float] = batch_waiting_duration
 
         # The entry lock restricts whether a thread may add its circuit evaluation requests to the batch.
@@ -216,7 +216,7 @@ class MutexSampler(BaseSamplerV2):
 
     def run(
         self, pubs: Iterable[SamplerPubLike], *args, shots: int | None = None
-    ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult]]:
+    ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
         with self._lock:
             return self._sampler.run(pubs=pubs, *args, shots=shots)
 
@@ -244,8 +244,11 @@ class BatchingMutexSampler(BaseSamplerV2):
 
     def run(
         self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None
-    ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult]]:
-        pass
+    ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
+        coerced_pubs: list[SamplerPub] = [SamplerPub.coerce(pub, shots) for pub in pubs]
+        job = PrimitiveJob(self._run, coerced_pubs)
+        job._submit()
+        return job
 
     def _run(self, pubs: list[SamplerPub]) -> PrimitiveResult[SamplerPubResult]:
         n_pubs = len(pubs)
@@ -256,7 +259,7 @@ class BatchingMutexSampler(BaseSamplerV2):
             metadata=result.metadata,
         )
 
-    def _sample(self, pubs: list[SamplerPub]) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult]]:
+    def _sample(self, pubs: list[SamplerPub]) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
         return self._sampler.run(pubs=pubs)
 
 
@@ -277,7 +280,7 @@ class MutexEstimator(BaseEstimatorV2):
 
     def run(
         self, pubs: Iterable[EstimatorPubLike], *args, precision: float | None = None
-    ) -> BasePrimitiveJob[PrimitiveResult[PubResult]]:
+    ) -> BasePrimitiveJob[PrimitiveResult[PubResult], Any]:
         with self._lock:
             return self._estimator.run(pubs=pubs, *args, precision=precision)
 
@@ -320,5 +323,5 @@ class BatchingMutexEstimator(BaseEstimatorV2):
             metadata=result.metadata,
         )
 
-    def _estimate(self, pubs: list[EstimatorPub]) -> BasePrimitiveJob[PrimitiveResult[PubResult]]:
+    def _estimate(self, pubs: list[EstimatorPub]) -> BasePrimitiveJob[PrimitiveResult[PubResult], Any]:
         return self._estimator.run(pubs=pubs)
