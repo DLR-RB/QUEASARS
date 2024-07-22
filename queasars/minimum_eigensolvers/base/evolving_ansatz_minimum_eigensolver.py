@@ -246,6 +246,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
                 sampler=self.configuration.configured_sampler.sampler,
                 sampler_shots=self.configuration.configured_sampler.shots,
                 operator=op,
+                alpha=self.configuration.distribution_alpha_tail,
                 initial_state_circuit=initial_state_circuit,
             )
 
