@@ -7,6 +7,7 @@ from random import Random
 from typing import Callable, Optional, Union
 
 from dask.distributed import Client
+from qiskit.transpiler import PassManager
 from qiskit_algorithms.optimizers import Optimizer
 
 from queasars.circuit_evaluation.configured_primitives import ConfiguredEstimatorV2, ConfiguredSamplerV2
@@ -41,6 +42,10 @@ class EVQEMinimumEigensolverConfiguration:
     :param configured_sampler: Sampler primitive used to measure the circuits QuasiDistribution.
         If a dask Client is used as the parallel_executor, the Sampler needs to be serializable by dask,
         otherwise the computation will fail
+    :param pass_manager: A qiskit PassManager which specifies the transpilation procedure. If no pass_manager is given,
+        a preset passmanager with optimization level 0 and no information on the backend is used. When running on
+        real quantum hardware, the pass_manager must be user_configured to fit the backend
+    :type pass_manager: PassManager
     :type configured_sampler: ConfiguredSamplerV2
     :param optimizer: Qiskit optimizer used to optimize the parameter values. Should be configured to terminate after
         a relatively low amount of circuit evaluations to enable the gradual evolution of the individuals
@@ -122,6 +127,7 @@ class EVQEMinimumEigensolverConfiguration:
 
     configured_estimator: Optional[ConfiguredEstimatorV2]
     configured_sampler: ConfiguredSamplerV2
+    pass_manager: Optional[PassManager]
     optimizer: Optimizer
     optimizer_n_circuit_evaluations: Optional[int]
     max_generations: Optional[int]
@@ -234,6 +240,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             evolutionary_operators=evolutionary_operators,
             configured_estimator=configuration.configured_estimator,
             configured_sampler=configuration.configured_sampler,
+            pass_manager=configuration.pass_manager,
             max_generations=configuration.max_generations,
             max_circuit_evaluations=configuration.max_circuit_evaluations,
             termination_criterion=configuration.termination_criterion,

@@ -9,6 +9,8 @@ from dask.distributed import Client
 from numpy import median, mean
 
 from qiskit.circuit import QuantumCircuit
+from qiskit.transpiler import PassManager
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit.quantum_info.operators import SparsePauliOp
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
@@ -29,6 +31,7 @@ from queasars.circuit_evaluation.mutex_primitives import (
     MutexEstimator,
     MutexSampler,
 )
+from queasars.circuit_evaluation.transpiling_primitives import TranspilingEstimatorV2, TranspilingSamplerV2
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
     BaseEvolutionaryOperator,
     BaseIndividual,
@@ -61,6 +64,10 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :type configured_estimator: Optional[ConfiguredEstimatorV2]
     :param configured_sampler: Configured qiskit SamplerV2 primitive used to measure the circuits QuasiDistribution.
     :type configured_sampler: BaseSampler
+    :param pass_manager: A qiskit PassManager which specifies the transpilation procedure. If no pass_manager is given,
+        a preset passmanager with optimization level 0 and no information on the backend is used. When running on
+        real quantum hardware, the pass_manager must be user_configured to fit the backend
+    :type pass_manager: PassManager
     :param max_generations: Maximum amount of generations the evolution may go on for. Either max_generations or
         max_circuit_evaluations or termination_criterion needs to be provided
     :type max_generations: Optional[int]
@@ -96,6 +103,7 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     evolutionary_operators: list[BaseEvolutionaryOperator[POP]]
     configured_sampler: ConfiguredSamplerV2
     configured_estimator: Optional[ConfiguredEstimatorV2]
+    pass_manager: Optional[PassManager]
     max_generations: Optional[int]
     max_circuit_evaluations: Optional[int]
     termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
@@ -127,29 +135,42 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         super().__init__()
         self.configuration = configuration
 
+        # If mutual exclusion is used with a ThreadpoolExecutor the circuit evaluation are batched
         if self.configuration.mutually_exclusive_primitives and isinstance(
             self.configuration.parallel_executor, ThreadPoolExecutor
         ):
+            self.configuration.configured_sampler.sampler = BatchingMutexSampler(
+                sampler=self.configuration.configured_sampler.sampler, waiting_duration=0.1
+            )
             if self.configuration.configured_estimator is not None:
                 self.configuration.configured_estimator.estimator = BatchingMutexEstimator(
                     estimator=self.configuration.configured_estimator.estimator, waiting_duration=0.1
                 )
-            if self.configuration.configured_sampler is not None:
-                self.configuration.configured_sampler.sampler = BatchingMutexSampler(
-                    sampler=self.configuration.configured_sampler.sampler, waiting_duration=0.1
-                )
 
+        # For mutual exclusion with a dask Client circuit evaluations are not batched
         if self.configuration.mutually_exclusive_primitives and isinstance(
             self.configuration.parallel_executor, Client
         ):
+            self.configuration.configured_sampler.sampler = MutexSampler(
+                sampler=self.configuration.configured_sampler.sampler
+            )
             if self.configuration.configured_estimator is not None:
                 self.configuration.configured_estimator.estimator = MutexEstimator(
                     estimator=self.configuration.configured_estimator.estimator
                 )
-            if self.configuration.configured_sampler is not None:
-                self.configuration.configured_sampler.sampler = MutexSampler(
-                    sampler=self.configuration.configured_sampler.sampler
-                )
+
+        # Configure the primitives to transpile the circuit before the circuit evaluation
+        if self.configuration.pass_manager is None:
+            self.configuration.pass_manager = generate_preset_pass_manager(optimization_level=1)
+
+        self.configuration.configured_sampler.sampler = TranspilingSamplerV2(
+            sampler=self.configuration.configured_sampler.sampler, pass_manager=self.configuration.pass_manager
+        )
+        if self.configuration.configured_estimator is not None:
+            self.configuration.configured_estimator.estimator = TranspilingEstimatorV2(
+                estimator=self.configuration.configured_estimator.estimator,
+                pass_manager=self.configuration.pass_manager,
+            )
 
         self.logger = logging.getLogger(__name__)
 
