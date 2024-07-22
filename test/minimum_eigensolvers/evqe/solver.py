@@ -31,6 +31,7 @@ def create_sample_solver(
     solver_configuration = EVQEMinimumEigensolverConfiguration(
         configured_sampler=configured_sampler,
         configured_estimator=configured_estimator,
+        pass_manager=None,
         optimizer=optimizer,
         optimizer_n_circuit_evaluations=40,
         max_generations=None,

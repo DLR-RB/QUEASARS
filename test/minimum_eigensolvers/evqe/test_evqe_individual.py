@@ -363,7 +363,7 @@ class TestEVQEIndividual:
         ), "get_layer_parameters did not return as many parameters as it should have!"
 
     def test_get_n_controlled_gates(self, individual):
-        circuit = individual.get_quantum_circuit().decompose()
+        circuit = individual.get_quantum_circuit()
         assert (
             individual.get_n_controlled_gates() == circuit.count_ops()["cu3"]
         ), "get_n_controlled_gates() does not match the amount of control gates found in the quantum circuit!"
