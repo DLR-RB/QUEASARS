@@ -77,6 +77,8 @@ module = [
     'qiskit.quantum_info.*',
     'qiskit.result',
     'qiskit.result.*',
+    'qiskit.transpiler',
+    'qiskit.transpiler.*',
     'qiskit_algorithms.algorithm_result',
     'qiskit_algorithms.algorithm_result.*',
     'qiskit_algorithms.list_or_dict',
