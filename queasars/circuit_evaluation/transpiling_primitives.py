@@ -1,6 +1,6 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-from typing import Any, Iterable, TypeVar, Union
+from typing import Any, Iterable, Optional, TypeVar, Union
 
 from qiskit.primitives import (
     SamplerPubLike,
@@ -36,7 +36,7 @@ class TranspilingSamplerV2(BaseSamplerV2):
         self._pass_manager = pass_manager
 
     def run(
-        self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None
+        self, pubs: Iterable[SamplerPubLike], *, shots: Optional[int] = None
     ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
         def _ensure_tuple(value: Union[T, tuple[T]]) -> tuple[T]:
             if isinstance(value, tuple):
@@ -65,7 +65,7 @@ class TranspilingEstimatorV2(BaseEstimatorV2):
         self._pass_manager = pass_manager
 
     def run(
-        self, pubs: Iterable[EstimatorPubLike], *, precision: float | None = None
+        self, pubs: Iterable[EstimatorPubLike], *, precision: Optional[float] = None
     ) -> BasePrimitiveJob[PrimitiveResult[PubResult], Any]:
 
         def apply_pass_manager(pub: EstimatorPubLike) -> EstimatorPubLike:

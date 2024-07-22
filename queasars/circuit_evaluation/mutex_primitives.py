@@ -215,7 +215,7 @@ class MutexSampler(BaseSamplerV2):
         self._lock: SerializableLock = SerializableLock()
 
     def run(
-        self, pubs: Iterable[SamplerPubLike], *args, shots: int | None = None
+        self, pubs: Iterable[SamplerPubLike], *args, shots: Optional[int] = None
     ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
         with self._lock:
             return self._sampler.run(pubs=pubs, *args, shots=shots)
@@ -243,7 +243,7 @@ class BatchingMutexSampler(BaseSamplerV2):
         )
 
     def run(
-        self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None
+        self, pubs: Iterable[SamplerPubLike], *, shots: Optional[int] = None
     ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
         coerced_pubs: list[SamplerPub] = [SamplerPub.coerce(pub, shots) for pub in pubs]
         job = PrimitiveJob(self._run, coerced_pubs)
@@ -279,7 +279,7 @@ class MutexEstimator(BaseEstimatorV2):
         self._lock: SerializableLock = SerializableLock()
 
     def run(
-        self, pubs: Iterable[EstimatorPubLike], *args, precision: float | None = None
+        self, pubs: Iterable[EstimatorPubLike], *args, precision: Optional[float] = None
     ) -> BasePrimitiveJob[PrimitiveResult[PubResult], Any]:
         with self._lock:
             return self._estimator.run(pubs=pubs, *args, precision=precision)
@@ -307,7 +307,7 @@ class BatchingMutexEstimator(BaseEstimatorV2):
         )
 
     def run(
-        self, pubs: Iterable[EstimatorPubLike], *, precision: float | None = None
+        self, pubs: Iterable[EstimatorPubLike], *, precision: Optional[float] = None
     ) -> PrimitiveJob[PrimitiveResult[PubResult]]:
         coerced_pubs: list[EstimatorPub] = [EstimatorPub.coerce(pub, precision) for pub in pubs]
         job = PrimitiveJob(self._run, coerced_pubs)
