@@ -26,6 +26,7 @@ Current version: 0.2.0
 - Store the amount of expectation value evaluations per generation instead of as one number for the whole optimization ([Issue #35])
 - If a circuit is prepended to the individuals for state preparation, store that circuit in the EvolvingAnsatzMinimumEigensolverResult ([Issue #35])
 - Update QUEASARS to use the qiskit V2 primitives instead of the qiskit V1 primitives ([Issue #39])
+- Require a ConfiguredSampler and ConfiguredEstimator wrapper as input instead of the Sampler and Estimator primitives by themselves ([Issue #39])
 
 ## 0.2.0
 
