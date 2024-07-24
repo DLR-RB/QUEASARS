@@ -12,6 +12,7 @@ Current version: 0.2.0
 - Added the ability to use the Critival Value at Risk instead of the Expectation Value ([Issue #32])
 - Added JSON serialization classes to enable the serialization of EvolvingAnsatzMinimumEigensolverResults ([Issue #35])
 - Added a termination criterion for qiskit_algorithm's SPSA optimizer ([Issue #37])
+- Added the ability to use a qiskit PassManager for local quantum circuit transpilation ([Issue #39])
 
 ### Fixed
 
@@ -24,6 +25,7 @@ Current version: 0.2.0
 - Partially removed the dependence on qiskit_algorithms _DiagonalSampler ([Issue #32])
 - Store the amount of expectation value evaluations per generation instead of as one number for the whole optimization ([Issue #35])
 - If a circuit is prepended to the individuals for state preparation, store that circuit in the EvolvingAnsatzMinimumEigensolverResult ([Issue #35])
+- Update QUEASARS to use the qiskit V2 primitives instead of the qiskit V1 primitives ([Issue #39])
 
 ## 0.2.0
 
@@ -35,6 +37,7 @@ Current version: 0.2.0
 
 - Initial codeless pypi commit
 
+[Issue #39]: https://github.com/DLR-RB/QUEASARS/issues/39
 [Issue #37]: https://github.com/DLR-RB/QUEASARS/issues/37
 [Issue #35]: https://github.com/DLR-RB/QUEASARS/issues/35
 [Issue #32]: https://github.com/DLR-RB/QUEASARS/issues/32
