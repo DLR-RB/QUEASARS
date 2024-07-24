@@ -161,7 +161,7 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
 
         # Configure the primitives to transpile the circuit before the circuit evaluation
         if self.configuration.pass_manager is None:
-            self.configuration.pass_manager = generate_preset_pass_manager(optimization_level=1)
+            self.configuration.pass_manager = generate_preset_pass_manager(optimization_level=0)
 
         self.configuration.configured_sampler.sampler = TranspilingSamplerV2(
             sampler=self.configuration.configured_sampler.sampler, pass_manager=self.configuration.pass_manager
