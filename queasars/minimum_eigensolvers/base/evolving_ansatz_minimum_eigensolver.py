@@ -3,13 +3,15 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import logging
-from typing import Callable, TypeVar, Generic, Optional, Union
+from typing import Callable, Generic, Optional, TypeVar, Union
 
 from dask.distributed import Client
 from numpy import median, mean
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import BaseEstimator, BaseSampler, SamplerResult
+from qiskit.transpiler import PassManager
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from qiskit.quantum_info.operators import SparsePauliOp
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit_algorithms.list_or_dict import ListOrDict
 from qiskit_algorithms.minimum_eigensolvers import MinimumEigensolver
@@ -17,20 +19,24 @@ from qiskit_algorithms.minimum_eigensolvers import MinimumEigensolver
 from queasars.circuit_evaluation.bitstring_evaluation import BitstringEvaluator
 from queasars.circuit_evaluation.circuit_evaluation import (
     BaseCircuitEvaluator,
-    OperatorCircuitEvaluator,
     BitstringCircuitEvaluator,
+    measure_quasi_distributions,
+    OperatorCircuitEvaluator,
+    OperatorSamplerCircuitEvaluator,
 )
+from queasars.circuit_evaluation.configured_primitives import ConfiguredEstimatorV2, ConfiguredSamplerV2
 from queasars.circuit_evaluation.mutex_primitives import (
-    BatchingMutexSampler,
     BatchingMutexEstimator,
-    MutexSampler,
+    BatchingMutexSampler,
     MutexEstimator,
+    MutexSampler,
 )
+from queasars.circuit_evaluation.transpiling_primitives import TranspilingEstimatorV2, TranspilingSamplerV2
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import (
+    BaseEvolutionaryOperator,
     BaseIndividual,
     BasePopulation,
     BasePopulationEvaluationResult,
-    BaseEvolutionaryOperator,
     OperatorContext,
 )
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver_result import (
@@ -53,13 +59,15 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
     :type population_initializer: Callable[[int], BasePopulation]
     :param evolutionary_operators: List of evolutionary operators to apply in order for each generation
     :type evolutionary_operators: list[BaseEvolutionaryOperator]
-    :param estimator: Estimator primitive used to estimate the circuit's expectation value. If reproducible behaviour is
-        required, the seed option of the estimator needs to be set. If no estimator is provided,
-        the sampler is used to calculate the expectation value instead.
-    :type estimator: Optional[BaseEstimator]
-    :param sampler: Sampler primitive used to measure the circuits QuasiDistribution. If reproducible behaviour is
-        required, the seed option of the sampler needs to be set
-    :type sampler: BaseSampler
+    :param configured_estimator: Configured qiskit EstimatorV2 primitive used to estimate the quantum circuits'
+        expectation values. If no estimator is provided, the sampler is used to calculate the expectation value instead.
+    :type configured_estimator: Optional[ConfiguredEstimatorV2]
+    :param configured_sampler: Configured qiskit SamplerV2 primitive used to measure the circuits QuasiDistribution.
+    :type configured_sampler: BaseSampler
+    :param pass_manager: A qiskit PassManager which specifies the transpilation procedure. If no pass_manager is given,
+        a preset passmanager with optimization level 0 and no information on the backend is used. When running on
+        real quantum hardware, the pass_manager must be user_configured to fit the backend
+    :type pass_manager: PassManager
     :param max_generations: Maximum amount of generations the evolution may go on for. Either max_generations or
         max_circuit_evaluations or termination_criterion needs to be provided
     :type max_generations: Optional[int]
@@ -93,8 +101,9 @@ class EvolvingAnsatzMinimumEigensolverConfiguration(Generic[POP]):
 
     population_initializer: Callable[[int], POP]
     evolutionary_operators: list[BaseEvolutionaryOperator[POP]]
-    estimator: Optional[BaseEstimator]
-    sampler: BaseSampler
+    configured_sampler: ConfiguredSamplerV2
+    configured_estimator: Optional[ConfiguredEstimatorV2]
+    pass_manager: Optional[PassManager]
     max_generations: Optional[int]
     max_circuit_evaluations: Optional[int]
     termination_criterion: Optional[EvolvingAnsatzMinimumEigensolverBaseTerminationCriterion]
@@ -126,25 +135,42 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         super().__init__()
         self.configuration = configuration
 
+        # If mutual exclusion is used with a ThreadpoolExecutor the circuit evaluation are batched
         if self.configuration.mutually_exclusive_primitives and isinstance(
             self.configuration.parallel_executor, ThreadPoolExecutor
         ):
-            if self.configuration.estimator is not None:
-                self.configuration.estimator = BatchingMutexEstimator(
-                    estimator=self.configuration.estimator, waiting_duration=0.1
-                )
-            if self.configuration.sampler is not None:
-                self.configuration.sampler = BatchingMutexSampler(
-                    sampler=self.configuration.sampler, waiting_duration=0.1
+            self.configuration.configured_sampler.sampler = BatchingMutexSampler(
+                sampler=self.configuration.configured_sampler.sampler, waiting_duration=0.1
+            )
+            if self.configuration.configured_estimator is not None:
+                self.configuration.configured_estimator.estimator = BatchingMutexEstimator(
+                    estimator=self.configuration.configured_estimator.estimator, waiting_duration=0.1
                 )
 
+        # For mutual exclusion with a dask Client circuit evaluations are not batched
         if self.configuration.mutually_exclusive_primitives and isinstance(
             self.configuration.parallel_executor, Client
         ):
-            if self.configuration.estimator is not None:
-                self.configuration.estimator = MutexEstimator(estimator=self.configuration.estimator)
-            if self.configuration.sampler is not None:
-                self.configuration.sampler = MutexSampler(sampler=self.configuration.sampler)
+            self.configuration.configured_sampler.sampler = MutexSampler(
+                sampler=self.configuration.configured_sampler.sampler
+            )
+            if self.configuration.configured_estimator is not None:
+                self.configuration.configured_estimator.estimator = MutexEstimator(
+                    estimator=self.configuration.configured_estimator.estimator
+                )
+
+        # Configure the primitives to transpile the circuit before the circuit evaluation
+        if self.configuration.pass_manager is None:
+            self.configuration.pass_manager = generate_preset_pass_manager(optimization_level=0)
+
+        self.configuration.configured_sampler.sampler = TranspilingSamplerV2(
+            sampler=self.configuration.configured_sampler.sampler, pass_manager=self.configuration.pass_manager
+        )
+        if self.configuration.configured_estimator is not None:
+            self.configuration.configured_estimator.estimator = TranspilingEstimatorV2(
+                estimator=self.configuration.configured_estimator.estimator,
+                pass_manager=self.configuration.pass_manager,
+            )
 
         self.logger = logging.getLogger(__name__)
 
@@ -157,7 +183,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
         While an ``operator`` is required by algorithms, ``aux_operators`` are optional
 
-        :arg operator: Qubit operator of the observable
+        :arg operator: Quantum operator of the observable. If this solver is configured to only use sampler,
+                        the operator must be of type SparsePauliOp.
         :type operator: BaseOperator
         :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
@@ -181,7 +208,8 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Computes the minimum eigenvalue. The ``operator`` and ``aux_operators`` are supplied here.
         While an ``operator`` is required by algorithms, ``aux_operators`` are optional
 
-        :arg operator: Qubit operator of the observable
+        :arg operator: Quantum operator of the observable. If this solver is configured to only use sampler,
+                        the operator must be of type SparsePauliOp.
         :type operator: BaseOperator
         :arg aux_operators: Optional list of auxiliary operators to be evaluated with the
             parameters of the minimum eigenvalue main result and their expectation values
@@ -195,42 +223,50 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Returns:
             An evolving ansatz minimum eigensolver result
         """
-        evaluation_primitive: Union[BaseEstimator, BaseSampler]
-        if self.configuration.estimator is not None:
-            evaluation_primitive = self.configuration.estimator
+
+        def estimator_initialisation_function(op: BaseOperator) -> OperatorCircuitEvaluator:
+            if self.configuration.configured_estimator is None:
+                raise ValueError("This error should never occur! This seems to be an issue of the internal logic!")
+            return OperatorCircuitEvaluator(
+                estimator=self.configuration.configured_estimator.estimator,
+                estimator_precision=self.configuration.configured_estimator.precision,
+                operator=op,
+                initial_state_circuit=initial_state_circuit,
+            )
+
+        def sampler_initialisation_function(op: BaseOperator) -> OperatorSamplerCircuitEvaluator:
+            if self.configuration.configured_sampler is None:
+                raise ValueError("This error should never occur! This seems to be an issue of the internal logic!")
+            if not isinstance(op, SparsePauliOp):
+                raise ValueError(
+                    "The operator must be of type SparsePauliOp, when using a Sampler "
+                    + f"to approximate the expectation value! Instead it was of type {type(op)}!"
+                )
+            return OperatorSamplerCircuitEvaluator(
+                sampler=self.configuration.configured_sampler.sampler,
+                sampler_shots=self.configuration.configured_sampler.shots,
+                operator=op,
+                alpha=self.configuration.distribution_alpha_tail,
+                initial_state_circuit=initial_state_circuit,
+            )
+
+        evaluator_initialisation_function: Callable[[BaseOperator], BaseCircuitEvaluator]
+        if self.configuration.configured_estimator is not None:
+            evaluator_initialisation_function = estimator_initialisation_function
         else:
-            evaluation_primitive = self.configuration.sampler
+            evaluator_initialisation_function = sampler_initialisation_function
 
         evaluator: BaseCircuitEvaluator
-        evaluator = OperatorCircuitEvaluator(
-            qiskit_primitive=evaluation_primitive,
-            operator=operator,
-            alpha=self.configuration.distribution_alpha_tail,
-            initial_state_circuit=initial_state_circuit,
-        )
+        evaluator = evaluator_initialisation_function(operator)
 
-        aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]]
+        aux_evaluators: Optional[ListOrDict[BaseCircuitEvaluator]] = None
         if aux_operators is None:
             aux_evaluators = None
         if isinstance(aux_operators, list):
-            aux_evaluators = [
-                OperatorCircuitEvaluator(
-                    qiskit_primitive=evaluation_primitive,
-                    operator=aux_operator,
-                    alpha=self.configuration.distribution_alpha_tail,
-                    initial_state_circuit=initial_state_circuit,
-                )
-                for aux_operator in aux_operators
-            ]
+            aux_evaluators = [evaluator_initialisation_function(aux_operator) for aux_operator in aux_operators]
         if isinstance(aux_operators, dict):
             aux_evaluators = {
-                key: OperatorCircuitEvaluator(
-                    qiskit_primitive=evaluation_primitive,
-                    operator=aux_operator,
-                    alpha=self.configuration.distribution_alpha_tail,
-                    initial_state_circuit=initial_state_circuit,
-                )
-                for key, aux_operator in aux_operators.items()
+                key: evaluator_initialisation_function(aux_operator) for key, aux_operator in aux_operators.items()
             }
 
         return self._solve_by_evolution(
@@ -264,35 +300,26 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         Returns:
             An evolving ansatz minimum eigensolver result
         """
-        evaluator: BaseCircuitEvaluator = BitstringCircuitEvaluator(
-            sampler=self.configuration.sampler,
-            bitstring_evaluator=operator,
-            alpha=self.configuration.distribution_alpha_tail,
-            initial_state_circuit=initial_state_circuit,
-        )
 
-        aux_evaluators: ListOrDict[BaseCircuitEvaluator]
+        def evaluator_initialisation_function(op: BitstringEvaluator):
+            return BitstringCircuitEvaluator(
+                sampler=self.configuration.configured_sampler.sampler,
+                sampler_shots=self.configuration.configured_sampler.shots,
+                bitstring_evaluator=op,
+                alpha=self.configuration.distribution_alpha_tail,
+                initial_state_circuit=initial_state_circuit,
+            )
+
+        evaluator: BaseCircuitEvaluator = evaluator_initialisation_function(op=operator)
+
+        aux_evaluators: ListOrDict[BaseCircuitEvaluator] = []
         if aux_operators is None:
             aux_evaluators = []
         if isinstance(aux_operators, list):
-            aux_evaluators = [
-                BitstringCircuitEvaluator(
-                    sampler=self.configuration.sampler,
-                    bitstring_evaluator=aux_operator,
-                    alpha=self.configuration.distribution_alpha_tail,
-                    initial_state_circuit=initial_state_circuit,
-                )
-                for aux_operator in aux_operators
-            ]
+            aux_evaluators = [evaluator_initialisation_function(aux_operator) for aux_operator in aux_operators]
         if isinstance(aux_operators, dict):
             aux_evaluators = {
-                key: BitstringCircuitEvaluator(
-                    sampler=self.configuration.sampler,
-                    bitstring_evaluator=aux_operator,
-                    alpha=self.configuration.distribution_alpha_tail,
-                    initial_state_circuit=initial_state_circuit,
-                )
-                for key, aux_operator in aux_operators.items()
+                key: evaluator_initialisation_function(aux_operator) for key, aux_operator in aux_operators.items()
             }
 
         return self._solve_by_evolution(
@@ -412,15 +439,19 @@ class EvolvingAnsatzMinimumEigensolver(MinimumEigensolver):
         ):
             raise Exception("The algorithm seems to have terminated without having evaluated any population! ")
 
-        best_circuit: QuantumCircuit = current_best_individual.get_quantum_circuit()
+        best_circuit: QuantumCircuit = current_best_individual.get_parameterized_quantum_circuit()
         if initial_state_circuit is not None:
             best_circuit = initial_state_circuit.compose(best_circuit, inplace=False)
-        best_circuit.measure_all()
-        sampler_result_best_individual: SamplerResult = self.configuration.sampler.run(best_circuit).result()
+        best_circuit.measure_all(inplace=True)
 
         result = EvolvingAnsatzMinimumEigensolverResult()
         result.eigenvalue = current_best_expectation_value
-        result.eigenstate = sampler_result_best_individual.quasi_dists[0]
+        result.eigenstate = measure_quasi_distributions(
+            circuits=[best_circuit],
+            parameter_values=[list(current_best_individual.get_parameter_values())],
+            sampler=self.configuration.configured_sampler.sampler,
+            shots=self.configuration.configured_sampler.shots,
+        )[0]
         result.best_individual = current_best_individual
         result.circuit_evaluations = n_circuit_evaluations
         result.generations = n_generations

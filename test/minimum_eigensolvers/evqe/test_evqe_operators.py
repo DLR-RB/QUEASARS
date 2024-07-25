@@ -3,7 +3,7 @@
 
 from dask.distributed import LocalCluster
 import pytest
-from qiskit_aer.primitives import Estimator
+from qiskit_aer.primitives import EstimatorV2
 from qiskit_algorithms.optimizers import NFT, Optimizer
 from qiskit.quantum_info import SparsePauliOp
 
@@ -45,9 +45,8 @@ class TestEVQEOperators:
 
     @pytest.fixture
     def circuit_evaluator(self, hamiltonian) -> OperatorCircuitEvaluator:
-        estimator = Estimator(approximation=True)
-        estimator.set_options(seed=0)
-        return OperatorCircuitEvaluator(qiskit_primitive=estimator, operator=hamiltonian)
+        estimator = EstimatorV2()
+        return OperatorCircuitEvaluator(estimator=estimator, estimator_precision=0.05, operator=hamiltonian)
 
     @pytest.fixture
     def optimizer(self) -> Optimizer:

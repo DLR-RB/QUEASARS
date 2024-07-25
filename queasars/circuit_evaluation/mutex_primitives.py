@@ -1,33 +1,37 @@
 # Quantum Evolving Ansatz Variational Solver (QUEASARS)
 # Copyright 2024 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
-from threading import Lock, Condition
+from threading import Condition, Lock
 from time import sleep
-from typing import Callable, Optional, Generic, TypeVar, Any, Sequence
+from typing import Any, Callable, Generic, Iterable, Optional, TypeVar
 
 from dask.utils import SerializableLock
+from qiskit.primitives import (
+    EstimatorPubLike,
+    PrimitiveResult,
+    PubResult,
+    SamplerPubLike,
+    SamplerPubResult,
+)
+from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
+from qiskit.primitives.containers.estimator_pub import EstimatorPub
+from qiskit.primitives.containers.sampler_pub import SamplerPub
+from qiskit.primitives.primitive_job import PrimitiveJob, BasePrimitiveJob
 
-from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import SamplerResult, EstimatorResult
-from qiskit.primitives.base import BaseSampler, BaseEstimator
-from qiskit.primitives.primitive_job import PrimitiveJob
-from qiskit.quantum_info import SparsePauliOp
+
+PUBTYPE = TypeVar("PUBTYPE")
+PUBRESULT = TypeVar("PUBRESULT")
 
 
-T = TypeVar("T")
-
-
-class BatchingMutexPrimitiveJobRunner(Generic[T]):
+class BatchingMutexPrimitiveJobRunner(Generic[PUBTYPE, PUBRESULT]):
     """
-    Class which wraps a method f(a, ..., z) which returns a PrimitiveJob[T] where a to z are Sequences of equal length.
+    Class which wraps a method f of the type Callable[[list[PUBTYPE]], PrimitiveJob[PrimitiveResult[PUBRESULT]]]
     It batches the calls to f and enforces mutually exclusive access on f. Therefore, if multiple threads enter
-    during the waiting time their arguments are concatenated: f(a_1 + ... +  a_n, ..., z_1 + ... +  z_n) and only
-    one thread executes f, with the rest waiting to gather the results once they are available
+    during the waiting time their arguments are concatenated and only one thread executes f,
+    with the rest waiting to gather the results once they are available
 
-    :param f: Callable which takes n sequences of equal length as input and
-        returns a qiskit PrimitiveJob as a result
-    :type f: Callable[[Sequence[Sequence[Any]], PrimitiveJob[T]]
-    :param f_n_args: fixed amount of arguments which must be provided to f
-    :type f_n_args: int
+    :param f: Callable which takes a list of values as an input and returns a BasePrimitiveJob that processes and
+                returns values for each input value.
+    :type f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT], Any]]
     :param batch_waiting_duration: Amount of time the last entering thread waits for others to enter after itself.
         Specifying no waiting duration might lead very small batches.
     :type batch_waiting_duration: Optional[float]
@@ -35,16 +39,14 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
 
     def __init__(
         self,
-        f: Callable[[Sequence[Sequence[Any]]], PrimitiveJob[T]],
-        f_n_args: int,
+        f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT], Any]],
         batch_waiting_duration: Optional[float],
     ):
         """
         Constructor Method
         """
-        self.f: Callable[[Sequence[Sequence[Any]]], PrimitiveJob[T]] = f
+        self.f: Callable[[list[PUBTYPE]], BasePrimitiveJob[PrimitiveResult[PUBRESULT], Any]] = f
         self.batch_waiting_duration: Optional[float] = batch_waiting_duration
-        self.n_args: int = f_n_args
 
         # The entry lock restricts whether a thread may add its circuit evaluation requests to the batch.
         # This is only allowed, if no other thread is adding its circuits currently and the batch
@@ -57,33 +59,25 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
         self._external_wait_condition: Condition = Condition()
         self._thread_counter: int = 0
         self._entry_counter: int = 0
-        self._batched_args: tuple[tuple[Any, ...], ...] = tuple()
+        self._batched_pubs: list[PUBTYPE] = []
         self._batch_length: int = 0
-        self._result: Optional[T] = None
+        self._result: Optional[PrimitiveResult[PUBRESULT]] = None
         self._exception: Optional[Exception] = None
 
-    def run(self, *args: Sequence[Any]) -> tuple[T, int]:
+    def run(self, pubs: list[PUBTYPE]) -> tuple[PrimitiveResult[PUBRESULT], int]:
         """
         Runs f for the batched arguments provided in args by this and other threads.
         Returns the result for the whole batch the index at which the given args were concatenated
         to the batch.
 
-        :arg args: arguments for f provided by this thread
-        :type args: Sequence[Sequence[Any]]
-        :return: A tuple containing the result for the whole batch and the index
-            at which the given args were concatenated
-        :rtype: tuple[T, int]
+        :arg pubs: list of values to be processed
+        :type pubs: list[PUBTYPE]
+        :return: The tuple of the results for all batched calculations in a PrimitiveResult and the index
+                    at which the results for this specific input data starts. To be exact, the results for this
+                    calculation are at the indices start_index: start_index + len(pubs), where start_index is the
+                    index returned by this method.
+        :rtype: tuple[PrimitiveResult[PUBRESULT], int]:
         """
-
-        # Check that the amount of arguments matches the amount specified in the constructor
-        if len(args) != self.n_args:
-            raise ValueError(f"The amount of arguments is {len(args)} but should be {self.n_args}!")
-
-        # Check that all arguments are of the same length
-        arg_length = len(args[0])
-        for arg in args:
-            if len(arg) != arg_length:
-                raise ValueError("All arguments must be sequences of the same length!")
 
         # This region ensures that no thread may enter if a batched execution of f is currently running.
         # If f is not currently running it ensures that entering threads append their arguments to the batch
@@ -99,15 +93,11 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
                     # Both needed locks are acquired, the thread may continue.
                     acquired_both_locks = True
 
-                    # Remember the index at which the thread's arguments are appended to the batch.
+                    # Remember the index at which the thread's pubs are appended to the batch.
                     batch_index = self._batch_length
-                    # Append the thread's arguments to the batch.
-                    if self._batch_length == 0:
-                        self._batched_args = tuple((*arg,) for arg in args)
-                        self._batch_length = arg_length
-                    else:
-                        self._batched_args = tuple((*previous, *new) for previous, new in zip(self._batched_args, args))
-                        self._batch_length = self._batch_length + arg_length
+                    # Append the thread's pubs to the batch.
+                    self._batched_pubs.extend(pubs)
+                    self._batch_length = self._batch_length + len(pubs)
 
                     # Increase the counter to keep note of how many threads have entered so far.
                     self._thread_counter = self._thread_counter + 1
@@ -144,7 +134,7 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
             # Mark the thread as the executor and run the f.
             executor = True
             try:
-                self._result = self.f(*self._batched_args).result()
+                self._result = self.f(self._batched_pubs).result()
             except Exception as e:
                 self._result = None
                 self._exception = e
@@ -192,7 +182,7 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
             # then reset the shared variables to prepare the next batch.
             with self._variable_lock:
                 self._result = None
-                self._batched_args = tuple()
+                self._batched_pubs = []
                 self._batch_length = 0
                 self._thread_counter = 0
                 self._entry_counter = 0
@@ -209,146 +199,129 @@ class BatchingMutexPrimitiveJobRunner(Generic[T]):
         return result, batch_index
 
 
-class MutexSampler(BaseSampler[PrimitiveJob[SamplerResult]]):
+class MutexSampler(BaseSamplerV2):
     """
-    Wrapper class for qiskit Sampler primitives which makes them threadsafe by realizing a simple mutually
-    exclusive access on the Sampler. Due to the use of a dask SerializableLock, this mutually exclusive access
-    holds over different dask worker threads in the same process.
-
-    :param sampler: sampler primitive which shall be wrapped for mutually exclusive access
-    :type sampler: BaseSampler
-    """
-
-    def __init__(self, sampler: BaseSampler):
-        super().__init__()
-        self._sampler: BaseSampler = sampler
-        self._lock: SerializableLock = SerializableLock()
-
-    def _run(
-        self, circuits: tuple[QuantumCircuit, ...], parameter_values: tuple[tuple[float, ...], ...], **run_options
-    ) -> PrimitiveJob[SamplerResult]:
-        with self._lock:
-            return self._sampler.run(circuits, parameter_values, **run_options)
-
-
-class BatchingMutexSampler(BaseSampler[PrimitiveJob[SamplerResult]]):
-    """
-    Wrapper class for qiskit Sampler primitives which makes them threadsafe by batching concurrent requests and
-    realizing mutual exclusion. Due to the batching nature of the BatchingMutexSampler it does not support
-    run options in the run method. Any configuration needs to be done on the Sampler before it is wrapped.
-
-    :param sampler: Sampler primitive to wrap
-    :type sampler: BaseSampler
-    :param waiting_duration: time in seconds to wait after the most recent request until starting the batch.
-        No waiting time may result in very small batches
-    :type waiting_duration: Optional[float]
-    """
-
-    def __init__(self, sampler: BaseSampler, waiting_duration: Optional[float]):
-        """Constructor Method"""
-        super().__init__()
-        self.sampler: BaseSampler = sampler
-        self.waiting_duration: Optional[float] = waiting_duration
-        self._runner: BatchingMutexPrimitiveJobRunner[SamplerResult] = BatchingMutexPrimitiveJobRunner(
-            f=self.sampler.run, batch_waiting_duration=waiting_duration, f_n_args=2
-        )
-
-    def _call(self, circuits: tuple[QuantumCircuit, ...], parameter_values: tuple[tuple[float, ...], ...]):
-        total_sampling_result, batch_index = self._runner.run(circuits, parameter_values)
-        input_length: int = len(circuits)
-        private_result = SamplerResult(
-            quasi_dists=total_sampling_result.quasi_dists[batch_index : batch_index + input_length],
-            metadata=total_sampling_result.metadata[batch_index : batch_index + input_length],
-        )
-        return private_result
-
-    def _run(
-        self, circuits: tuple[QuantumCircuit, ...], parameter_values: tuple[tuple[float, ...], ...], **run_options
-    ) -> PrimitiveJob[SamplerResult]:
-        if len(run_options) != 0:
-            raise ValueError(
-                "The BatchingMutexSampler does not support run options due it's batching nature.\n"
-                + "Please set any options before wrapping the Sampler!"
-            )
-        job = PrimitiveJob(self._call, circuits, parameter_values)
-        job._submit()
-        return job
-
-
-class MutexEstimator(BaseEstimator[PrimitiveJob[EstimatorResult]]):
-    """
-    Wrapper class for qiskit Sampler primitives which makes them threadsafe by realizing a simple mutually
+    Wrapper class for qiskit SamplerV2 primitives which makes them threadsafe by realizing a simple mutually
     exclusive access on the sampler. Due to the use of a dask SerializableLock, this mutually exclusive access
     holds over different dask worker threads in the same process.
 
-    :param estimator: estimator primitive which shall be wrapped for mutually exclusive access
-    :type estimator: BaseEstimator
+    :param sampler: SamplerV2 primitive which shall be wrapped for mutually exclusive access
+    :type sampler: BaseSamplerV2
     """
 
-    def __init__(self, estimator: BaseEstimator):
+    def __init__(self, sampler: BaseSamplerV2):
         super().__init__()
-        self._estimator: BaseEstimator = estimator
+        self._sampler: BaseSamplerV2 = sampler
         self._lock: SerializableLock = SerializableLock()
 
-    def _run(
-        self,
-        circuits: tuple[QuantumCircuit, ...],
-        observables: tuple[SparsePauliOp, ...],
-        parameter_values: tuple[tuple[float, ...], ...],
-        **run_options,
-    ) -> PrimitiveJob[EstimatorResult]:
+    def run(
+        self, pubs: Iterable[SamplerPubLike], *args, shots: Optional[int] = None
+    ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
         with self._lock:
-            return self._estimator.run(circuits, observables, parameter_values, **run_options)
+            return self._sampler.run(pubs=pubs, *args, shots=shots)
 
 
-class BatchingMutexEstimator(BaseEstimator[PrimitiveJob[EstimatorResult]]):
+class BatchingMutexSampler(BaseSamplerV2):
     """
-    Wrapper class for qiskit Estimator primitives which makes them threadsafe by batching concurrent requests and
-    realizing mutual exclusion. Due to the batching nature of the BatchingMutexEstimator it does not support
-    run options in the run method. Any configuration needs to be done on the Estimator before it is wrapped.
+    Wrapper class for qiskit SamplerV2 primitives which makes them threadsafe by batching concurrent requests and
+    realizing mutual exclusion.
 
-    :param estimator: Estimator primitive to wrap
-    :type estimator: BaseEstimator
+    :param sampler: SamplerV2 primitive to wrap
+    :type sampler: BaseSamplerV2
     :param waiting_duration: time in seconds to wait after the most recent request until starting the batch.
         No waiting time may result in very small batches
     :type waiting_duration: Optional[float]
     """
 
-    def __init__(self, estimator: BaseEstimator, waiting_duration: Optional[float]):
+    def __init__(self, sampler: BaseSamplerV2, waiting_duration: Optional[float]):
         """Constructor Method"""
         super().__init__()
-        self.estimator: BaseEstimator = estimator
+        self._sampler: BaseSamplerV2 = sampler
         self.waiting_duration: Optional[float] = waiting_duration
-        self._runner: BatchingMutexPrimitiveJobRunner[EstimatorResult] = BatchingMutexPrimitiveJobRunner(
-            f=self.estimator.run, batch_waiting_duration=waiting_duration, f_n_args=3
+        self._runner: BatchingMutexPrimitiveJobRunner[SamplerPub, SamplerPubResult] = BatchingMutexPrimitiveJobRunner(
+            f=self._sample, batch_waiting_duration=waiting_duration
         )
 
-    def _call(
-        self,
-        circuits: tuple[QuantumCircuit],
-        observables: tuple[SparsePauliOp, ...],
-        parameter_values: tuple[tuple[float, ...], ...],
-    ):
-        total_sampling_result, batch_index = self._runner.run(circuits, observables, parameter_values)
-        input_length: int = len(circuits)
-        private_result = EstimatorResult(
-            values=total_sampling_result.values[batch_index : batch_index + input_length],
-            metadata=total_sampling_result.metadata[batch_index : batch_index + input_length],
-        )
-        return private_result
-
-    def _run(
-        self,
-        circuits: tuple[QuantumCircuit, ...],
-        observables: tuple[SparsePauliOp, ...],
-        parameter_values: tuple[tuple[float, ...], ...],
-        **run_options,
-    ) -> PrimitiveJob[EstimatorResult]:
-        if len(run_options) != 0:
-            raise ValueError(
-                "The BatchingMutexEstimator does not support run options due it's batching nature.\n"
-                + "Please set any options before wrapping the Estimator!"
-            )
-        job = PrimitiveJob(self._call, circuits, observables, parameter_values)
+    def run(
+        self, pubs: Iterable[SamplerPubLike], *, shots: Optional[int] = None
+    ) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
+        coerced_pubs: list[SamplerPub] = [SamplerPub.coerce(pub, shots) for pub in pubs]
+        job = PrimitiveJob(self._run, coerced_pubs)
         job._submit()
         return job
+
+    def _run(self, pubs: list[SamplerPub]) -> PrimitiveResult[SamplerPubResult]:
+        n_pubs = len(pubs)
+        result, start_index = self._runner.run(pubs=pubs)
+        selected_results: list[SamplerPubResult] = [result[i] for i in range(start_index, start_index + n_pubs)]
+        return PrimitiveResult(
+            pub_results=selected_results,
+            metadata=result.metadata,
+        )
+
+    def _sample(self, pubs: list[SamplerPub]) -> BasePrimitiveJob[PrimitiveResult[SamplerPubResult], Any]:
+        return self._sampler.run(pubs=pubs)
+
+
+class MutexEstimator(BaseEstimatorV2):
+    """
+    Wrapper class for qiskit EstimatorV2 primitives which makes them threadsafe by realizing a simple mutually
+    exclusive access on the estimator. Due to the use of a dask SerializableLock, this mutually exclusive access
+    holds over different dask worker threads in the same process.
+
+    :param estimator: estimator primitive which shall be wrapped for mutually exclusive access
+    :type estimator: BaseEstimatorV2
+    """
+
+    def __init__(self, estimator: BaseEstimatorV2):
+        super().__init__()
+        self._estimator: BaseEstimatorV2 = estimator
+        self._lock: SerializableLock = SerializableLock()
+
+    def run(
+        self, pubs: Iterable[EstimatorPubLike], *args, precision: Optional[float] = None
+    ) -> BasePrimitiveJob[PrimitiveResult[PubResult], Any]:
+        with self._lock:
+            return self._estimator.run(pubs=pubs, *args, precision=precision)
+
+
+class BatchingMutexEstimator(BaseEstimatorV2):
+    """
+    Wrapper class for qiskit EstimatorV2 primitives which makes them threadsafe by batching concurrent requests and
+    realizing mutual exclusion.
+
+    :param estimator: EstimatorV2 primitive to wrap
+    :type estimator: BaseEstimatorV2
+    :param waiting_duration: time in seconds to wait after the most recent request until starting the batch.
+        No waiting time may result in very small batches
+    :type waiting_duration: Optional[float]
+    """
+
+    def __init__(self, estimator: BaseEstimatorV2, waiting_duration: Optional[float]):
+        """Constructor Method"""
+        super().__init__()
+        self._estimator: BaseEstimatorV2 = estimator
+        self.waiting_duration: Optional[float] = waiting_duration
+        self._runner: BatchingMutexPrimitiveJobRunner[EstimatorPub, PubResult] = BatchingMutexPrimitiveJobRunner(
+            f=self._estimate, batch_waiting_duration=waiting_duration
+        )
+
+    def run(
+        self, pubs: Iterable[EstimatorPubLike], *, precision: Optional[float] = None
+    ) -> PrimitiveJob[PrimitiveResult[PubResult]]:
+        coerced_pubs: list[EstimatorPub] = [EstimatorPub.coerce(pub, precision) for pub in pubs]
+        job = PrimitiveJob(self._run, coerced_pubs)
+        job._submit()
+        return job
+
+    def _run(self, pubs: list[EstimatorPub]) -> PrimitiveResult[PubResult]:
+        n_pubs = len(pubs)
+        result, start_index = self._runner.run(pubs=pubs)
+        selected_results: list[PubResult] = [result[i] for i in range(start_index, start_index + n_pubs)]
+        return PrimitiveResult(
+            pub_results=selected_results,
+            metadata=result.metadata,
+        )
+
+    def _estimate(self, pubs: list[EstimatorPub]) -> BasePrimitiveJob[PrimitiveResult[PubResult], Any]:
+        return self._estimator.run(pubs=pubs)
