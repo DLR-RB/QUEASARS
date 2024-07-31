@@ -1,9 +1,15 @@
 QUEASARS change log
 ===================
 
-Current version: 0.2.0
+Current version: 0.3.0
 
 ## Unreleased
+
+### Added
+### Fixed
+### Changed
+
+## 0.3.0
 
 ### Added
 
