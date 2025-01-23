@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "queasars"
-version = "0.3.0"
+version = "0.3.1"
 description = "QUEASARS is an open-source, qiskit-based, python package implementing quantum variational eigensolvers which use evolutionary algorithms to find a good ansatz during the optimization process."
 authors = [
     "Sven Prüfer <sven.pruefer@dlr.de>",
@@ -24,9 +24,9 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9.0,<3.12"
+python = ">=3.9.0,<3.13"
 qiskit = ">=1.0.0"
-numpy = "<2.0.0"
+numpy = ">=1.26"
 qiskit-algorithms = ">=0.2.0"
 qiskit-ibm-runtime=">=0.19.0"
 qiskit-optimization = ">= 0.6.0"
