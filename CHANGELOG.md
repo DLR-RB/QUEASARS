@@ -1,13 +1,19 @@
 QUEASARS change log
 ===================
 
-Current version: 0.3.0
+Current version: 0.3.1
 
 ## Unreleased
 
 ### Added
 ### Fixed
 ### Changed
+
+## 0.3.1
+
+### Added
+
+- Support for python 3.12 ([Issue #46])
 
 ## 0.3.0
 
@@ -44,6 +50,7 @@ Current version: 0.3.0
 
 - Initial codeless pypi commit
 
+[Issue #46]: https://github.com/DLR-RB/QUEASARS/issues/46
 [Issue #39]: https://github.com/DLR-RB/QUEASARS/issues/39
 [Issue #37]: https://github.com/DLR-RB/QUEASARS/issues/37
 [Issue #35]: https://github.com/DLR-RB/QUEASARS/issues/35
