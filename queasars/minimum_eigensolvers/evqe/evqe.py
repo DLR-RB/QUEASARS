@@ -31,19 +31,24 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.mutation import (
 from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import EVQEGateType
 from queasars.utility.random import new_random_seed
 
-DEFAULT_EVQE_GATESET = {EVQEGateType.IDENTITY: 1,
-                        EVQEGateType.ROTATION: 1, (
-                            EVQEGateType.CONTROL, EVQEGateType.CONTROLLED_ROTATION): 1}
+# The following are possible choices for the gatesets with weights indicating how likely a gate should be chosen.
+DEFAULT_EVQE_GATESET = {
+    EVQEGateType.IDENTITY: 1,
+    EVQEGateType.ROTATION: 1,
+    (EVQEGateType.CONTROL, EVQEGateType.CONTROLLED_ROTATION): 1
+}
 
 # Gates supported natively on the hardware
 HARDWARE_NATIVE_GATESET = {
     EVQEGateType.IDENTITY: 1,
-    EVQEGateType.SX: 1, EVQEGateType.X: 1,
+    EVQEGateType.SX: 1,
+    EVQEGateType.X: 1,
     EVQEGateType.RZ: 5,
     (EVQEGateType.CONTROL,
-     EVQEGateType.CZ): 1, (
-        EVQEGateType.ECR,
-        EVQEGateType.ECR): 1}
+     EVQEGateType.CZ): 5,
+    (EVQEGateType.ECR,
+     EVQEGateType.ECR): 1
+}
 
 
 @dataclass
@@ -241,7 +246,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             ),
             EVQETopologicalSearch(
                 all_possible_gates_weighted=configuration.all_possible_gates_weighted,
-                coupling_map = configuration.coupling_map,
+                coupling_map=configuration.coupling_map,
                 mutation_probability=configuration.topological_search_probability,
                 random_seed=new_random_seed(random_generator=self.random_generator),
             ),
