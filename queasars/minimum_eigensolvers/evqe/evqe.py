@@ -35,7 +35,7 @@ from queasars.utility.random import new_random_seed
 DEFAULT_EVQE_GATESET = {
     EVQEGateType.IDENTITY: 1,
     EVQEGateType.ROTATION: 1,
-    (EVQEGateType.CONTROL, EVQEGateType.CONTROLLED_ROTATION): 1
+    (EVQEGateType.CONTROL, EVQEGateType.CONTROLLED_ROTATION): 1,
 }
 
 # Gates supported natively on the hardware
@@ -44,10 +44,8 @@ HARDWARE_NATIVE_GATESET = {
     EVQEGateType.SX: 1,
     EVQEGateType.X: 1,
     EVQEGateType.RZ: 5,
-    (EVQEGateType.CONTROL,
-     EVQEGateType.CZ): 5,
-    (EVQEGateType.ECR,
-     EVQEGateType.ECR): 1
+    (EVQEGateType.CONTROL, EVQEGateType.CZ): 5,
+    (EVQEGateType.ECR, EVQEGateType.ECR): 1,
 }
 
 
@@ -169,7 +167,8 @@ class EVQEMinimumEigensolverConfiguration:
     distribution_alpha_tail: float = 1
     mutually_exclusive_primitives: bool = True
     all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = field(
-        default_factory=lambda: DEFAULT_EVQE_GATESET.copy())
+        default_factory=lambda: DEFAULT_EVQE_GATESET.copy()
+    )
     coupling_map: Optional[list[tuple[int, int]]] = None
 
     def __post_init__(self):

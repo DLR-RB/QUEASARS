@@ -32,13 +32,13 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
 
     @staticmethod
     def random_population(
-            n_qubits: int,
-            n_layers: int,
-            all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
-            coupling_map: Optional[list[tuple[int, int]]],
-            n_individuals: int,
-            randomize_parameter_values: bool,
-            random_seed: Optional[int] = None,
+        n_qubits: int,
+        n_layers: int,
+        all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+        coupling_map: Optional[list[tuple[int, int]]],
+        n_individuals: int,
+        randomize_parameter_values: bool,
+        random_seed: Optional[int] = None,
     ):
         """
         Generates a random population of n_individuals EVQEIndividuals with

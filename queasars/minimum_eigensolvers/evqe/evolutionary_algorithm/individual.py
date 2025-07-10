@@ -34,11 +34,12 @@ class EVQEIndividual(BaseIndividual):
 
     @staticmethod
     def random_individual(
-            n_qubits: int, n_layers: int,
-            all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
-            randomize_parameter_values: bool,
-            coupling_map: Optional[list[tuple[int, int]]],
-            random_seed: Optional[int] = None
+        n_qubits: int,
+        n_layers: int,
+        all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+        randomize_parameter_values: bool,
+        coupling_map: Optional[list[tuple[int, int]]],
+        random_seed: Optional[int] = None,
     ) -> "EVQEIndividual":
         """
         Creates a random individual for n_qubits with n_layers. Parameters can be initialized randomly
@@ -63,7 +64,8 @@ class EVQEIndividual(BaseIndividual):
                 n_qubits=n_qubits,
                 all_possible_gates_weighted=all_possible_gates_weighted,
                 coupling_map=coupling_map,
-                previous_layer=layer, random_seed=new_random_seed(random_generator)
+                previous_layer=layer,
+                random_seed=new_random_seed(random_generator),
             )
             layers.append(layer)
         n_parameters: int = sum(layer.n_parameters for layer in layers)
@@ -97,7 +99,7 @@ class EVQEIndividual(BaseIndividual):
 
     @staticmethod
     def change_layer_parameter_values(
-            individual: "EVQEIndividual", layer_id: int, parameter_values: tuple[float, ...]
+        individual: "EVQEIndividual", layer_id: int, parameter_values: tuple[float, ...]
     ) -> "EVQEIndividual":
         """Returns a new individual with the same circuit structure,
         but with changed parameter values for the specified circuit layer
@@ -141,11 +143,12 @@ class EVQEIndividual(BaseIndividual):
 
     @staticmethod
     def add_random_layers(
-            individual: "EVQEIndividual", n_layers: int,
-            all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
-            randomize_parameter_values: bool,
-            coupling_map: Optional[list[tuple[int, int]]],
-            random_seed: Optional[int] = None
+        individual: "EVQEIndividual",
+        n_layers: int,
+        all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+        randomize_parameter_values: bool,
+        coupling_map: Optional[list[tuple[int, int]]],
+        random_seed: Optional[int] = None,
     ) -> "EVQEIndividual":
         """Returns a new individual based on the given individual,
         but with additional random circuit layers appended. The parameter values for these
@@ -220,11 +223,11 @@ class EVQEIndividual(BaseIndividual):
             )
 
         # Remove the last layers
-        layers: list[EVQECircuitLayer] = list(individual.layers)[0: len(individual.layers) - n_layers]
+        layers: list[EVQECircuitLayer] = list(individual.layers)[0 : len(individual.layers) - n_layers]
         # Get the parameter values for the remaining layers
         parameter_values: list[float] = list(individual.parameter_values)[
-                                        0: individual.layer_parameter_indices[len(individual.layers) - n_layers][0]
-                                        ]
+            0 : individual.layer_parameter_indices[len(individual.layers) - n_layers][0]
+        ]
 
         return EVQEIndividual(
             n_qubits=individual.n_qubits,
@@ -291,7 +294,7 @@ class EVQEIndividual(BaseIndividual):
 
     @property
     def layer_parameter_indices(
-            self,
+        self,
     ) -> MappingProxyType[int, tuple[int, ...]]:
         """
         :return: A mapping, which maps the layer index to the parameter indices which belong ot it
