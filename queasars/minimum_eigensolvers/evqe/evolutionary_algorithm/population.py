@@ -7,6 +7,7 @@ from random import Random
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BasePopulation
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import EVQEIndividual
+from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import EVQEGateType
 from queasars.utility.random import new_random_seed
 
 
@@ -31,11 +32,12 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
 
     @staticmethod
     def random_population(
-        n_qubits: int,
-        n_layers: int,
-        n_individuals: int,
-        randomize_parameter_values: bool,
-        random_seed: Optional[int] = None,
+            n_qubits: int,
+            n_layers: int,
+            all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+            n_individuals: int,
+            randomize_parameter_values: bool,
+            random_seed: Optional[int] = None,
     ):
         """
         Generates a random population of n_individuals EVQEIndividuals with
@@ -47,6 +49,8 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
         :type n_qubits: int
         :arg n_layers: amount of circuit layers each individual shall have
         :type n_layers: int
+        :arg all_possible_gates_weighted: the allowed (single qubit) gate types or two-element tuples of gate type combinations,
+         with the respective weight factor for the random sampling
         :arg n_individuals: amount of individuals wanted for the generated population
         :type n_individuals: int
         :arg randomize_parameter_values: dictated whether parameter values shall be initialized randomly or at 0
@@ -63,6 +67,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
             EVQEIndividual.random_individual(
                 n_qubits=n_qubits,
                 n_layers=n_layers,
+                all_possible_gates_weighted=all_possible_gates_weighted,
                 randomize_parameter_values=randomize_parameter_values,
                 random_seed=new_random_seed(random_generator),
             )

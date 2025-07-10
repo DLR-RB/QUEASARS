@@ -37,6 +37,7 @@ class EVQECircuitLayer:
     @staticmethod
     def random_layer(
             n_qubits: int,
+            all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
             previous_layer: Optional["EVQECircuitLayer"] = None,
             random_seed: Optional[int] = None,
     ) -> "EVQECircuitLayer":
@@ -48,6 +49,8 @@ class EVQECircuitLayer:
 
         :arg n_qubits: amount of qubits to which this layer shall be applied
         :type n_qubits: int
+        :arg all_possible_gates_weighted: the allowed (single qubit) gate types or two-element tuples of gate type combinations,
+         with the respective weight factor for the random sampling
         :arg previous_layer: optional previous layer to restrict layer generation by
         :type previous_layer: EVQECircuitLayer
         :arg random_seed: integer value to control randomness
@@ -70,28 +73,8 @@ class EVQECircuitLayer:
         # Initialize a buffer to hold the gates and parameters for the new layer
         chosen_gates: list[EVQEGate] = list(IdentityGate(qubit_index=qubit_index) for qubit_index in range(0, n_qubits))
         gates_todo_indices: set[int] = set(range(0, n_qubits))
-        # single qubit gates are directly members of the list, tuples are gate combinations which require two qubits
-        # all_possible_gates: list[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = [EVQEGateType.IDENTITY,
-        #                                                                               EVQEGateType.ROTATION,
-        #                                                                               EVQEGateType.SX, EVQEGateType.X,
-        #                                                                               EVQEGateType.RZ, (
-        #                                                                                   EVQEGateType.CONTROL,
-        #                                                                                   EVQEGateType.CONTROLLED_ROTATION),
-        #                                                                               (EVQEGateType.CONTROL,
-        #                                                                                EVQEGateType.CZ), (
-        #                                                                                   EVQEGateType.ECR,
-        #                                                                                   EVQEGateType.ECR)]
-        # Gates supported natively on the hardware
-        all_possible_gates_weights: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = {
-            EVQEGateType.IDENTITY: 1,
-            EVQEGateType.SX: 1, EVQEGateType.X: 1,
-            EVQEGateType.RZ: 5,
-            (EVQEGateType.CONTROL,
-             EVQEGateType.CZ): 1, (
-                EVQEGateType.ECR,
-                EVQEGateType.ECR): 1}
         all_possible_gates: list[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = list(
-            all_possible_gates_weights.keys())
+            all_possible_gates_weighted.keys())
         incompatible_gate_combinations: dict[EVQEGateType, list[EVQEGateType]] = {
             # TODO exclude Identity-Identity?
             EVQEGateType.IDENTITY: [EVQEGateType.IDENTITY],
@@ -149,7 +132,7 @@ class EVQECircuitLayer:
                 possible_gates_next_index = possible_gates[next_gate_index]
                 chosen_gate_candidate: EVQEGateType | tuple[EVQEGateType, EVQEGateType] = \
                     random_generator.choices(possible_gates_next_index, k=1,
-                                             weights=[all_possible_gates_weights[gate] for gate in
+                                             weights=[all_possible_gates_weighted[gate] for gate in
                                                       possible_gates_next_index])[0]
 
                 if isinstance(chosen_gate_candidate, tuple):
@@ -185,7 +168,7 @@ class EVQECircuitLayer:
                 # TODO: or raise an exception here?
                 chosen_gate_type = EVQEGateType.IDENTITY
             else:
-                chosen_gate_type = random_generator.choices(possible_single_qubit_gates, k=1, weights=[all_possible_gates_weights[gate] for gate in possible_single_qubit_gates])[0]
+                chosen_gate_type = random_generator.choices(possible_single_qubit_gates, k=1, weights=[all_possible_gates_weighted[gate] for gate in possible_single_qubit_gates])[0]
             chosen_gate = get_gate_for_type(chosen_gate_type, qubit_index=next_gate_index, partner_index=None)
             chosen_gates[next_gate_index] = chosen_gate
 

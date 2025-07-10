@@ -8,6 +8,7 @@ from random import Random
 from qiskit.circuit import QuantumCircuit
 
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import EVQEIndividual, EVQEIndividualException
+from queasars.minimum_eigensolvers.evqe.evqe import DEFAULT_EVQE_GATESET
 from queasars.minimum_eigensolvers.evqe.quantum_circuit.circuit_layer import EVQECircuitLayer, EVQECircuitLayerException
 from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import (
     RotationGate,
@@ -64,7 +65,7 @@ class TestEVQECircuitLayer:
     def test_random_layers_are_valid(self):
         random_generator = Random(0)
         for i in range(0, 100):
-            layer = EVQECircuitLayer.random_layer(
+            layer = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, 
                 n_qubits=10, previous_layer=None, random_seed=new_random_seed(random_generator=random_generator)
             )
             assert (
@@ -74,10 +75,10 @@ class TestEVQECircuitLayer:
     def test_random_layers_for_previous_layers_are_valid(self):
         random_generator = Random(0)
         for i in range(0, 100):
-            previous_layer = EVQECircuitLayer.random_layer(
+            previous_layer = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, 
                 n_qubits=10, previous_layer=None, random_seed=new_random_seed(random_generator=random_generator)
             )
-            next_layer = EVQECircuitLayer.random_layer(
+            next_layer = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, 
                 n_qubits=10,
                 previous_layer=previous_layer,
                 random_seed=new_random_seed(random_generator=random_generator),
@@ -91,18 +92,18 @@ class TestEVQECircuitLayer:
                     )
 
     def test_random_layer_seed(self):
-        layer_0 = EVQECircuitLayer.random_layer(n_qubits=12, previous_layer=None, random_seed=0)
-        assert layer_0 == EVQECircuitLayer.random_layer(
+        layer_0 = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, n_qubits=12, previous_layer=None, random_seed=0)
+        assert layer_0 == EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, 
             n_qubits=12, previous_layer=None, random_seed=0
         ), "Different circuit layers were generated although the same seed was used!"
 
-        layer_1 = EVQECircuitLayer.random_layer(n_qubits=12, previous_layer=layer_0, random_seed=0)
-        assert layer_1 == EVQECircuitLayer.random_layer(
+        layer_1 = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, n_qubits=12, previous_layer=layer_0, random_seed=0)
+        assert layer_1 == EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, 
             n_qubits=12, previous_layer=layer_0, random_seed=0
         ), "Different circuit layers were generated although the same seed was used!"
 
     def test_parameterized_layer_gate_amount_of_parameters(self):
-        circuit_layer = EVQECircuitLayer.random_layer(n_qubits=10, previous_layer=None, random_seed=0)
+        circuit_layer = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, n_qubits=10, previous_layer=None, random_seed=0)
         parameterized_gate = circuit_layer.get_parameterized_layer_gate(layer_id=0)
         assert len(parameterized_gate.params) == circuit_layer.n_parameters, (
             "The amount of parameters specified by the circuit layer did "
@@ -117,7 +118,7 @@ class TestEVQECircuitLayer:
         )
 
     def test_non_parameterized_layer_gate_amount_of_parameters(self):
-        circuit_layer = EVQECircuitLayer.random_layer(n_qubits=10, previous_layer=None, random_seed=0)
+        circuit_layer = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, n_qubits=10, previous_layer=None, random_seed=0)
         gate = circuit_layer.get_layer_gate(layer_id=0, parameter_values=(0,) * circuit_layer.n_parameters)
         assert (
             len(gate.params) == 0
@@ -132,7 +133,7 @@ class TestEVQECircuitLayer:
     def test_parameterized_layer_gate_circuit_for_all_needed_gates(self):
         random_generator = Random(0)
         for i in range(0, 100):
-            circuit_layer = EVQECircuitLayer.random_layer(
+            circuit_layer = EVQECircuitLayer.random_layer(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, 
                 n_qubits=10, previous_layer=None, random_seed=new_random_seed(random_generator=random_generator)
             )
             parameterized_gate = circuit_layer.get_parameterized_layer_gate(layer_id=0)
@@ -178,7 +179,7 @@ class TestEVQEIndividual:
         random_generator = Random(0)
 
         for _ in range(0, 100):
-            individual = EVQEIndividual.random_individual(
+            individual = EVQEIndividual.random_individual(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
                 n_qubits=15,
                 n_layers=10,
                 randomize_parameter_values=False,
@@ -189,26 +190,26 @@ class TestEVQEIndividual:
             ), "An invalid individual was generated, although all random individuals should be valid!"
 
     def test_random_individual_seed(self):
-        individual_1 = EVQEIndividual.random_individual(
+        individual_1 = EVQEIndividual.random_individual(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             n_qubits=15,
             n_layers=10,
             randomize_parameter_values=False,
             random_seed=0,
         )
-        assert individual_1 == EVQEIndividual.random_individual(
+        assert individual_1 == EVQEIndividual.random_individual(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             n_qubits=15,
             n_layers=10,
             randomize_parameter_values=False,
             random_seed=0,
         ), "A different individual was generated for the same random seed!"
 
-        individual_2 = EVQEIndividual.random_individual(
+        individual_2 = EVQEIndividual.random_individual(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             n_qubits=20,
             n_layers=8,
             randomize_parameter_values=True,
             random_seed=0,
         )
-        assert individual_2 == EVQEIndividual.random_individual(
+        assert individual_2 == EVQEIndividual.random_individual(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             n_qubits=20,
             n_layers=8,
             randomize_parameter_values=True,
@@ -217,7 +218,7 @@ class TestEVQEIndividual:
 
     @pytest.fixture
     def individual(self) -> EVQEIndividual:
-        return EVQEIndividual.random_individual(
+        return EVQEIndividual.random_individual(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             n_qubits=20, n_layers=10, randomize_parameter_values=True, random_seed=0
         )
 
@@ -265,14 +266,14 @@ class TestEVQEIndividual:
 
     def test_add_0_random_layers(self, individual):
         with raises(EVQEIndividualException):
-            EVQEIndividual.add_random_layers(
+            EVQEIndividual.add_random_layers(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
                 individual=individual, n_layers=0, randomize_parameter_values=False, random_seed=0
             )
 
     def test_add_random_layers(self, individual):
         n_params_before = len(individual.get_parameter_values())
         n_new_random_layers = 3
-        new_individual = EVQEIndividual.add_random_layers(
+        new_individual = EVQEIndividual.add_random_layers(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             individual=individual, n_layers=n_new_random_layers, randomize_parameter_values=False, random_seed=0
         )
 
@@ -312,7 +313,7 @@ class TestEVQEIndividual:
         ), "The parameter values of the layers unaffected by the removal should remain the same, but were changed!"
 
     def test_get_genetic_distance(self, individual):
-        new_individual = EVQEIndividual.add_random_layers(
+        new_individual = EVQEIndividual.add_random_layers(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
             individual=individual, n_layers=1, randomize_parameter_values=False, random_seed=0
         )
         assert (
