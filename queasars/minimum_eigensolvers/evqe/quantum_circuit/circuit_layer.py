@@ -149,10 +149,10 @@ class EVQECircuitLayer:
             When a previous layer exists, gates that would be invalid in combination with the previous layer are never returned.
             When no remaining qubits are left, only valid single-qubit gates are returned.
             """
-            possible_gates = all_possible_gates.copy()
-            incompatible_gates = set()
+            possible_gates: set[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = set(all_possible_gates)
+            incompatible_gates: set[EVQEGateType] = set()
             if previous_layer is not None:
-                incompatible_gates: set[EVQEGateType] = get_incompatible_gates(qubit_index)
+                incompatible_gates = get_incompatible_gates(qubit_index)
                 possible_gates = {
                     gate
                     for gate in possible_gates
@@ -161,16 +161,22 @@ class EVQECircuitLayer:
                         and gate not in incompatible_gates
                         or (
                             isinstance(gate, tuple)
-                            and (is_primary_qubit and gate[0] not in incompatible_gates)
-                            or not is_primary_qubit
-                            and gate[1] not in incompatible_gates
+                            and (
+                                (is_primary_qubit and gate[0] not in incompatible_gates)
+                                or not is_primary_qubit
+                                and gate[1] not in incompatible_gates
+                            )
                         )
                     )
                 }
             if len(qubits_todo) == 0:
                 # We have no remaining qubit to couple with, use only single-qubit gates
-                single_qubit_gates = {gate for gate in possible_gates if not isinstance(gate, tuple)}
-                compatible_single_qubit_gates: set[EVQEGateType] = single_qubit_gates.difference(incompatible_gates)
+                single_qubit_gates: set[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = {
+                    gate for gate in possible_gates if not isinstance(gate, tuple)
+                }
+                compatible_single_qubit_gates: set[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = (
+                    single_qubit_gates.difference(incompatible_gates)
+                )
                 return compatible_single_qubit_gates
             return possible_gates
 
