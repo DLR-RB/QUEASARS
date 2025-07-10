@@ -32,14 +32,14 @@ from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import EVQE
 from queasars.utility.random import new_random_seed
 
 # The following are possible choices for the gatesets with weights indicating how likely a gate should be chosen.
-DEFAULT_EVQE_GATESET = {
+DEFAULT_EVQE_GATESET: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = {
     EVQEGateType.IDENTITY: 1,
     EVQEGateType.ROTATION: 1,
     (EVQEGateType.CONTROL, EVQEGateType.CONTROLLED_ROTATION): 1,
 }
 
 # Gates supported natively on the hardware
-HARDWARE_NATIVE_GATESET = {
+HARDWARE_NATIVE_GATESET: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = {
     EVQEGateType.IDENTITY: 1,
     EVQEGateType.SX: 1,
     EVQEGateType.X: 1,
