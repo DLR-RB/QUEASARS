@@ -34,9 +34,10 @@ class TestEVQEOperators:
 
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
-        return EVQEPopulation.random_population(all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
-            n_qubits=4, n_layers=2, n_individuals=10, randomize_parameter_values=False, random_seed=0
-        )
+        return EVQEPopulation.random_population(all_possible_gates_weighted=DEFAULT_EVQE_GATESET, coupling_map=None,
+                                                n_qubits=4, n_layers=2, n_individuals=10,
+                                                randomize_parameter_values=False, random_seed=0
+                                                )
 
     @pytest.fixture
     def hamiltonian(self) -> SparsePauliOp:
@@ -125,7 +126,8 @@ class TestEVQEOperators:
         ), "Parameter search did not improve the expectation values on average!"
 
     def test_topological_search_mutation(self, initial_population, operator_context):
-        topological_search = EVQETopologicalSearch(mutation_probability=0.5, random_seed=0, all_possible_gates_weighted=DEFAULT_EVQE_GATESET)
+        topological_search = EVQETopologicalSearch(mutation_probability=0.5, random_seed=0,
+                                                   all_possible_gates_weighted=DEFAULT_EVQE_GATESET, coupling_map=None)
 
         initial_individual_length = sum(len(individual.layers) for individual in initial_population.individuals)
         new_population = topological_search.apply_operator(
@@ -134,7 +136,7 @@ class TestEVQEOperators:
         new_individual_length = sum(len(individual.layers) for individual in new_population.individuals)
 
         assert (
-            initial_individual_length < new_individual_length
+                initial_individual_length < new_individual_length
         ), "Topological search did not increase the amount of layers in the population!"
 
     def test_layer_removal_mutation(self, initial_population, operator_context):
@@ -151,7 +153,8 @@ class TestEVQEOperators:
         last_layer_parameter_search = EVQELastLayerParameterSearch(
             mutation_probability=1, optimizer=optimizer, optimizer_n_circuit_evaluations=40
         )
-        topological_search = EVQETopologicalSearch(mutation_probability=1, random_seed=0, all_possible_gates_weighted=DEFAULT_EVQE_GATESET)
+        topological_search = EVQETopologicalSearch(mutation_probability=1, random_seed=0,
+                                                   all_possible_gates_weighted=DEFAULT_EVQE_GATESET, coupling_map=None)
         speciation = EVQESpeciation(genetic_distance_threshold=genetic_distance, random_seed=0)
         selection = EVQESelection(alpha_penalty=0.1, beta_penalty=0.1, random_seed=0)
 
@@ -174,13 +177,13 @@ class TestEVQEOperators:
             for member_index in population.species_members[representative]:
                 if representative != population.individuals[member_index]:
                     assert (
-                        EVQEIndividual.get_genetic_distance(
-                            individual_1=representative, individual_2=population.individuals[member_index]
-                        )
-                        < genetic_distance
+                            EVQEIndividual.get_genetic_distance(
+                                individual_1=representative, individual_2=population.individuals[member_index]
+                            )
+                            < genetic_distance
                     ), (
-                        "A member of a species has exceeded the genetic_distance it should at "
-                        + "maximum have to its species representative!"
+                            "A member of a species has exceeded the genetic_distance it should at "
+                            + "maximum have to its species representative!"
                     )
 
     def test_selection(self, initial_population, operator_context, optimizer):

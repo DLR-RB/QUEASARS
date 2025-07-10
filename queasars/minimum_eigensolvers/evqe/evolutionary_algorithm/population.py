@@ -35,6 +35,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
             n_qubits: int,
             n_layers: int,
             all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+            coupling_map: Optional[list[tuple[int, int]]],
             n_individuals: int,
             randomize_parameter_values: bool,
             random_seed: Optional[int] = None,
@@ -68,6 +69,7 @@ class EVQEPopulation(BasePopulation[EVQEIndividual]):
                 n_qubits=n_qubits,
                 n_layers=n_layers,
                 all_possible_gates_weighted=all_possible_gates_weighted,
+                coupling_map=coupling_map,
                 randomize_parameter_values=randomize_parameter_values,
                 random_seed=new_random_seed(random_generator),
             )

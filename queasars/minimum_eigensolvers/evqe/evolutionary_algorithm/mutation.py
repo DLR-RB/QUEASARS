@@ -349,11 +349,13 @@ class EVQETopologicalSearch(BaseEVQEMutationOperator):
     """
 
     def __init__(self, all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
-                 mutation_probability: float, random_seed: Optional[int] = None, ):
+                 coupling_map: Optional[list[tuple[int, int]]], mutation_probability: float,
+                 random_seed: Optional[int] = None, ):
         mutation_function: MutationFunction = lambda individual, evaluator, optimizer, seed: (
             EVQEIndividual.add_random_layers(
                 individual=individual, n_layers=1,
                 all_possible_gates_weighted=all_possible_gates_weighted,
+                coupling_map=coupling_map,
                 randomize_parameter_values=False, random_seed=seed
             ),
             0,

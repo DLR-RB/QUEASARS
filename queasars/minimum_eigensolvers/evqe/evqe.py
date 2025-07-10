@@ -165,6 +165,7 @@ class EVQEMinimumEigensolverConfiguration:
     mutually_exclusive_primitives: bool = True
     all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = field(
         default_factory=lambda: DEFAULT_EVQE_GATESET.copy())
+    coupling_map: Optional[list[tuple[int, int]]] = None
 
     def __post_init__(self):
         if self.max_generations is None and self.max_circuit_evaluations is None and self.termination_criterion is None:
@@ -208,6 +209,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             n_qubits=n_qubits,
             n_layers=configuration.n_initial_layers,
             all_possible_gates_weighted=configuration.all_possible_gates_weighted,
+            coupling_map=configuration.coupling_map,
             n_individuals=configuration.population_size,
             randomize_parameter_values=configuration.randomize_initial_population_parameters,
             random_seed=new_random_seed(random_generator=self.random_generator),
@@ -239,6 +241,7 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
             ),
             EVQETopologicalSearch(
                 all_possible_gates_weighted=configuration.all_possible_gates_weighted,
+                coupling_map = configuration.coupling_map,
                 mutation_probability=configuration.topological_search_probability,
                 random_seed=new_random_seed(random_generator=self.random_generator),
             ),

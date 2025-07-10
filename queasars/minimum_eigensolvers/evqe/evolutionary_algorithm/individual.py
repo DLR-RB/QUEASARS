@@ -36,7 +36,9 @@ class EVQEIndividual(BaseIndividual):
     def random_individual(
             n_qubits: int, n_layers: int,
             all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
-            randomize_parameter_values: bool, random_seed: Optional[int] = None
+            randomize_parameter_values: bool,
+            coupling_map: Optional[list[tuple[int, int]]],
+            random_seed: Optional[int] = None
     ) -> "EVQEIndividual":
         """
         Creates a random individual for n_qubits with n_layers. Parameters can be initialized randomly
@@ -60,6 +62,7 @@ class EVQEIndividual(BaseIndividual):
             layer = EVQECircuitLayer.random_layer(
                 n_qubits=n_qubits,
                 all_possible_gates_weighted=all_possible_gates_weighted,
+                coupling_map=coupling_map,
                 previous_layer=layer, random_seed=new_random_seed(random_generator)
             )
             layers.append(layer)
@@ -141,6 +144,7 @@ class EVQEIndividual(BaseIndividual):
             individual: "EVQEIndividual", n_layers: int,
             all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
             randomize_parameter_values: bool,
+            coupling_map: Optional[list[tuple[int, int]]],
             random_seed: Optional[int] = None
     ) -> "EVQEIndividual":
         """Returns a new individual based on the given individual,
@@ -173,6 +177,7 @@ class EVQEIndividual(BaseIndividual):
                 all_possible_gates_weighted=all_possible_gates_weighted,
                 random_seed=new_random_seed(random_generator),
                 previous_layer=individual.layers[-1],
+                coupling_map=coupling_map,
             )
             new_layers.append(layer)
 

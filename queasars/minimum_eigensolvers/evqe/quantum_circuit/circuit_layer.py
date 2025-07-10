@@ -38,6 +38,7 @@ class EVQECircuitLayer:
     def random_layer(
             n_qubits: int,
             all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+            coupling_map: Optional[list[tuple[int, int]]],
             previous_layer: Optional["EVQECircuitLayer"] = None,
             random_seed: Optional[int] = None,
     ) -> "EVQECircuitLayer":
@@ -72,7 +73,7 @@ class EVQECircuitLayer:
 
         # Initialize a buffer to hold the gates and parameters for the new layer
         chosen_gates: list[EVQEGate] = list(IdentityGate(qubit_index=qubit_index) for qubit_index in range(0, n_qubits))
-        gates_todo_indices: set[int] = set(range(0, n_qubits))
+        qubits_todo: set[int] = set(range(0, n_qubits))
         all_possible_gates: list[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = list(
             all_possible_gates_weighted.keys())
         incompatible_gate_combinations: dict[EVQEGateType, list[EVQEGateType]] = {
@@ -107,70 +108,100 @@ class EVQECircuitLayer:
                     return EchoedCrossResonanceGate(qubit_index, partner_index)
             raise ValueError(f"Unknown gate type: {gate_type}")
 
-        # TODO encourage all qubits to couple with at least one other based on previous layer (or better all previous layers)
-        def possible_gates_for_index(index: int) -> list[EVQEGateType | tuple[EVQEGateType, EVQEGateType]]:
-            incompatible_gates = []
+        def get_coupleable_qubits(index: int, coupling_map: Optional[list[tuple[int, int]]], qubits_todo: set[int]) -> \
+                list[int]:
+            if coupling_map is None:
+                return list(qubits_todo)
+            coupleable_indices = []
+            for (control, controlled) in coupling_map:
+                if control == index and controlled in qubits_todo:
+                    coupleable_indices.append(controlled)
+                elif controlled == index and control in qubits_todo:
+                    coupleable_indices.append(control)
+            return coupleable_indices
+
+        def get_prohibited_gates(qubit_index: int) -> set[EVQEGateType]:
+            incompatible_gates = set()
             if previous_layer is not None:
-                previous_gate = previous_layer.gates[index].gate_type()
+                previous_gate = previous_layer.gates[qubit_index].gate_type()
                 if previous_gate in incompatible_gate_combinations.keys():
-                    incompatible_gates = incompatible_gate_combinations[previous_gate]
-            return [gate for gate in all_possible_gates if gate not in incompatible_gates]
+                    incompatible_gates = set(incompatible_gate_combinations[previous_gate])
+            return incompatible_gates
 
-        possible_gates: dict[int, list[EVQEGateType | tuple[EVQEGateType, EVQEGateType]]] = {
-            index: possible_gates_for_index(index) for index in gates_todo_indices}
+        # TODO encourage all qubits to couple with at least one other based on previous layer (or better all previous layers)
+        def get_possible_gates_for_qubit(qubit_index: int, coupling_map: Optional[list[tuple[int, int]]],
+                                         qubits_todo: set[int],
+                                         is_primary_qubit: bool) -> set[
+            EVQEGateType | tuple[EVQEGateType, EVQEGateType]]:
+            possible_gates = all_possible_gates.copy()
+            incompatible_gates = set()
+            if previous_layer is not None:
+                incompatible_gates: set[EVQEGateType] = get_prohibited_gates(qubit_index)
+                possible_gates = {gate for gate in possible_gates if
+                                  (isinstance(gate, EVQEGateType) and gate not in incompatible_gates or (
+                                          isinstance(gate, tuple) and (
+                                          is_primary_qubit and gate[0] not in incompatible_gates) or
+                                          not is_primary_qubit and gate[1] not in incompatible_gates
+                                  )
+                                   )}
+            single_qubit_gates = {gate for gate in possible_gates if not isinstance(gate, tuple)}
+            if len(qubits_todo) == 0:
+                # Use only single-qubit gates
+                if len(single_qubit_gates.difference(incompatible_gates)) > 0:
+                    return single_qubit_gates.difference(incompatible_gates)
+                else:
+                    return single_qubit_gates
 
-        while len(gates_todo_indices) >= 2:
-            # TODO requires that some qubit gate is always possible (e.g. Identity) to ensure termination
+            elif coupling_map is not None:
+                # If we have possible partner qubits left and are given a coupling map, determine which gate combinations are allowed and have at least one possible partner
+                coupleable_qubits = get_coupleable_qubits(qubit_index, coupling_map, qubits_todo)
+                if len(coupleable_qubits) == 0:
+                    if len(single_qubit_gates) > 0:
+                        return single_qubit_gates
+            # If we have no coupling map or no coupling gate has a possible direct coupling partner, allow any compatible gates
+            return possible_gates
 
-            next_gate_index: int = random_generator.sample(list(gates_todo_indices), k=1)[0]
-            gates_todo_indices.remove(next_gate_index)
+        while len(qubits_todo) >= 1:
+            next_qubit_index: int = random_generator.sample(list(qubits_todo), k=1)[0]
+            qubits_todo.remove(next_qubit_index)
 
-            chosen_gate_type: Optional[EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = None
             chosen_gate: Optional[EVQEGate] = None
-            while chosen_gate_type is None:
-
-                possible_gates_next_index = possible_gates[next_gate_index]
+            possible_gates_next_index: set[
+                EVQEGateType | tuple[EVQEGateType, EVQEGateType]] = get_possible_gates_for_qubit(
+                next_qubit_index, coupling_map, qubits_todo,
+                is_primary_qubit=True)
+            while chosen_gate is None and len(possible_gates_next_index) > 0:
+                possible_gates_next_index_list = list(possible_gates_next_index)
                 chosen_gate_candidate: EVQEGateType | tuple[EVQEGateType, EVQEGateType] = \
-                    random_generator.choices(possible_gates_next_index, k=1,
+                    random_generator.choices(possible_gates_next_index_list, k=1,
                                              weights=[all_possible_gates_weighted[gate] for gate in
-                                                      possible_gates_next_index])[0]
+                                                      possible_gates_next_index_list])[0]
 
                 if isinstance(chosen_gate_candidate, tuple):
+                    # If a two-qubit gate was chosen, try to find a partner
                     self_gate_type = chosen_gate_candidate[0]
                     partner_gate_type = chosen_gate_candidate[1]
-                    possible_partners_indices = [index for index in gates_todo_indices if
-                                                 any([possible_gate[1] == partner_gate_type for possible_gate in
-                                                      possible_gates[index] if isinstance(possible_gate, tuple)])]
-                    if len(possible_partners_indices) == 0:
+                    possible_partner_qubits = []
+                    for possible_partner_qubit in get_coupleable_qubits(next_qubit_index, coupling_map, qubits_todo):
+                        if partner_gate_type not in get_prohibited_gates(possible_partner_qubit):
+                            possible_partner_qubits.append(possible_partner_qubit)
+                    if len(possible_partner_qubits) == 0:
                         # We cannot find a partner, therefore this gate combination is not possible anymore
                         possible_gates_next_index.remove(chosen_gate_candidate)
                     else:
-                        partner_index: int = random_generator.sample(possible_partners_indices, k=1)[0]
-                        chosen_gate = get_gate_for_type(self_gate_type, qubit_index=next_gate_index,
-                                                        partner_index=partner_index)
-                        partner_gate = get_gate_for_type(partner_gate_type, qubit_index=partner_index,
-                                                         partner_index=next_gate_index)
-                        chosen_gates[partner_index] = partner_gate
-                        gates_todo_indices.remove(partner_index)
-                        chosen_gate_type = self_gate_type
+                        partner_qubit_index: int = random_generator.sample(possible_partner_qubits, k=1)[0]
+                        chosen_gate = get_gate_for_type(self_gate_type, qubit_index=next_qubit_index,
+                                                        partner_index=partner_qubit_index)
+                        partner_gate = get_gate_for_type(partner_gate_type, qubit_index=partner_qubit_index,
+                                                         partner_index=next_qubit_index)
+                        chosen_gates[partner_qubit_index] = partner_gate
+                        qubits_todo.remove(partner_qubit_index)
                 else:
-                    chosen_gate_type = chosen_gate_candidate
-                    chosen_gate = get_gate_for_type(chosen_gate_type, qubit_index=next_gate_index, partner_index=None)
+                    chosen_gate = get_gate_for_type(chosen_gate_candidate, qubit_index=next_qubit_index,
+                                                    partner_index=None)
             if chosen_gate is not None:
-                chosen_gates[next_gate_index] = chosen_gate
-
-        if len(gates_todo_indices) == 1:
-            next_gate_index = gates_todo_indices.pop()
-            # TODO requires that some 1 qubit gate is always possible (e.g. Identity)
-            possible_single_qubit_gates: list[EVQEGateType] = [gate for gate in possible_gates[next_gate_index] if
-                                                               not isinstance(gate, tuple)]
-            if len(possible_single_qubit_gates) == 0:
-                # TODO: or raise an exception here?
-                chosen_gate_type = EVQEGateType.IDENTITY
-            else:
-                chosen_gate_type = random_generator.choices(possible_single_qubit_gates, k=1, weights=[all_possible_gates_weighted[gate] for gate in possible_single_qubit_gates])[0]
-            chosen_gate = get_gate_for_type(chosen_gate_type, qubit_index=next_gate_index, partner_index=None)
-            chosen_gates[next_gate_index] = chosen_gate
+                # If no possible gates are left for this qubit, skip it
+                chosen_gates[next_qubit_index] = chosen_gate
 
         return EVQECircuitLayer(n_qubits=n_qubits, gates=tuple(chosen_gates))
 
@@ -224,21 +255,20 @@ class EVQECircuitLayer:
             # Ensure each ControlledGate has a correctly assigned ControlGate
             if isinstance(gate, ControlledGate):
                 control_gate = self.gates[gate.control_qubit_index]
-                if isinstance(gate, EchoedCrossResonanceGate) or isinstance(control_gate, EchoedCrossResonanceGate):
-                    # ECRGates must appear in pairs
-                    if not isinstance(gate, EchoedCrossResonanceGate) and isinstance(control_gate,
-                                                                                     EchoedCrossResonanceGate):
-                        return False
-                elif not (isinstance(control_gate, ControlGate) and control_gate.controlled_qubit_index == gate_index):
+                gate_types = (gate.gate_type(), control_gate.gate_type())
+                # if gate_types not in self.all_possible_gates and (gate_types[1], gate_types[0]) not in self.all_possible_gates:
+                #     return False
+                if isinstance(control_gate, ControlGate) and not control_gate.controlled_qubit_index == gate_index:
                     return False
 
             # Ensure each ControlGate has a correctly assigned ControlledGate
             if isinstance(gate, ControlGate):
                 controlled_gate = self.gates[gate.controlled_qubit_index]
-                if not (
-                        isinstance(controlled_gate, ControlledGate)
-                        and controlled_gate.control_qubit_index == gate_index
-                ):
+                gate_types = (gate.gate_type(), controlled_gate.gate_type())
+                # if gate_types not in self.all_possible_gates and (gate_types[1], gate_types[0]) not in self.all_possible_gates:
+                #     return False
+                if isinstance(controlled_gate,
+                              ControlledGate) and not controlled_gate.control_qubit_index == gate_index:
                     return False
 
         return True
