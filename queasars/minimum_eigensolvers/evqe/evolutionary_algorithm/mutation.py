@@ -61,7 +61,10 @@ def optimize_layer_of_individual(
     n_parameters: int = len(parameter_values)
 
     def evaluation_callback(parameter_values: NDArray) -> Union[NDArray, float]:
-        parameters: list[list[float]] = reshape(parameter_values, (-1, n_parameters)).tolist()
+        if len(parameter_values) == 0:
+            parameters: list[list[float]] = [[]]
+        else:
+            parameters = reshape(parameter_values, (-1, n_parameters)).tolist()
         batch_size: int = len(parameters)
 
         evaluation_result: list[float] = evaluator.evaluate_circuits(
