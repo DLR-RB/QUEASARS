@@ -11,6 +11,7 @@ from qiskit.circuit import Gate, QuantumCircuit
 
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseIndividual
 from queasars.minimum_eigensolvers.evqe.quantum_circuit.circuit_layer import EVQECircuitLayer
+from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import EVQEGateType
 from queasars.utility.random import new_random_seed
 
 
@@ -33,7 +34,12 @@ class EVQEIndividual(BaseIndividual):
 
     @staticmethod
     def random_individual(
-        n_qubits: int, n_layers: int, randomize_parameter_values: bool, random_seed: Optional[int] = None
+        n_qubits: int,
+        n_layers: int,
+        all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+        randomize_parameter_values: bool,
+        coupling_map: Optional[list[tuple[int, int]]],
+        random_seed: Optional[int] = None,
     ) -> "EVQEIndividual":
         """
         Creates a random individual for n_qubits with n_layers. Parameters can be initialized randomly
@@ -42,6 +48,8 @@ class EVQEIndividual(BaseIndividual):
         :arg n_qubits: amount of qubits on which the circuit of the generated individual shall act
         :type n_qubits: int
         :arg n_layers: amount of circuit layers in the generated individual's circuit
+        :arg all_possible_gates_weighted: the allowed (single qubit) gate types or two-element tuples of gate type combinations,
+         with the respective weight factor for the random sampling
         :arg randomize_parameter_values: int
         :arg random_seed: integer value to control randomness
         :type random_seed: Optional[int]
@@ -53,7 +61,11 @@ class EVQEIndividual(BaseIndividual):
         layer: Optional[EVQECircuitLayer] = None
         for _ in range(0, n_layers):
             layer = EVQECircuitLayer.random_layer(
-                n_qubits=n_qubits, previous_layer=layer, random_seed=new_random_seed(random_generator)
+                n_qubits=n_qubits,
+                all_possible_gates_weighted=all_possible_gates_weighted,
+                coupling_map=coupling_map,
+                previous_layer=layer,
+                random_seed=new_random_seed(random_generator),
             )
             layers.append(layer)
         n_parameters: int = sum(layer.n_parameters for layer in layers)
@@ -131,7 +143,12 @@ class EVQEIndividual(BaseIndividual):
 
     @staticmethod
     def add_random_layers(
-        individual: "EVQEIndividual", n_layers: int, randomize_parameter_values: bool, random_seed: Optional[int] = None
+        individual: "EVQEIndividual",
+        n_layers: int,
+        all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+        randomize_parameter_values: bool,
+        coupling_map: Optional[list[tuple[int, int]]],
+        random_seed: Optional[int] = None,
     ) -> "EVQEIndividual":
         """Returns a new individual based on the given individual,
         but with additional random circuit layers appended. The parameter values for these
@@ -141,6 +158,8 @@ class EVQEIndividual(BaseIndividual):
         :type individual: EVQEIndividual
         :arg n_layers: amount of random circuit layers to append
         :type n_layers: int
+        :arg all_possible_gates_weighted: the allowed (single qubit) gate types or two-element tuples of gate type combinations,
+         with the respective weight factor for the random sampling
         :arg randomize_parameter_values: whether to initialize the parameter values randomly
         :type randomize_parameter_values: bool
         :arg random_seed: integer value to control randomness
@@ -158,8 +177,10 @@ class EVQEIndividual(BaseIndividual):
         for _ in range(0, n_layers):
             layer = EVQECircuitLayer.random_layer(
                 n_qubits=individual.layers[0].n_qubits,
+                all_possible_gates_weighted=all_possible_gates_weighted,
                 random_seed=new_random_seed(random_generator),
                 previous_layer=individual.layers[-1],
+                coupling_map=coupling_map,
             )
             new_layers.append(layer)
 

@@ -22,6 +22,7 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.individual import
     EVQEIndividual,
 )
 from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.population import EVQEPopulation
+from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import EVQEGateType
 from queasars.utility.random import new_random_seed
 
 
@@ -61,7 +62,10 @@ def optimize_layer_of_individual(
     n_parameters: int = len(parameter_values)
 
     def evaluation_callback(parameter_values: NDArray) -> Union[NDArray, float]:
-        parameters: list[list[float]] = reshape(parameter_values, (-1, n_parameters)).tolist()
+        if len(parameter_values) == 0:
+            parameters: list[list[float]] = [[]]
+        else:
+            parameters = reshape(parameter_values, (-1, n_parameters)).tolist()
         batch_size: int = len(parameters)
 
         evaluation_result: list[float] = evaluator.evaluate_circuits(
@@ -344,10 +348,21 @@ class EVQETopologicalSearch(BaseEVQEMutationOperator):
     :type random_seed: Optional[int]
     """
 
-    def __init__(self, mutation_probability: float, random_seed: Optional[int] = None):
+    def __init__(
+        self,
+        all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float],
+        coupling_map: Optional[list[tuple[int, int]]],
+        mutation_probability: float,
+        random_seed: Optional[int] = None,
+    ):
         mutation_function: MutationFunction = lambda individual, evaluator, optimizer, seed: (
             EVQEIndividual.add_random_layers(
-                individual=individual, n_layers=1, randomize_parameter_values=False, random_seed=seed
+                individual=individual,
+                n_layers=1,
+                all_possible_gates_weighted=all_possible_gates_weighted,
+                coupling_map=coupling_map,
+                randomize_parameter_values=False,
+                random_seed=seed,
             ),
             0,
         )

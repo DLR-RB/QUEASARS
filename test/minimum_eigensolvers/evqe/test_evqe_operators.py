@@ -7,6 +7,7 @@ from qiskit_aer.primitives import EstimatorV2
 from qiskit_algorithms.optimizers import NFT, Optimizer
 from qiskit.quantum_info import SparsePauliOp
 
+from queasars.minimum_eigensolvers.evqe.evqe import DEFAULT_EVQE_GATESET
 from test.minimum_eigensolvers.evqe.model import create_sample_model, translate_model_to_hamiltonian
 from queasars.circuit_evaluation.circuit_evaluation import OperatorCircuitEvaluator
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import OperatorContext, BasePopulationEvaluationResult
@@ -34,7 +35,13 @@ class TestEVQEOperators:
     @pytest.fixture
     def initial_population(self) -> EVQEPopulation:
         return EVQEPopulation.random_population(
-            n_qubits=4, n_layers=2, n_individuals=10, randomize_parameter_values=False, random_seed=0
+            all_possible_gates_weighted=DEFAULT_EVQE_GATESET,
+            coupling_map=None,
+            n_qubits=4,
+            n_layers=2,
+            n_individuals=10,
+            randomize_parameter_values=False,
+            random_seed=0,
         )
 
     @pytest.fixture
@@ -124,7 +131,9 @@ class TestEVQEOperators:
         ), "Parameter search did not improve the expectation values on average!"
 
     def test_topological_search_mutation(self, initial_population, operator_context):
-        topological_search = EVQETopologicalSearch(mutation_probability=0.5, random_seed=0)
+        topological_search = EVQETopologicalSearch(
+            mutation_probability=0.5, random_seed=0, all_possible_gates_weighted=DEFAULT_EVQE_GATESET, coupling_map=None
+        )
 
         initial_individual_length = sum(len(individual.layers) for individual in initial_population.individuals)
         new_population = topological_search.apply_operator(
@@ -150,7 +159,9 @@ class TestEVQEOperators:
         last_layer_parameter_search = EVQELastLayerParameterSearch(
             mutation_probability=1, optimizer=optimizer, optimizer_n_circuit_evaluations=40
         )
-        topological_search = EVQETopologicalSearch(mutation_probability=1, random_seed=0)
+        topological_search = EVQETopologicalSearch(
+            mutation_probability=1, random_seed=0, all_possible_gates_weighted=DEFAULT_EVQE_GATESET, coupling_map=None
+        )
         speciation = EVQESpeciation(genetic_distance_threshold=genetic_distance, random_seed=0)
         selection = EVQESelection(alpha_penalty=0.1, beta_penalty=0.1, random_seed=0)
 

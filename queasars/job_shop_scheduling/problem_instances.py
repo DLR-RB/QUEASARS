@@ -268,7 +268,7 @@ class ScheduledOperation(PotentiallyScheduledOperation):
 
 
 def ensure_all_operations_are_scheduled(
-    schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]]
+    schedule: dict[Job, tuple[PotentiallyScheduledOperation, ...]],
 ) -> TypeGuard[dict[Job, tuple[ScheduledOperation, ...]]]:
     """Typeguard which checks that all operations in a schedule are actually scheduled
 

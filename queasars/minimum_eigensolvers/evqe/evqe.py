@@ -2,7 +2,7 @@
 # Copyright 2023 DLR - Deutsches Zentrum für Luft- und Raumfahrt e.V.
 
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from random import Random
 from typing import Callable, Optional, Union
 
@@ -28,7 +28,25 @@ from queasars.minimum_eigensolvers.evqe.evolutionary_algorithm.mutation import (
     EVQETopologicalSearch,
     EVQELayerRemoval,
 )
+from queasars.minimum_eigensolvers.evqe.quantum_circuit.quantum_gate import EVQEGateType
 from queasars.utility.random import new_random_seed
+
+# The following are possible choices for the gatesets with weights indicating how likely a gate should be chosen.
+DEFAULT_EVQE_GATESET: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = {
+    EVQEGateType.IDENTITY: 1,
+    EVQEGateType.ROTATION: 1,
+    (EVQEGateType.CONTROL, EVQEGateType.CONTROLLED_ROTATION): 1,
+}
+
+# Gates supported natively on the hardware
+HARDWARE_NATIVE_GATESET: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = {
+    EVQEGateType.IDENTITY: 1,
+    EVQEGateType.SX: 1,
+    EVQEGateType.X: 1,
+    EVQEGateType.RZ: 5,
+    (EVQEGateType.CONTROL, EVQEGateType.CZ): 5,
+    (EVQEGateType.ECR, EVQEGateType.ECR): 1,
+}
 
 
 @dataclass
@@ -148,6 +166,10 @@ class EVQEMinimumEigensolverConfiguration:
     parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
     distribution_alpha_tail: float = 1
     mutually_exclusive_primitives: bool = True
+    all_possible_gates_weighted: dict[EVQEGateType | tuple[EVQEGateType, EVQEGateType], float] = field(
+        default_factory=lambda: DEFAULT_EVQE_GATESET.copy()
+    )
+    coupling_map: Optional[list[tuple[int, int]]] = None
 
     def __post_init__(self):
         if self.max_generations is None and self.max_circuit_evaluations is None and self.termination_criterion is None:
@@ -190,6 +212,8 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
         population_initializer: Callable[[int], EVQEPopulation] = lambda n_qubits: EVQEPopulation.random_population(
             n_qubits=n_qubits,
             n_layers=configuration.n_initial_layers,
+            all_possible_gates_weighted=configuration.all_possible_gates_weighted,
+            coupling_map=configuration.coupling_map,
             n_individuals=configuration.population_size,
             randomize_parameter_values=configuration.randomize_initial_population_parameters,
             random_seed=new_random_seed(random_generator=self.random_generator),
@@ -220,6 +244,8 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
                 random_seed=new_random_seed(random_generator=self.random_generator),
             ),
             EVQETopologicalSearch(
+                all_possible_gates_weighted=configuration.all_possible_gates_weighted,
+                coupling_map=configuration.coupling_map,
                 mutation_probability=configuration.topological_search_probability,
                 random_seed=new_random_seed(random_generator=self.random_generator),
             ),
