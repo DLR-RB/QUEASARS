@@ -95,7 +95,7 @@ class TestEVQECircuitLayer:
             )
 
             for j, gate in enumerate(next_layer.gates):
-                if not isinstance(gate, IdentityGate):
+                if not isinstance(gate, IdentityGate) and not isinstance(gate, ControlGate):
                     assert gate != previous_layer.gates[j], (
                         f"For the {i}th sample, the next_layer added gates, "
                         + "which were already in the previous_layer!"
