@@ -78,14 +78,18 @@ def optimize_layer_of_individual(
 
         return asarray(evaluation_result, dtype=dtype("float64"))
 
-    result: OptimizerResult = optimizer.minimize(
-        fun=evaluation_callback,
-        x0=asarray(parameter_values),
-        bounds=[(None, None)] * len(parameter_values),
-    )
+    if len(parameter_values) > 0:
+        result: OptimizerResult = optimizer.minimize(
+            fun=evaluation_callback,
+            x0=asarray(parameter_values),
+            bounds=[(None, None)] * len(parameter_values),
+        )
 
-    result_parameter_values: list[float] = list(result.x)
-    n_circuit_evaluations: int = result.nfev
+        result_parameter_values: list[float] = list(result.x)
+        n_circuit_evaluations: int = result.nfev
+    else:
+        result_parameter_values = []
+        n_circuit_evaluations = 0
 
     return (
         EVQEIndividual.change_layer_parameter_values(individual, layer_id, tuple(result_parameter_values)),
