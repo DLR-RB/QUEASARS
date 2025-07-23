@@ -225,9 +225,18 @@ class EVQEIndividual(BaseIndividual):
         # Remove the last layers
         layers: list[EVQECircuitLayer] = list(individual.layers)[0 : len(individual.layers) - n_layers]
         # Get the parameter values for the remaining layers
-        parameter_values: list[float] = list(individual.parameter_values)[
-            0 : individual.layer_parameter_indices[len(individual.layers) - n_layers][0]
-        ]
+        range_end: Optional[int] = None
+        layer_index: int = len(individual.layers) - n_layers
+        while layer_index >= 0 and range_end is None:
+            if len(individual.layer_parameter_indices[len(individual.layers) - n_layers]) > 0:
+                range_end = individual.layer_parameter_indices[len(individual.layers) - n_layers][0]
+            layer_index = layer_index - 1
+        if range_end is not None:
+            parameter_values: list[float] = list(individual.parameter_values)[
+                0 : range_end
+            ]
+        else:
+            parameter_values: list[float] = []
 
         return EVQEIndividual(
             n_qubits=individual.n_qubits,
