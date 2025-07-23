@@ -232,9 +232,7 @@ class EVQEIndividual(BaseIndividual):
                 range_end = individual.layer_parameter_indices[len(individual.layers) - n_layers][0]
             layer_index = layer_index - 1
         if range_end is not None:
-            parameter_values: list[float] = list(individual.parameter_values)[
-                0 : range_end
-            ]
+            parameter_values: list[float] = list(individual.parameter_values)[0:range_end]
         else:
             parameter_values: list[float] = []
 
