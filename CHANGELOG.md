@@ -1,13 +1,23 @@
 QUEASARS change log
 ===================
 
-Current version: 0.3.1
+Current version: 0.3.2
 
 ## Unreleased
 
 ### Added
 ### Fixed
 ### Changed
+
+## 0.3.2
+
+### Added
+
+- Support for python versions newer than 3.12
+
+### Changed
+
+- Updated `qiskit`, `qiskit-optimization`, and `qiskit-algorithms` to newest versions such that QUEASARS is compatible with `qiskit>=2.0.0`
 
 ## 0.3.1
 
