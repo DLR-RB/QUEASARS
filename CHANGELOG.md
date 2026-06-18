@@ -18,7 +18,7 @@ Current version: 0.3.2
 ### Changed
 
 - Updated `qiskit`, `qiskit-optimization`, and `qiskit-algorithms` to the newest versions such that QUEASARS is compatible with `qiskit>=2.0.0`
-- Updated `numpy`, `scipy`, `contourpy` and `pydantic` dependencies to support Python 3.14
+- Updated `numpy`, `scipy`, `contourpy`, `matplotlib`, `qiskit-aer` and `pydantic` dependencies to support Python 3.14
 
 ## 0.3.1
 
