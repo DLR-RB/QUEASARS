@@ -1,13 +1,19 @@
 QUEASARS change log
 ===================
 
-Current version: 0.3.2
+Current version: 0.3.3
 
 ## Unreleased
 
 ### Added
 ### Fixed
 ### Changed
+
+## 0.3.3
+
+### Changed
+
+- Reduce minimum version of `pydantic` to 2.12.0 in order to allow for compatibility with `iqm-client==34.0.4`
 
 ## 0.3.2
 
