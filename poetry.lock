@@ -4940,4 +4940,4 @@ pyscipopt = ["pyscipopt"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11.0"
-content-hash = "969dbbc4d8a86b18abcd066978cd5742b0af553abc2dd802668c8b0ac4dc9fd4"
+content-hash = "e6e2430330b938d8698a4796621762d969bd1a54793495aaec37136ed2b3fe50"
