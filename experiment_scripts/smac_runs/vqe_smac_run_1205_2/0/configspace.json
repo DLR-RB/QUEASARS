@@ -1,0 +1,116 @@
+{
+  "hyperparameters": [
+    {
+      "name": "allowed_increase",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 0,
+      "upper": 500,
+      "default": 250,
+      "q": null
+    },
+    {
+      "name": "blocking",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 0,
+      "upper": 1,
+      "default": 0,
+      "q": null
+    },
+    {
+      "name": "encoding_penalty",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 110.0,
+      "upper": 1000.0,
+      "default": 300.0,
+      "q": null
+    },
+    {
+      "name": "last_avg",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 1,
+      "upper": 4,
+      "default": 1,
+      "q": null
+    },
+    {
+      "name": "learning_rate",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.01,
+      "upper": 0.5,
+      "default": 0.1,
+      "q": null
+    },
+    {
+      "name": "opt_all_operations_share",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 0.5,
+      "default": 0.25,
+      "q": null
+    },
+    {
+      "name": "overlap_constraint_penalty",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 110.0,
+      "upper": 1000.0,
+      "default": 150.0,
+      "q": null
+    },
+    {
+      "name": "perturbation",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.01,
+      "upper": 0.5,
+      "default": 0.1,
+      "q": null
+    },
+    {
+      "name": "precedence_constraint_penalty",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 110.0,
+      "upper": 1000.0,
+      "default": 150.0,
+      "q": null
+    },
+    {
+      "name": "repetitions",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 2,
+      "upper": 4,
+      "default": 2,
+      "q": null
+    },
+    {
+      "name": "resamplings",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 1,
+      "upper": 4,
+      "default": 1,
+      "q": null
+    },
+    {
+      "name": "trust_region",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 0,
+      "upper": 1,
+      "default": 0,
+      "q": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.6.1",
+  "json_format_version": 0.4
+}

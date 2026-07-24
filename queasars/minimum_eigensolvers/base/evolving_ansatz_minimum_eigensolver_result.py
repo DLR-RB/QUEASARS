@@ -17,6 +17,8 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         super().__init__()
         self._eigenstate: Optional[QuasiDistribution] = None
         self._best_individual: Optional[BaseIndividual] = None
+        self._optimal_parameters: Optional[dict] = None
+        self._optimal_circuit: Optional[QuantumCircuit] = None
         self._circuit_evaluations: Optional[list[int]] = None
         self._generations: Optional[int] = None
         self._population_evaluation_results: Optional[list[BasePopulationEvaluationResult]] = None
@@ -59,15 +61,21 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         self._best_individual = value
 
     @property
-    def optimal_parameters(self) -> Optional[tuple[float, ...]]:
+    def optimal_parameters(self) -> Optional[dict]:
         """Returns the optimal parameters in a dictionary
 
         :return: The optimal parameters
-        :rtype: Optional[tuple[float, ...]]
+        :rtype: Optional[dict]
         """
-        if self._best_individual is not None:
-            return self._best_individual.get_parameter_values()
-        return None
+        if self._optimal_parameters is None and self._best_individual is not None:
+            circ = self._optimal_circuit
+            if circ is None:
+                return None
+            parameters = circ.parameters
+            parameter_values = self._best_individual.get_parameter_values()
+            self._optimal_parameters = dict(zip(parameters, parameter_values))
+
+        return self._optimal_parameters
 
     @property
     def optimal_circuit(self) -> Optional[QuantumCircuit]:
@@ -77,9 +85,13 @@ class EvolvingAnsatzMinimumEigensolverResult(MinimumEigensolverResult):
         :return: The optimal parameterized quantum circuit
         :rtype: Optional[QuantumCircuit]
         """
-        if self._best_individual is not None:
-            return self._best_individual.get_parameterized_quantum_circuit()
-        return None
+        if self._optimal_circuit is None and self._best_individual is not None:
+            circ = self._best_individual.get_parameterized_quantum_circuit()
+            if self._initial_state_circuit is not None:
+                circ = self._initial_state_circuit.compose(circ, inplace=False)
+            self._optimal_circuit = circ
+
+        return self._optimal_circuit
 
     @property
     def circuit_evaluations(self) -> Optional[list[int]]:

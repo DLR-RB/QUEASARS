@@ -13,8 +13,6 @@ class SPSATerminationChecker:
     Termination checker for qiskit_algorithms SPSA optimizer. For each iteration, it checks that the
     absolute difference between the last and new function value, divided by the last function value,
     does not fall below minimum_relative_change for more than allowed_consecutive_violations times.
-    This termination checker also keeps track of the best function value and parameter values
-    seen during the optimization, as well as the entire history of observed function values.
 
     :param minimum_relative_change: threshold value for the change in function value relative to the last
         function value, below which this termination checker chooses to terminate the SPSA optimization
@@ -33,6 +31,7 @@ class SPSATerminationChecker:
         minimum_relative_change: float,
         allowed_consecutive_violations: int,
         maxfev: Optional[int] = None,
+        logging_interval: int = -1,
     ):
         self._minimum_relative_change: float = minimum_relative_change
         self._allowed_consecutive_violations: int = allowed_consecutive_violations
@@ -44,6 +43,13 @@ class SPSATerminationChecker:
         self._best_function_value: float = float("inf")
         self._best_parameter_values: Optional[NDArray] = None
         self._done: bool = False
+        self._logging_interval: int = logging_interval
+        if self._logging_interval >= 1:
+            self._logger = logging.getLogger("queasars.utility.spsa_termination")
+            handler = logging.StreamHandler(stdout)
+            self._logger.setLevel(logging.INFO)
+            self._logger.addHandler(handler)
+        self._logging_counter: int = 0
 
     def termination_check(
         self,
@@ -56,7 +62,7 @@ class SPSATerminationChecker:
         """Given the callback values provided by qiskit_algorithm's SPSA optimizer, this method determines
         whether the SPSA optimization should terminate"""
 
-        if self._done or n_function_evaluations < self._n_function_evaluations:
+        if self._done:
             self._function_value_history = []
             self._change_history = []
             self._n_function_evaluations = 0
@@ -64,8 +70,15 @@ class SPSATerminationChecker:
             self._best_function_value = float("inf")
             self._best_parameter_values = None
             self._done = False
+            self._logging_counter = 0
 
         self._n_function_evaluations = n_function_evaluations
+        self._logging_counter += 1
+        if self._logging_interval >= 1 and self._logging_counter % self._logging_interval == 0:
+            self._logger.info(
+                f"SPSA Function Evaluations So Far: {self.n_function_evaluations}\n"
+                + f"Minimum Function Value: {self.best_function_value}"
+            )
 
         if self._maxfev is not None and self._n_function_evaluations >= self._maxfev:
             return True

@@ -7,10 +7,10 @@ from random import Random
 from typing import Callable, Optional, Union
 
 from dask.distributed import Client
-from qiskit.transpiler import PassManager
+
+from qiskit.primitives import Estimator, Sampler
 from qiskit_algorithms.optimizers import Optimizer
 
-from queasars.circuit_evaluation.configured_primitives import ConfiguredEstimatorV2, ConfiguredSamplerV2
 from queasars.minimum_eigensolvers.base.evolutionary_algorithm import BaseEvolutionaryOperator
 from queasars.minimum_eigensolvers.base.evolving_ansatz_minimum_eigensolver import (
     EvolvingAnsatzMinimumEigensolver,
@@ -35,18 +35,15 @@ from queasars.utility.random import new_random_seed
 class EVQEMinimumEigensolverConfiguration:
     """Configuration for the EVQEMinimumEigensolver
 
-    :param configured_estimator: Configured EstimatorV2 primitive used to estimate the circuit's eigenvalue.
-        If none is provided for that purpose, the sampler is used instead. If a dask Client is used as the
-        parallel_executor, the Estimator needs to be serializable by dask, otherwise the computation will fail
-    :type configured_estimator: Optional[ConfiguredEstimatorV2]
-    :param configured_sampler: Sampler primitive used to measure the circuits QuasiDistribution.
-        If a dask Client is used as the parallel_executor, the Sampler needs to be serializable by dask,
-        otherwise the computation will fail
-    :param pass_manager: A qiskit PassManager which specifies the transpilation procedure. If no pass_manager is given,
-        a preset passmanager with optimization level 0 and no information on the backend is used. When running on
-        real quantum hardware, the pass_manager must be user_configured to fit the backend
-    :type pass_manager: PassManager
-    :type configured_sampler: ConfiguredSamplerV2
+    :param estimator: Estimator primitive used to estimate the circuit's eigenvalue. If none is provided for that
+        purpose, the sampler is used instead. If reproducible behaviour is required, the seed option of the estimator
+        needs to be set. If a dask Client is used as the parallel_executor,
+        the Estimator needs to be serializable by dask, otherwise the computation will fail
+    :type estimator: Optional[Estimator]
+    :param sampler: Sampler primitive used to measure the circuits QuasiDistribution. If reproducible behaviour is
+        required, the seed option of the estimator needs to be set. If a dask Client is used as the parallel_executor,
+        the Sampler needs to be serializable by dask, otherwise the computation will fail
+    :type sampler: Sampler
     :param optimizer: Qiskit optimizer used to optimize the parameter values. Should be configured to terminate after
         a relatively low amount of circuit evaluations to enable the gradual evolution of the individuals
     :type optimizer: Optimizer
@@ -90,11 +87,6 @@ class EVQEMinimumEigensolverConfiguration:
         a python ThreadPool executor. If a dask Client is used, both the Sampler and Estimator need to be serializable
         by dask, otherwise the computation will fail. If no parallel_executor is provided a ThreadPoolExecutor
         with as many threads as population_size will be launched
-    :param n_initial_layers: number of layers with which the individuals in the initial population are initialized.
-        By default, this is set to 1. This should only be increased, if randomize_initial_population_parameters
-        is set to True, or the parameter_search_probability is high. Otherwise, the added layers may start as an
-        identity operator and only seldom be optimized, minimizing their effect.
-    :type n_initial_layers: int
     :param use_tournament_selection: indicates whether to use tournament selection. By default, this is
         set to False. In that case, roulette wheel selection is used. Should be true, if the measured expectation
         values can be negative.
@@ -103,19 +95,16 @@ class EVQEMinimumEigensolverConfiguration:
         It cannot be None, if use_tournament_selection is set to True. A tournament_size of 1 yields random selection,
         with increasing tournament selection sizes increasing the selection pressure.
     :type tournament_size: int
+    :param n_initial_layers: number of layers with which the individuals in the initial population are initialized.
+        By default, this is set to 1. This should only be increased, if randomize_initial_population_parameters
+        is set to True, or the parameter_search_probability is high. Otherwise, the added layers may start as an
+        identity operator and only seldom be optimized, minimizing their effect.
+    :type n_initial_layers: int
     :param randomize_initial_population_parameters: Determines whether the parameter values of the individuals in
         the first population shall be initialized randomly or at 0. By default, the parameter values in the
         initial population are initialized randomly
     :type randomize_initial_population_parameters: bool
     :type parallel_executor: Union[Client, ThreadPoolExecutor, None]
-    :param distribution_alpha_tail: If only a Sampler is used, the expectation value is calculated from the
-        probability distribution of measured basis states and their respective eigenvalues. In that case, the
-        expectation value can also be calculated over only the lower alpha tail of the state distribution.
-        distribution_alpha_tail can be in the range (0, 1]. By default, it is 1.
-        Then the expectation is calculated over the whole state distribution. Otherwise, it is only calculated
-        over the lower alpha tail of the distribution as discussed in
-        https://quantum-journal.org/papers/q-2020-04-20-256/
-    :type distribution_alpha_tail: float
     :param mutually_exclusive_primitives: discerns whether to only allow mutually exclusive access to the Sampler and
         Estimator primitive respectively. This is needed if the Sampler or Estimator are not threadsafe and
         a ThreadPoolExecutor with more than one thread or a Dask Client with more than one thread per process is used.
@@ -125,9 +114,8 @@ class EVQEMinimumEigensolverConfiguration:
     :type mutually_exclusive_primitives: bool
     """
 
-    configured_estimator: Optional[ConfiguredEstimatorV2]
-    configured_sampler: ConfiguredSamplerV2
-    pass_manager: Optional[PassManager]
+    estimator: Optional[Estimator]
+    sampler: Sampler
     optimizer: Optimizer
     optimizer_n_circuit_evaluations: Optional[int]
     max_generations: Optional[int]
@@ -141,12 +129,11 @@ class EVQEMinimumEigensolverConfiguration:
     parameter_search_probability: float
     topological_search_probability: float
     layer_removal_probability: float
-    n_initial_layers: int = 1
     use_tournament_selection: bool = False
     tournament_size: Optional[int] = None
+    n_initial_layers: int = 1
     randomize_initial_population_parameters: bool = True
     parallel_executor: Union[Client, ThreadPoolExecutor, None] = None
-    distribution_alpha_tail: float = 1
     mutually_exclusive_primitives: bool = True
 
     def __post_init__(self):
@@ -161,11 +148,6 @@ class EVQEMinimumEigensolverConfiguration:
             raise ValueError("The topological_search_probability must not exceed the range (0, 1)!")
         if not 0 <= self.layer_removal_probability <= 1:
             raise ValueError("The layer_removal_probability must not exceed the range (0, 1)!")
-        if self.n_initial_layers < 1:
-            raise ValueError(
-                "The number of initial layers for each individual "
-                + f"of the population must be at least 1! But it was {self.n_initial_layers}!"
-            )
         if self.use_tournament_selection and self.tournament_size is None:
             raise ValueError("To use tournament_selection, a tournament_size must be specified! It cannot be None!")
         if self.use_tournament_selection and not 1 <= self.tournament_size:
@@ -174,6 +156,11 @@ class EVQEMinimumEigensolverConfiguration:
             raise ValueError(
                 f"The tournament_size cannot be larger than the size of the population ({self.population_size})! \n"
                 + f"Yet the tournament_size is {self.tournament_size}!"
+            )
+        if self.n_initial_layers < 1:
+            raise ValueError(
+                "The number of initial layers for each individual "
+                + f"of the population must be at least 1! But it was {self.n_initial_layers}!"
             )
 
 
@@ -238,15 +225,13 @@ class EVQEMinimumEigensolver(EvolvingAnsatzMinimumEigensolver):
         config: EvolvingAnsatzMinimumEigensolverConfiguration = EvolvingAnsatzMinimumEigensolverConfiguration(
             population_initializer=population_initializer,
             evolutionary_operators=evolutionary_operators,
-            configured_estimator=configuration.configured_estimator,
-            configured_sampler=configuration.configured_sampler,
-            pass_manager=configuration.pass_manager,
+            estimator=configuration.estimator,
+            sampler=configuration.sampler,
             max_generations=configuration.max_generations,
             max_circuit_evaluations=configuration.max_circuit_evaluations,
             termination_criterion=configuration.termination_criterion,
             parallel_executor=parallel_executor,
             mutually_exclusive_primitives=configuration.mutually_exclusive_primitives,
-            distribution_alpha_tail=configuration.distribution_alpha_tail,
         )
         super().__init__(configuration=config)
 

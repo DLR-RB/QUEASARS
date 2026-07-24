@@ -77,6 +77,18 @@ class JSSPJSONEncoder(JSONEncoder):
 
         return o
 
+    @staticmethod
+    def serializable_types() -> set[type]:
+        return {
+            Machine,
+            Operation,
+            Job,
+            JobShopSchedulingProblemInstance,
+            UnscheduledOperation,
+            ScheduledOperation,
+            JobShopSchedulingResult,
+        }
+
 
 class JSSPJSONDecoder(JSONDecoder):
     """
@@ -93,6 +105,28 @@ class JSSPJSONDecoder(JSONDecoder):
 
     def __init__(self, *args, **kwargs):
         super().__init__(object_hook=self.object_hook, *args, **kwargs)
+
+    @staticmethod
+    def identifying_keys() -> set[str]:
+        return {
+            "tuple",
+            "dict",
+            "machine_name",
+            "operation_name",
+            "operation_job_name",
+            "operation_machine",
+            "operation_processing_duration",
+            "job_name",
+            "job_operations",
+            "jssp_instance_name",
+            "jssp_instance_machines",
+            "jssp_instance_jobs",
+            "unscheduled_operation",
+            "scheduled_operation",
+            "scheduled_start_time",
+            "jssp_result_problem_instance",
+            "jssp_result_schedule",
+        }
 
     def object_hook(self, object_dict):
 
